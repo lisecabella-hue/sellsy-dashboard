@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard CEO</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #1a1a1a; }
+    .header { background: white; border-bottom: 1px solid #e5e5e5; padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; }
+    .header h1 { font-size: 18px; font-weight: 500; }
+    .header span { font-size: 13px; color: #888; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+    .toggle-row { display: flex; gap: 8px; margin-bottom: 24px; }
+    .tgl { font-size: 13px; padding: 6px 16px; border-radius: 20px; border: 1px solid #ddd; background: white; cursor: pointer; color: #666; }
+    .tgl.active { background: #1a1a1a; color: white; border-color: #1a1a1a; font-weight: 500; }
+    .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .metric-card { background: white; border-radius: 12px; padding: 20px; border: 1px solid #e5e5e5; }
+    .metric-label { font-size: 12px; color: #888; margin-bottom: 8px; }
+    .metric-value { font-size: 26px; font-weight: 500; }
+    .metric-sub { font-size: 12px; margin-top: 6px; color: #888; }
+    .trend-up { color: #1D9E75; }
+    .trend-down { color: #D85A30; }
+    .chart-card { background: white; border-radius: 12px; padding: 24px; border: 1px solid #e5e5e5; margin-bottom: 24px; }
+    .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .chart-title { font-size: 15px; font-weight: 500; }
+    .legend { display: flex; gap: 16px; font-size: 12px; color: #888; }
+    .legend-sq { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 4px; vertical-align: middle; }
+    .btn-refresh { background: #1a1a1a; color: white; border: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+    .btn-refresh:hover { background: #333; }
+    .btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
+    .status { font-size: 12px; color: #888; display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #ccc; display: inline-block; }
+    .dot.ok { background: #1D9E75; } .dot.err { background: #D85A30; } .dot.spin { background: #EF9F27; }
+    .error-box { background: #fff0f0; border: 1px solid #fcc; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #c00; margin-top: 12px; display: none; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { text-align: left; font-weight: 500; font-size: 12px; color: #888; padding: 8px; border-bottom: 1px solid #e5e5e5; }
+    td { padding: 10px 8px; border-bottom: 1px solid #f0f0f0; }
+    .badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 500; }
+    .badge-paid { background: #E1F5EE; color: #0F6E56; }
+    .badge-pending { background: #FAEEDA; color: #854F0B; }
+    .badge-late { background: #FCEBEB; color: #A32D2D; }
+    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📊 Dashboard CEO</h1>
+    <span id="lastUpdate">Pas encore actualisé</span>
+  </div>
+  <div class="container">
+    <div class="top-bar">
+      <div class="toggle-row">
+        <button class="tgl active" id="tglMonth" onclick="setView('month')">Ce mois</button>
+        <button class="tgl" id="tglWeek" onclick="setView('week')">Cette semaine</button>
+        <button class="tgl" id="tglYear" onclick="setView('year')">Cette année</button>
+      </div>
+      <div>
+        <button class="btn-refresh" id="btnLoad" onclick="loadData()">↻ Actualiser</button>
+        <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">En attente</span></div>
+        <div class="error-box" id="errorBox"></div>
+      </div>
+    </div>
+
+    <div class="metric-grid">
+      <div class="metric-card"><p class="metric-label">Chiffre d'affaires HT</p><p class="metric-value" id="mCA">—</p><p class="metric-sub" id="mCASub">En attente</p></div>
+      <div class="metric-card"><p class="metric-label">Trend vs N-1</p><p class="metric-value" id="mTrend">—</p><p class="metric-sub" id="mTrendSub">Même période an passé</p></div>
+      <div class="metric-card"><p class="metric-label">Nb factures</p><p class="metric-value" id="mCount">—</p><p class="metric-sub">Période sélectionnée</p></div>
+      <div class="metric-card"><p class="metric-label">Panier moyen HT</p><p class="metric-value" id="mAvg">—</p><p class="metric-sub">Par facture</p></div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <p class="chart-title">CA mensuel — N vs N-1</p>
+        <div class="legend">
+          <span><span class="legend-sq" style="background:#378ADD"></span>Cette année</span>
+          <span><span class="legend-sq" style="background:#ccc"></span>An passé</span>
+        </div>
+      </div>
+      <div style="position:relative;width:100%;height:260px">
+        <canvas id="chartCA" role="img" aria-label="Graphique CA mensuel N vs N-1">Données en attente.</canvas>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header"><p class="chart-title">Dernières factures</p></div>
+      <table>
+        <thead><tr><th>Client</th><th>Montant HT</th><th>Date</th><th>Statut</th></tr></thead>
+        <tbody id="invBody"><tr><td colspan="4" style="color:#888;text-align:center;padding:20px">Cliquez sur Actualiser...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+let chartInstance = null;
+let currentView = 'month';
+let cachedData = null;
+
+function setView(v) {
+  currentView = v;
+  ['Month','Week','Year'].forEach(x => document.getElementById('tgl'+x).classList.remove('active'));
+  document.getElementById('tgl'+v.charAt(0).toUpperCase()+v.slice(1)).classList.add('active');
+  if(cachedData) renderMetrics(cachedData);
+}
+
+function setStatus(state, msg) {
+  document.getElementById('statusDot').className = 'dot ' + state;
+  document.getElementById('statusText').textContent = msg;
+}
+
+function fmt(n) {
+  return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
+}
+
+async function callApi(dateStart, dateEnd) {
+  const resp = await fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}`);
+  if(!resp.ok) { const e = await resp.json(); throw new Error(e.error || 'Erreur API'); }
+  return resp.json();
+}
+
+function getRange(view) {
+  const now = new Date();
+  let s, e, sN1, eN1;
+  if(view==='month') {
+    s = new Date(now.getFullYear(), now.getMonth(), 1);
+    e = new Date(now.getFullYear(), now.getMonth()+1, 0);
+    sN1 = new Date(now.getFullYear()-1, now.getMonth(), 1);
+    eN1 = new Date(now.getFullYear()-1, now.getMonth()+1, 0);
+  } else if(view==='week') {
+    const day = now.getDay()||7;
+    s = new Date(now); s.setDate(now.getDate()-day+1); s.setHours(0,0,0,0);
+    e = new Date(s); e.setDate(s.getDate()+6);
+    sN1 = new Date(s); sN1.setFullYear(s.getFullYear()-1);
+    eN1 = new Date(e); eN1.setFullYear(e.getFullYear()-1);
+  } else {
+    s = new Date(now.getFullYear(),0,1);
+    e = new Date(now.getFullYear(),11,31);
+    sN1 = new Date(now.getFullYear()-1,0,1);
+    eN1 = new Date(now.getFullYear()-1,11,31);
+  }
+  const f = d => d.toISOString().split('T')[0];
+  return {s:f(s), e:f(e), sN1:f(sN1), eN1:f(eN1)};
+}
+
+function sumCA(invoices) {
+  return invoices.reduce((acc, inv) => acc + parseFloat(inv.totalAmountExcludingTaxes||inv.totalExcludingTaxes||0), 0);
+}
+
+async function loadData() {
+  document.getElementById('errorBox').style.display='none';
+  document.getElementById('btnLoad').disabled=true;
+  setStatus('spin','Chargement...');
+  try {
+    const now = new Date();
+    const months = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+    const curMonth = now.getMonth();
+    let monthlyN=[], monthlyN1=[];
+
+    for(let m=0; m<=curMonth; m++) {
+      const s = new Date(now.getFullYear(),m,1).toISOString().split('T')[0];
+      const e = new Date(now.getFullYear(),m+1,0).toISOString().split('T')[0];
+      const sN1 = new Date(now.getFullYear()-1,m,1).toISOString().split('T')[0];
+      const eN1 = new Date(now.getFullYear()-1,m+1,0).toISOString().split('T')[0];
+      const [dN, dN1] = await Promise.all([callApi(s,e), callApi(sN1,eN1)]);
+      monthlyN.push(sumCA(dN.data||[]));
+      monthlyN1.push(sumCA(dN1.data||[]));
+    }
+
+    const range = getRange(currentView);
+    const [dCur, dN1, dRecent] = await Promise.all([
+      callApi(range.s, range.e),
+      callApi(range.sN1, range.eN1),
+      callApi(new Date(now.getFullYear(),now.getMonth()-1,1).toISOString().split('T')[0],
+              new Date(now.getFullYear(),now.getMonth()+1,0).toISOString().split('T')[0])
+    ]);
+
+    cachedData = {
+      monthlyN, monthlyN1,
+      months: months.slice(0, curMonth+1),
+      dataCurrent: dCur.data||[],
+      dataN1: dN1.data||[],
+      dataRecent: dRecent.data||[]
+    };
+
+    renderMetrics(cachedData);
+    renderChart(cachedData);
+    renderInvoices(cachedData.dataRecent.slice(0,8));
+
+    const t = new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    document.getElementById('lastUpdate').textContent = 'Mis à jour le ' + t;
+    setStatus('ok','Données à jour');
+  } catch(err) {
+    setStatus('err','Erreur');
+    document.getElementById('errorBox').style.display='block';
+    document.getElementById('errorBox').textContent = 'Erreur : ' + err.message;
+  }
+  document.getElementById('btnLoad').disabled=false;
+}
+
+function renderMetrics(data) {
+  const ca = sumCA(data.dataCurrent);
+  const caN1 = sumCA(data.dataN1);
+  const trend = caN1>0 ? ((ca-caN1)/caN1*100) : null;
+  const count = data.dataCurrent.length;
+  const avg = count>0 ? ca/count : 0;
+  document.getElementById('mCA').textContent = fmt(ca);
+  document.getElementById('mCASub').textContent = currentView==='month'?'Mois en cours':currentView==='week'?'Semaine en cours':'Année en cours';
+  if(trend!==null) {
+    const sign = trend>=0?'+':'';
+    document.getElementById('mTrend').textContent = sign+trend.toFixed(1)+'%';
+    document.getElementById('mTrend').className = 'metric-value '+(trend>=0?'trend-up':'trend-down');
+    document.getElementById('mTrendSub').textContent = 'N-1 : '+fmt(caN1);
+  } else {
+    document.getElementById('mTrend').textContent = 'N/A';
+    document.getElementById('mTrend').className = 'metric-value';
+    document.getElementById('mTrendSub').textContent = 'Pas de données N-1';
+  }
+  document.getElementById('mCount').textContent = count;
+  document.getElementById('mAvg').textContent = fmt(avg);
+}
+
+function renderChart(data) {
+  if(chartInstance) chartInstance.destroy();
+  const ctx = document.getElementById('chartCA').getContext('2d');
+  chartInstance = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: data.months,
+      datasets:[
+        {label:'Cette année', data:data.monthlyN.map(v=>Math.round(v)), backgroundColor:'#378ADD', borderRadius:4},
+        {label:'An passé', data:data.monthlyN1.map(v=>Math.round(v)), backgroundColor:'#D3D1C7', borderRadius:4}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{display:false}, ticks:{color:'#888',font:{size:12}}, border:{display:false}},
+        y:{grid:{color:'rgba(0,0,0,0.05)'}, ticks:{color:'#888',font:{size:12},callback:v=>new Intl.NumberFormat('fr-FR',{notation:'compact',maximumFractionDigits:0}).format(v)+'€'}, border:{display:false}}
+      }
+    }
+  });
+}
+
+function renderInvoices(invoices) {
+  const body = document.getElementById('invBody');
+  if(!invoices.length){body.innerHTML='<tr><td colspan="4" style="color:#888;text-align:center;padding:20px">Aucune facture trouvée</td></tr>';return;}
+  body.innerHTML = invoices.map(inv => {
+    const amount = parseFloat(inv.totalAmountExcludingTaxes||inv.totalExcludingTaxes||0);
+    const date = inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString('fr-FR') : '—';
+    const client = inv.thirdName||inv.subject||'—';
+    const status = inv.status||'';
+    let badge = '<span class="badge badge-pending">En attente</span>';
+    if(status==='paid') badge='<span class="badge badge-paid">Payée</span>';
+    else if(status==='late') badge='<span class="badge badge-late">En retard</span>';
+    return `<tr><td>${client}</td><td style="font-weight:500">${fmt(amount)}</td><td style="color:#888">${date}</td><td>${badge}</td></tr>`;
+  }).join('');
+}
+</script>
+</body>
+</html>
