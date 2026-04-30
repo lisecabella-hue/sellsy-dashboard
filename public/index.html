@@ -159,7 +159,7 @@ async function refreshCache() {
   btn.disabled = true;
   btn.textContent = '⏳ Calcul en cours... (peut prendre 10-20 min)';
   try {
-    const resp = await fetch('/api/trigger?secret=monSecret2026');
+    const resp = await fetch(`${BACKEND_URL}/api/trigger?secret=monSecret2026`);
     const data = await resp.json();
     if(data.success) {
       btn.textContent = '✅ Cache mis à jour !';
@@ -203,8 +203,10 @@ function fmt(n) {
   return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
 }
 
+const BACKEND_URL = 'https://sellsy-dashboard-production.up.railway.app';
+
 async function callApi(dateStart, dateEnd, mode='total') {
-  const resp = await fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=${mode}`);
+  const resp = await fetch(`${BACKEND_URL}/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=${mode}`);
   if(!resp.ok) { const e = await resp.json(); throw new Error(e.error || 'Erreur API'); }
   return resp.json();
 }
