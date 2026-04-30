@@ -22,7 +22,6 @@
     .btn { font-size: 14px; padding: 9px 20px; border-radius: 8px; border: none; cursor: pointer; }
     .btn-primary { background: #1a1a1a; color: white; font-weight: 500; }
     .btn-primary:hover { background: #333; }
-    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
     .status { font-size: 12px; color: #888; display: flex; align-items: center; gap: 6px; }
     .dot { width: 7px; height: 7px; border-radius: 50%; background: #ccc; display: inline-block; }
     .dot.ok { background: #1D9E75; } .dot.err { background: #D85A30; } .dot.spin { background: #EF9F27; animation: pulse 1s infinite; }
@@ -33,6 +32,10 @@
     .metric-label { font-size: 12px; color: #888; margin-bottom: 8px; }
     .metric-value { font-size: 28px; font-weight: 500; }
     .metric-sub { font-size: 12px; margin-top: 6px; color: #888; }
+    .metric-vs { font-size: 13px; margin-top: 8px; font-weight: 500; }
+    .metric-vs.up { color: #1D9E75; }
+    .metric-vs.down { color: #D85A30; }
+    .metric-vs.neutral { color: #888; }
     .chart-card { background: white; border-radius: 12px; padding: 24px; border: 1px solid #e5e5e5; margin-bottom: 24px; }
     .chart-title { font-size: 15px; font-weight: 500; margin-bottom: 16px; }
     table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -84,7 +87,12 @@
     <p class="period-label" id="periodLabel"></p>
 
     <div class="metric-grid">
-      <div class="metric-card"><p class="metric-label">Chiffre d'affaires HT</p><p class="metric-value" id="mCA">—</p><p class="metric-sub">Total de la période</p></div>
+      <div class="metric-card">
+        <p class="metric-label">Chiffre d'affaires HT</p>
+        <p class="metric-value" id="mCA">—</p>
+        <p class="metric-vs neutral" id="mCAVs"></p>
+        <p class="metric-sub" id="mCASub">Total de la période</p>
+      </div>
       <div class="metric-card"><p class="metric-label">Nb factures</p><p class="metric-value" id="mCount">—</p><p class="metric-sub">Période sélectionnée</p></div>
       <div class="metric-card"><p class="metric-label">Panier moyen HT</p><p class="metric-value" id="mAvg">—</p><p class="metric-sub">Par facture</p></div>
     </div>
@@ -104,7 +112,6 @@ const pad = n => String(n).padStart(2,'0');
 const todayStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
 let currentMode = 'month';
 
-// Init sélecteur années
 const selYearEl = document.getElementById('selYear');
 for(let y = now.getFullYear(); y >= 2015; y--) {
   const opt = document.createElement('option');
@@ -133,30 +140,32 @@ function fmt(n) {
   return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
 }
 
+// Décale les dates d'un an en arrière
+function shiftYearBack(dateStart, dateEnd) {
+  const s = new Date(dateStart + 'T12:00:00');
+  const e = new Date(dateEnd + 'T12:00:00');
+  s.setFullYear(s.getFullYear() - 1);
+  e.setFullYear(e.getFullYear() - 1);
+  return {
+    dateStart: `${s.getFullYear()}-${pad(s.getMonth()+1)}-${pad(s.getDate())}`,
+    dateEnd: `${e.getFullYear()}-${pad(e.getMonth()+1)}-${pad(e.getDate())}`
+  };
+}
+
 function getDates() {
   const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 
   if (currentMode === 'today') {
-    return {
-      dateStart: todayStr, dateEnd: todayStr,
-      label: `Aujourd'hui — ${now.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long', year:'numeric'})}`
-    };
+    return { dateStart: todayStr, dateEnd: todayStr, label: `Aujourd'hui — ${now.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long', year:'numeric'})}` };
   }
-
   if (currentMode === 'week') {
     const day = now.getDay() || 7;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - day + 1);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
+    const monday = new Date(now); monday.setDate(now.getDate() - day + 1);
+    const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
     const ds = `${monday.getFullYear()}-${pad(monday.getMonth()+1)}-${pad(monday.getDate())}`;
     const de = `${sunday.getFullYear()}-${pad(sunday.getMonth()+1)}-${pad(sunday.getDate())}`;
-    return {
-      dateStart: ds, dateEnd: de,
-      label: `Cette semaine — du ${monday.toLocaleDateString('fr-FR')} au ${sunday.toLocaleDateString('fr-FR')}`
-    };
+    return { dateStart: ds, dateEnd: de, label: `Cette semaine — du ${monday.toLocaleDateString('fr-FR')} au ${sunday.toLocaleDateString('fr-FR')}` };
   }
-
   if (currentMode === 'month') {
     const month = parseInt(document.getElementById('selMonth').value);
     const year = parseInt(document.getElementById('selYear').value);
@@ -167,17 +176,13 @@ function getDates() {
       label: `${months[month]} ${year}`
     };
   }
-
   if (currentMode === 'custom') {
     const from = document.getElementById('dateFrom').value;
     const to = document.getElementById('dateTo').value;
     if (!from || !to) { alert('Veuillez sélectionner une date de début et de fin.'); return null; }
     const df = new Date(from + 'T12:00:00');
     const dt = new Date(to + 'T12:00:00');
-    return {
-      dateStart: from, dateEnd: to,
-      label: `Du ${df.toLocaleDateString('fr-FR')} au ${dt.toLocaleDateString('fr-FR')}`
-    };
+    return { dateStart: from, dateEnd: to, label: `Du ${df.toLocaleDateString('fr-FR')} au ${dt.toLocaleDateString('fr-FR')}` };
   }
 }
 
@@ -185,25 +190,27 @@ async function loadData() {
   const dates = getDates();
   if (!dates) return;
   const { dateStart, dateEnd, label } = dates;
+  const prevDates = shiftYearBack(dateStart, dateEnd);
 
   document.getElementById('errorBox').style.display='none';
   document.getElementById('periodLabel').textContent = label;
+  document.getElementById('mCAVs').textContent = '';
   setStatus('spin', 'Chargement...');
   document.getElementById('mCA').textContent = '...';
   document.getElementById('mCount').textContent = '...';
   document.getElementById('mAvg').textContent = '...';
 
   try {
-    const [caResp, listResp] = await Promise.all([
+    const [caResp, listResp, caPrevResp] = await Promise.all([
       fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=total`),
-      fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=list`)
+      fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=list`),
+      fetch(`/api/sellsy?dateStart=${prevDates.dateStart}&dateEnd=${prevDates.dateEnd}&mode=total`)
     ]);
 
     if(!caResp.ok || !listResp.ok) throw new Error('Erreur API');
 
     const caData = await caResp.json();
     const listData = await listResp.json();
-
     const totalCA = caData._totalCA || 0;
     const count = caData.pagination?.total || caData._count || 0;
     const avg = count > 0 ? totalCA / count : 0;
@@ -211,6 +218,19 @@ async function loadData() {
     document.getElementById('mCA').textContent = fmt(totalCA);
     document.getElementById('mCount').textContent = count.toLocaleString('fr-FR');
     document.getElementById('mAvg').textContent = fmt(avg);
+
+    // Comparaison N-1
+    if (caPrevResp.ok) {
+      const caPrevData = await caPrevResp.json();
+      const prevCA = caPrevData._totalCA || 0;
+      if (prevCA > 0) {
+        const diff = ((totalCA - prevCA) / prevCA) * 100;
+        const sign = diff >= 0 ? '+' : '';
+        const vsEl = document.getElementById('mCAVs');
+        vsEl.textContent = `${sign}${diff.toFixed(1)}% vs ${prevDates.dateStart.slice(0,4)} (${fmt(prevCA)})`;
+        vsEl.className = `metric-vs ${diff >= 0 ? 'up' : 'down'}`;
+      }
+    }
 
     const invoices = (listData.data || []).sort((a,b) => new Date(b.date) - new Date(a.date));
     renderInvoices(invoices.slice(0, 10));
