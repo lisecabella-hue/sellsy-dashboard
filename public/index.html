@@ -90,6 +90,7 @@
       </div>
       <div>
         <button class="btn-refresh" id="btnLoad" onclick="loadData()">↻ Actualiser</button>
+        <button class="btn-refresh" id="btnCache" onclick="refreshCache()" style="background:#555;margin-top:8px;font-size:12px;padding:6px 14px">🔄 Recalculer le cache</button>
         <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">En attente</span></div>
         <div class="error-box" id="errorBox"></div>
       </div>
@@ -152,6 +153,29 @@ for(let y = now.getFullYear(); y >= 2015; y--) {
 }
 // Pré-sélectionner le mois et l'année en cours
 document.getElementById('selMonth').value = now.getMonth();
+
+async function refreshCache() {
+  const btn = document.getElementById('btnCache');
+  btn.disabled = true;
+  btn.textContent = '⏳ Calcul en cours... (peut prendre 10-20 min)';
+  try {
+    const resp = await fetch('/api/cron', {
+      headers: { 'Authorization': 'Bearer monSecret2026' }
+    });
+    const data = await resp.json();
+    if(data.success) {
+      btn.textContent = '✅ Cache mis à jour !';
+      setTimeout(() => { btn.textContent = '🔄 Recalculer le cache'; btn.disabled = false; }, 3000);
+      loadData();
+    } else {
+      btn.textContent = '❌ Erreur : ' + (data.error || 'inconnue');
+      btn.disabled = false;
+    }
+  } catch(e) {
+    btn.textContent = '❌ Erreur réseau';
+    btn.disabled = false;
+  }
+}
 
 function setView(v) {
   currentView = v;
