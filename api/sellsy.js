@@ -31,42 +31,58 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'dateStart and dateEnd are required' });
     }
 
-    // Utiliser POST /v2/invoices/search avec body JSON
-    const params = new URLSearchParams({
-      'order': 'date',
-      'direction': 'desc',
-      'limit': '100'
-    });
+    // Fonction pour récupérer une page
+    async function fetchPage(offset) {
+      const params = new URLSearchParams({
+        'order': 'date',
+        'direction': 'desc',
+        'limit': '100',
+        'offset': String(offset)
+      });
 
-    const invoicesResp = await fetch(`https://api.sellsy.com/v2/invoices/search?${params}`, {
-      method: 'POST',
-      headers: { 
-        'Authorization': `Bearer ${access_token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        filters: {
-          date: {
-            start: dateStart,
-            end: dateEnd
+      const resp = await fetch(`https://api.sellsy.com/v2/invoices/search?${params}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          filters: {
+            date: { start: dateStart, end: dateEnd }
           }
-        }
-      })
-    });
+        })
+      });
 
-    const rawText = await invoicesResp.text();
-    let data;
-    try { data = JSON.parse(rawText); } 
-    catch(e) { return res.status(500).json({ error: 'Invalid JSON', raw: rawText.slice(0,500) }); }
-
-    if (!invoicesResp.ok) {
-      return res.status(invoicesResp.status).json({ error: data.message || 'API error', details: data });
+      if (!resp.ok) {
+        const err = await resp.json();
+        throw new Error(err.message || `API error ${resp.status}`);
+      }
+      return resp.json();
     }
 
-    const dates = (data.data||[]).map(i => i.date).filter(Boolean).sort();
-    data._debug = { dateStart, dateEnd, count: (data.data||[]).length, oldestDate: dates[0], newestDate: dates[dates.length-1] };
-    
-    return res.status(200).json(data);
+    // Première page pour connaître le total
+    const firstPage = await fetchPage(0);
+    const total = firstPage.pagination?.total || 0;
+    let allInvoices = [...(firstPage.data || [])];
+
+    // Paginer si nécessaire (max 10 pages = 1000 factures pour éviter timeout)
+    const maxPages = Math.min(Math.ceil(total / 100), 10);
+    if (maxPages > 1) {
+      const promises = [];
+      for (let p = 1; p < maxPages; p++) {
+        promises.push(fetchPage(p * 100));
+      }
+      const pages = await Promise.all(promises);
+      for (const page of pages) {
+        allInvoices = allInvoices.concat(page.data || []);
+      }
+    }
+
+    return res.status(200).json({
+      data: allInvoices,
+      pagination: { total, fetched: allInvoices.length },
+      _debug: { dateStart, dateEnd, total, fetched: allInvoices.length }
+    });
 
   } catch (e) {
     return res.status(500).json({ error: e.message });
