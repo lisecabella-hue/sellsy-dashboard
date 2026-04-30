@@ -170,5 +170,9 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  buildCache().catch(e => console.error('Initial cache build failed:', e.message));
+  console.log('ENV CHECK - CLIENT_ID:', process.env.SELLSY_CLIENT_ID ? 'SET' : 'NOT SET');
+  console.log('ENV CHECK - SECRET:', process.env.SELLSY_CLIENT_SECRET ? 'SET' : 'NOT SET');
+  setTimeout(() => {
+    buildCache().catch(e => console.error('Initial cache build failed:', e.message));
+  }, 5000);
 });
