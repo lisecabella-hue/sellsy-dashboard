@@ -122,8 +122,10 @@ async function loadData() {
   const year = parseInt(document.getElementById('selYear').value);
   const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
   
-  const dateStart = new Date(year, month, 1).toISOString().split('T')[0];
-  const dateEnd = new Date(year, month+1, 0).toISOString().split('T')[0];
+  const pad = n => String(n).padStart(2,'0');
+  const dateStart = `${year}-${pad(month+1)}-01`;
+  const lastDay = new Date(year, month+1, 0).getDate();
+  const dateEnd = `${year}-${pad(month+1)}-${pad(lastDay)}`;
 
   document.getElementById('errorBox').style.display='none';
   document.getElementById('periodLabel').textContent = `${months[month]} ${year}`;
