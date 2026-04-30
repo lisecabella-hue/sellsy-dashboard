@@ -34,7 +34,9 @@ export default async function handler(req, res) {
     const params = new URLSearchParams({
       'filters[invoiceDate][gte]': dateStart,
       'filters[invoiceDate][lte]': dateEnd,
-      'pagination[limit]': '100'
+      'pagination[limit]': '100',
+      'order[direction]': 'desc',
+      'order[field]': 'invoiceDate'
     });
 
     const invoicesResp = await fetch(`https://api.sellsy.com/v2/invoices?${params}`, {
