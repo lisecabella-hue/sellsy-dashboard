@@ -23,7 +23,13 @@ export default async function handler(req, res) {
     if (!tokenResp.ok) throw new Error('Auth failed');
     const { access_token } = await tokenResp.json();
 
-    const body = JSON.stringify({ filters: { date: { start: dateStart, end: dateEnd } } });
+    // Inclure tous les statuts de factures
+    const body = JSON.stringify({
+      filters: {
+        date: { start: dateStart, end: dateEnd },
+        statuses: ['draft', 'pending', 'partial', 'paid', 'late', 'cancelled', 'refunded']
+      }
+    });
 
     if (mode === 'list') {
       const listResp = await fetch('https://api.sellsy.com/v2/invoices/search?limit=100&offset=0&order=date&direction=desc', {
@@ -37,7 +43,6 @@ export default async function handler(req, res) {
 
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-    // Fonction pour fetcher une page avec retry en cas de 429
     const fetchPage = async (offset, retries = 3) => {
       for (let attempt = 0; attempt < retries; attempt++) {
         const resp = await fetch(
@@ -49,7 +54,7 @@ export default async function handler(req, res) {
           }
         );
         if (resp.status === 429) {
-          await sleep(1000 * (attempt + 1)); // 1s, 2s, 3s
+          await sleep(1000 * (attempt + 1));
           continue;
         }
         if (!resp.ok) return { data: [] };
@@ -58,12 +63,10 @@ export default async function handler(req, res) {
       return { data: [] };
     };
 
-    // Première page
     const firstPage = await fetchPage(0);
     const total = firstPage.pagination?.total || 0;
     let allInvoices = [...(firstPage.data || [])];
 
-    // Pages suivantes - séquentiel par batches de 3 avec 500ms entre chaque
     if (total > 100) {
       const totalPages = Math.ceil(total / 100);
       const BATCH_SIZE = 3;
