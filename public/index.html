@@ -101,7 +101,7 @@ function setView(v) {
   currentView = v;
   ['Month','Week','Year'].forEach(x => document.getElementById('tgl'+x).classList.remove('active'));
   document.getElementById('tgl'+v.charAt(0).toUpperCase()+v.slice(1)).classList.add('active');
-  if(cachedData) renderMetrics(cachedData);
+  loadData();
 }
 
 function setStatus(state, msg) {
@@ -171,7 +171,7 @@ async function loadData() {
     const [dCur, dN1, dRecent] = await Promise.all([
       callApi(range.s, range.e),
       callApi(range.sN1, range.eN1),
-      callApi(new Date(now.getFullYear(),now.getMonth()-1,1).toISOString().split('T')[0],
+      callApi(new Date(now.getFullYear(),now.getMonth(),1).toISOString().split('T')[0],
               new Date(now.getFullYear(),now.getMonth()+1,0).toISOString().split('T')[0])
     ]);
 
@@ -180,7 +180,8 @@ async function loadData() {
       months: months.slice(0, curMonth+1),
       dataCurrent: dCur.data||[],
       dataN1: dN1.data||[],
-      dataRecent: dRecent.data||[]
+      dataRecent: (dRecent.data||[]).sort((a,b)=>new Date(b.date)-new Date(a.date)),
+      _unused:[]
     };
 
     renderMetrics(cachedData);
