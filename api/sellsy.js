@@ -46,22 +46,37 @@ export default async function handler(req, res) {
     const total = firstPage.pagination?.total || 0;
     let allInvoices = [...(firstPage.data || [])];
 
-    // Récupérer toutes les pages EN PARALLÈLE
+    // Récupérer toutes les pages en batches séquentiels (5 pages à la fois)
     if (total > 100) {
       const totalPages = Math.ceil(total / 100);
-      const pagePromises = [];
-      for (let p = 1; p < totalPages; p++) {
-        pagePromises.push(
-          fetch(`https://api.sellsy.com/v2/invoices/search?limit=100&offset=${p * 100}&field[]=amounts.total_excl_tax&field[]=id`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
-            body
-          }).then(r => r.json()).catch(() => ({ data: [] }))
-        );
-      }
-      const pages = await Promise.all(pagePromises);
-      for (const page of pages) {
-        allInvoices = allInvoices.concat(page.data || []);
+      const BATCH_SIZE = 5;
+      const DELAY_MS = 300;
+
+      const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+      for (let batchStart = 1; batchStart < totalPages; batchStart += BATCH_SIZE) {
+        const batchEnd = Math.min(batchStart + BATCH_SIZE, totalPages);
+        const batchPromises = [];
+
+        for (let p = batchStart; p < batchEnd; p++) {
+          batchPromises.push(
+            fetch(`https://api.sellsy.com/v2/invoices/search?limit=100&offset=${p * 100}&field[]=amounts.total_excl_tax&field[]=id`, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+              body
+            }).then(r => r.json()).catch(() => ({ data: [] }))
+          );
+        }
+
+        const pages = await Promise.all(batchPromises);
+        for (const page of pages) {
+          allInvoices = allInvoices.concat(page.data || []);
+        }
+
+        // Pause entre les batches pour éviter le rate limiting
+        if (batchEnd < totalPages) {
+          await sleep(DELAY_MS);
+        }
       }
     }
 
