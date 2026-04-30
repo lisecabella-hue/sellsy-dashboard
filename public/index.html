@@ -50,6 +50,8 @@
     .badge-paid { background: #E1F5EE; color: #0F6E56; }
     .badge-pending { background: #FAEEDA; color: #854F0B; }
     .badge-late { background: #FCEBEB; color: #A32D2D; }
+    .ytd-bar { margin-bottom: 24px; }
+    .ytd-title { font-size: 14px; font-weight: 500; color: #1a1a1a; margin-bottom: 12px; padding: 10px 16px; background: #f0f4ff; border-radius: 8px; border-left: 3px solid #378ADD; }
     .period-label { font-size: 13px; color: #888; margin-bottom: 4px; }
   </style>
 </head>
@@ -100,6 +102,15 @@
       <div class="metric-card"><p class="metric-label">Trend vs N-1</p><p class="metric-value" id="mTrend">—</p><p class="metric-sub" id="mTrendSub">Même période an passé</p></div>
       <div class="metric-card"><p class="metric-label">Nb factures</p><p class="metric-value" id="mCount">—</p><p class="metric-sub">Période sélectionnée</p></div>
       <div class="metric-card"><p class="metric-label">Panier moyen HT</p><p class="metric-value" id="mAvg">—</p><p class="metric-sub">Par facture</p></div>
+    </div>
+    <div class="ytd-bar" id="ytdSection" style="display:none">
+      <div class="ytd-title" id="ytdTitle">📊 Cumul YTD</div>
+      <div class="metric-grid">
+        <div class="metric-card" style="border-left:3px solid #378ADD"><p class="metric-label">CA Cumulé (YTD)</p><p class="metric-value" id="mYTD">—</p><p class="metric-sub" id="mYTDSub">Jan → mois sélectionné</p></div>
+        <div class="metric-card" style="border-left:3px solid #B4B2A9"><p class="metric-label">CA Cumulé N-1</p><p class="metric-value" id="mYTDN1">—</p><p class="metric-sub" id="mYTDN1Sub">Même période an passé</p></div>
+        <div class="metric-card"><p class="metric-label">Trend YTD vs N-1</p><p class="metric-value" id="mYTDTrend">—</p><p class="metric-sub" id="mYTDTrendSub">Évolution cumulée</p></div>
+        <div class="metric-card"><p class="metric-label">Nb factures YTD</p><p class="metric-value" id="mYTDCount">—</p><p class="metric-sub">Depuis janvier</p></div>
+      </div>
     </div>
 
     <div class="chart-card">
@@ -193,9 +204,15 @@ function getRange(view) {
     sN1 = new Date(now.getFullYear()-1, now.getMonth(), 1);
     eN1 = new Date(now.getFullYear()-1, now.getMonth()+1, 0);
   } else if(view==='week') {
-    const day = now.getDay()||7;
-    s = new Date(now); s.setDate(now.getDate()-day+1); s.setHours(0,0,0,0);
-    e = new Date(s); e.setDate(s.getDate()+6);
+    const today = new Date();
+    const dayOfWeek = today.getDay(); // 0=dim, 1=lun, ..., 6=sam
+    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    s = new Date(today);
+    s.setDate(today.getDate() + diffToMonday);
+    s.setHours(0,0,0,0);
+    e = new Date(s);
+    e.setDate(s.getDate() + 6);
+    e.setHours(23,59,59,999);
     sN1 = new Date(s); sN1.setFullYear(s.getFullYear()-1);
     eN1 = new Date(e); eN1.setFullYear(e.getFullYear()-1);
   } else {
@@ -257,6 +274,25 @@ async function loadData() {
       callApi(range.sN1, range.eN1)
     ]);
 
+    // YTD : cumul de Jan jusqu'au mois sélectionné (seulement pour vue mois ou custom)
+    let ytdN = 0, ytdN1 = 0, ytdCount = 0;
+    const showYTD = (currentView === 'month' || currentView === 'custom');
+    if(showYTD) {
+      const ytdMonth = (currentView === 'custom') ? customMonth : now.getMonth();
+      const ytdYear = (currentView === 'custom') ? customYear : now.getFullYear();
+      const ytdStart = new Date(ytdYear, 0, 1).toISOString().split('T')[0];
+      const ytdEnd = new Date(ytdYear, ytdMonth+1, 0).toISOString().split('T')[0];
+      const ytdStartN1 = new Date(ytdYear-1, 0, 1).toISOString().split('T')[0];
+      const ytdEndN1 = new Date(ytdYear-1, ytdMonth+1, 0).toISOString().split('T')[0];
+      const [dYTD, dYTDN1] = await Promise.all([
+        callApi(ytdStart, ytdEnd),
+        callApi(ytdStartN1, ytdEndN1)
+      ]);
+      ytdN = sumCA(dYTD.data||[]);
+      ytdN1 = sumCA(dYTDN1.data||[]);
+      ytdCount = (dYTD.data||[]).length;
+    }
+
     const recentSorted = (dCur.data||[]).sort((a,b) => new Date(b.date) - new Date(a.date));
 
     const data = {
@@ -265,7 +301,8 @@ async function loadData() {
       dataCurrent: dCur.data||[],
       dataN1: dN1.data||[],
       dataRecent: recentSorted,
-      selectedYear
+      selectedYear,
+      ytdN, ytdN1, ytdCount, showYTD
     };
 
     document.getElementById('periodLabel').textContent = getPeriodLabel();
@@ -305,6 +342,33 @@ function renderMetrics(data) {
   }
   document.getElementById('mCount').textContent = count;
   document.getElementById('mAvg').textContent = fmt(avg);
+
+  // YTD
+  const ytdSection = document.getElementById('ytdSection');
+  if(data.showYTD) {
+    ytdSection.style.display = 'block';
+    const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+    const ytdMonth = (currentView === 'custom') ? customMonth : now.getMonth();
+    const ytdYear = (currentView === 'custom') ? customYear : now.getFullYear();
+    document.getElementById('ytdTitle').textContent = `📊 Cumul YTD — Janvier à ${months[ytdMonth]} ${ytdYear}`;
+    document.getElementById('mYTD').textContent = fmt(data.ytdN);
+    document.getElementById('mYTDSub').textContent = `Jan → ${months[ytdMonth]} ${ytdYear}`;
+    document.getElementById('mYTDN1').textContent = fmt(data.ytdN1);
+    document.getElementById('mYTDN1Sub').textContent = `Jan → ${months[ytdMonth]} ${ytdYear-1}`;
+    document.getElementById('mYTDCount').textContent = data.ytdCount;
+    const ytdTrend = data.ytdN1 > 0 ? ((data.ytdN - data.ytdN1) / data.ytdN1 * 100) : null;
+    if(ytdTrend !== null) {
+      const sign = ytdTrend >= 0 ? '+' : '';
+      document.getElementById('mYTDTrend').textContent = sign + ytdTrend.toFixed(1) + '%';
+      document.getElementById('mYTDTrend').className = 'metric-value ' + (ytdTrend >= 0 ? 'trend-up' : 'trend-down');
+      document.getElementById('mYTDTrendSub').textContent = 'N-1 : ' + fmt(data.ytdN1);
+    } else {
+      document.getElementById('mYTDTrend').textContent = 'N/A';
+      document.getElementById('mYTDTrend').className = 'metric-value';
+    }
+  } else {
+    ytdSection.style.display = 'none';
+  }
 }
 
 function renderChart(data) {
