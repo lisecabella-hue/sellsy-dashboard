@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     const body = JSON.stringify({ filters: { date: { start: dateStart, end: dateEnd } } });
 
     if (mode === 'list') {
-      const listResp = await fetch(`https://api.sellsy.com/v2/invoices/search?limit=100&offset=0&order=date&direction=desc`, {
+      const listResp = await fetch('https://api.sellsy.com/v2/invoices/search?limit=100&offset=0&order=date&direction=desc', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
         body
@@ -35,37 +35,46 @@ export default async function handler(req, res) {
       return res.status(200).json(listData);
     }
 
-    // Première page pour connaître le total
-    const firstResp = await fetch(`https://api.sellsy.com/v2/invoices/search?limit=100&offset=0&field[]=amounts.total_excl_tax&field[]=id`, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
-      body
-    });
-    if (!firstResp.ok) throw new Error('API error');
-    const firstPage = await firstResp.json();
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    // Fonction pour fetcher une page avec retry en cas de 429
+    const fetchPage = async (offset, retries = 3) => {
+      for (let attempt = 0; attempt < retries; attempt++) {
+        const resp = await fetch(
+          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+            body
+          }
+        );
+        if (resp.status === 429) {
+          await sleep(1000 * (attempt + 1)); // 1s, 2s, 3s
+          continue;
+        }
+        if (!resp.ok) return { data: [] };
+        return await resp.json();
+      }
+      return { data: [] };
+    };
+
+    // Première page
+    const firstPage = await fetchPage(0);
     const total = firstPage.pagination?.total || 0;
     let allInvoices = [...(firstPage.data || [])];
 
-    // Récupérer toutes les pages en batches séquentiels (5 pages à la fois)
+    // Pages suivantes - séquentiel par batches de 3 avec 500ms entre chaque
     if (total > 100) {
       const totalPages = Math.ceil(total / 100);
-      const BATCH_SIZE = 5;
-      const DELAY_MS = 300;
-
-      const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+      const BATCH_SIZE = 3;
+      const DELAY_MS = 500;
 
       for (let batchStart = 1; batchStart < totalPages; batchStart += BATCH_SIZE) {
         const batchEnd = Math.min(batchStart + BATCH_SIZE, totalPages);
         const batchPromises = [];
 
         for (let p = batchStart; p < batchEnd; p++) {
-          batchPromises.push(
-            fetch(`https://api.sellsy.com/v2/invoices/search?limit=100&offset=${p * 100}&field[]=amounts.total_excl_tax&field[]=id`, {
-              method: 'POST',
-              headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
-              body
-            }).then(r => r.json()).catch(() => ({ data: [] }))
-          );
+          batchPromises.push(fetchPage(p * 100));
         }
 
         const pages = await Promise.all(batchPromises);
@@ -73,7 +82,6 @@ export default async function handler(req, res) {
           allInvoices = allInvoices.concat(page.data || []);
         }
 
-        // Pause entre les batches pour éviter le rate limiting
         if (batchEnd < totalPages) {
           await sleep(DELAY_MS);
         }
