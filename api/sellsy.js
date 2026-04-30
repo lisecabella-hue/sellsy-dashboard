@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   // --- Helpers cache Upstash ---
   async function cacheGet(key) {
     try {
-      const r = await fetch(`${kvUrl}/get/${key}`, {
+      const r = await fetch(`${kvUrl}/get/${encodeURIComponent(key)}`, {
         headers: { Authorization: `Bearer ${kvToken}` }
       });
       const json = await r.json();
@@ -25,13 +25,13 @@ export default async function handler(req, res) {
 
   async function cacheSet(key, value, exSeconds) {
     try {
-      const body = exSeconds
-        ? JSON.stringify(['SET', key, JSON.stringify(value), 'EX', exSeconds])
-        : JSON.stringify(['SET', key, JSON.stringify(value)]);
-      await fetch(`${kvUrl}/pipeline`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${kvToken}`, 'Content-Type': 'application/json' },
-        body
+      const encoded = encodeURIComponent(key);
+      const url = exSeconds
+        ? `${kvUrl}/set/${encoded}/${encodeURIComponent(JSON.stringify(value))}?EX=${exSeconds}`
+        : `${kvUrl}/set/${encoded}/${encodeURIComponent(JSON.stringify(value))}`;
+      await fetch(url, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${kvToken}` }
       });
     } catch {}
   }
