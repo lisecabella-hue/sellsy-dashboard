@@ -31,11 +31,12 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'dateStart and dateEnd are required' });
     }
 
-    // Récupérer la liste des filtres disponibles via l'API
     const params = new URLSearchParams();
     params.append('filters[invoiceDate][gte]', dateStart);
     params.append('filters[invoiceDate][lte]', dateEnd);
     params.append('pagination[limit]', '100');
+    params.append('sort[direction]', 'desc');
+    params.append('sort[field]', 'date');
 
     const url = `https://api.sellsy.com/v2/invoices?${params.toString()}`;
 
@@ -44,32 +45,16 @@ export default async function handler(req, res) {
     });
 
     const rawText = await invoicesResp.text();
-    
     let data;
-    try {
-      data = JSON.parse(rawText);
-    } catch(e) {
-      return res.status(500).json({ error: 'Invalid JSON from Sellsy', raw: rawText.slice(0, 500) });
-    }
+    try { data = JSON.parse(rawText); } 
+    catch(e) { return res.status(500).json({ error: 'Invalid JSON', raw: rawText.slice(0,500) }); }
 
     if (!invoicesResp.ok) {
-      return res.status(invoicesResp.status).json({ 
-        error: data.message || data.error || 'API error',
-        details: data,
-        url_tried: url
-      });
+      return res.status(invoicesResp.status).json({ error: data.message || 'API error', details: data });
     }
 
-    // Debug info
     const dates = (data.data||[]).map(i => i.date).filter(Boolean).sort();
-    data._debug = { 
-      dateStart, 
-      dateEnd, 
-      count: (data.data||[]).length,
-      oldestDate: dates[0],
-      newestDate: dates[dates.length-1],
-      url_tried: url
-    };
+    data._debug = { dateStart, dateEnd, count: (data.data||[]).length, oldestDate: dates[0], newestDate: dates[dates.length-1] };
     
     return res.status(200).json(data);
 
