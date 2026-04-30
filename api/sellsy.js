@@ -25,20 +25,30 @@ export default async function handler(req, res) {
     }
 
     const { access_token } = await tokenResp.json();
+    const { dateStart, dateEnd, mode } = req.query;
 
-    const { dateStart, dateEnd } = req.query;
     if (!dateStart || !dateEnd) {
       return res.status(400).json({ error: 'dateStart and dateEnd are required' });
     }
 
-    // Fonction pour récupérer une page
+    const body = JSON.stringify({
+      filters: { date: { start: dateStart, end: dateEnd } }
+    });
+
+    // Mode "total" : récupère toutes les pages mais uniquement les montants
+    // Mode "list" : récupère les 100 premières factures complètes pour l'affichage
+    const isListMode = mode === 'list';
+
     async function fetchPage(offset) {
       const params = new URLSearchParams({
-        'order': 'date',
-        'direction': 'desc',
         'limit': '100',
         'offset': String(offset)
       });
+      // En mode total, on ne récupère que le montant HT pour aller plus vite
+      if (!isListMode) {
+        params.append('field[]', 'id');
+        params.append('field[]', 'amounts.total_excl_tax');
+      }
 
       const resp = await fetch(`https://api.sellsy.com/v2/invoices/search?${params}`, {
         method: 'POST',
@@ -46,11 +56,7 @@ export default async function handler(req, res) {
           'Authorization': `Bearer ${access_token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          filters: {
-            date: { start: dateStart, end: dateEnd }
-          }
-        })
+        body
       });
 
       if (!resp.ok) {
@@ -60,28 +66,31 @@ export default async function handler(req, res) {
       return resp.json();
     }
 
-    // Première page pour connaître le total
+    // Première page
     const firstPage = await fetchPage(0);
     const total = firstPage.pagination?.total || 0;
     let allInvoices = [...(firstPage.data || [])];
 
-    // Paginer si nécessaire (max 10 pages = 1000 factures pour éviter timeout)
-    const maxPages = Math.min(Math.ceil(total / 100), 10);
-    if (maxPages > 1) {
-      const promises = [];
-      for (let p = 1; p < maxPages; p++) {
-        promises.push(fetchPage(p * 100));
-      }
-      const pages = await Promise.all(promises);
-      for (const page of pages) {
-        allInvoices = allInvoices.concat(page.data || []);
+    if (!isListMode && total > 100) {
+      // Paginer toutes les pages en parallèle (par batch de 10 pour éviter surcharge)
+      const totalPages = Math.ceil(total / 100);
+      for (let batch = 1; batch < totalPages; batch += 10) {
+        const batchEnd = Math.min(batch + 10, totalPages);
+        const promises = [];
+        for (let p = batch; p < batchEnd; p++) {
+          promises.push(fetchPage(p * 100));
+        }
+        const pages = await Promise.all(promises);
+        for (const page of pages) {
+          allInvoices = allInvoices.concat(page.data || []);
+        }
       }
     }
 
     return res.status(200).json({
       data: allInvoices,
       pagination: { total, fetched: allInvoices.length },
-      _debug: { dateStart, dateEnd, total, fetched: allInvoices.length }
+      _debug: { dateStart, dateEnd, total, fetched: allInvoices.length, mode: isListMode ? 'list' : 'total' }
     });
 
   } catch (e) {
