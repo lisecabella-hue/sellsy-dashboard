@@ -23,13 +23,7 @@ export default async function handler(req, res) {
     if (!tokenResp.ok) throw new Error('Auth failed');
     const { access_token } = await tokenResp.json();
 
-    // Filtre : exclure les factures d'acomptes
-    const filters = {
-      date: { start: dateStart, end: dateEnd },
-      is_deposit: false
-    };
-
-    const body = JSON.stringify({ filters });
+    const body = JSON.stringify({ filters: { date: { start: dateStart, end: dateEnd } } });
 
     if (mode === 'list') {
       const listResp = await fetch(`https://api.sellsy.com/v2/invoices/search?limit=100&offset=0&order=date&direction=desc`, {
