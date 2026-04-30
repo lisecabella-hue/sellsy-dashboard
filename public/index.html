@@ -12,9 +12,18 @@
     .header h1 { font-size: 18px; font-weight: 500; }
     .header span { font-size: 13px; color: #888; }
     .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
-    .toggle-row { display: flex; gap: 8px; margin-bottom: 24px; }
+    .top-bar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; gap: 16px; flex-wrap: wrap; }
+    .left-controls { display: flex; flex-direction: column; gap: 12px; }
+    .toggle-row { display: flex; gap: 8px; flex-wrap: wrap; }
     .tgl { font-size: 13px; padding: 6px 16px; border-radius: 20px; border: 1px solid #ddd; background: white; cursor: pointer; color: #666; }
     .tgl.active { background: #1a1a1a; color: white; border-color: #1a1a1a; font-weight: 500; }
+    .custom-month-row { display: flex; align-items: center; gap: 8px; }
+    .custom-month-row label { font-size: 13px; color: #888; }
+    .custom-month-row select { font-size: 13px; padding: 6px 10px; border-radius: 8px; border: 1px solid #ddd; background: white; cursor: pointer; color: #1a1a1a; }
+    .custom-month-row select:focus { outline: none; border-color: #1a1a1a; }
+    .btn-custom { font-size: 13px; padding: 6px 14px; border-radius: 8px; border: 1px solid #ddd; background: white; cursor: pointer; color: #666; }
+    .btn-custom:hover { background: #f0f0f0; }
+    .btn-custom.active { background: #1a1a1a; color: white; border-color: #1a1a1a; font-weight: 500; }
     .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
     .metric-card { background: white; border-radius: 12px; padding: 20px; border: 1px solid #e5e5e5; }
     .metric-label { font-size: 12px; color: #888; margin-bottom: 8px; }
@@ -27,7 +36,7 @@
     .chart-title { font-size: 15px; font-weight: 500; }
     .legend { display: flex; gap: 16px; font-size: 12px; color: #888; }
     .legend-sq { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 4px; vertical-align: middle; }
-    .btn-refresh { background: #1a1a1a; color: white; border: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+    .btn-refresh { background: #1a1a1a; color: white; border: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; cursor: pointer; }
     .btn-refresh:hover { background: #333; }
     .btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
     .status { font-size: 12px; color: #888; display: flex; align-items: center; gap: 6px; margin-top: 8px; }
@@ -41,7 +50,7 @@
     .badge-paid { background: #E1F5EE; color: #0F6E56; }
     .badge-pending { background: #FAEEDA; color: #854F0B; }
     .badge-late { background: #FCEBEB; color: #A32D2D; }
-    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+    .period-label { font-size: 13px; color: #888; margin-bottom: 4px; }
   </style>
 </head>
 <body>
@@ -51,10 +60,31 @@
   </div>
   <div class="container">
     <div class="top-bar">
-      <div class="toggle-row">
-        <button class="tgl active" id="tglMonth" onclick="setView('month')">Ce mois</button>
-        <button class="tgl" id="tglWeek" onclick="setView('week')">Cette semaine</button>
-        <button class="tgl" id="tglYear" onclick="setView('year')">Cette année</button>
+      <div class="left-controls">
+        <div class="toggle-row">
+          <button class="tgl active" id="tglMonth" onclick="setView('month')">Ce mois</button>
+          <button class="tgl" id="tglWeek" onclick="setView('week')">Cette semaine</button>
+          <button class="tgl" id="tglYear" onclick="setView('year')">Cette année</button>
+        </div>
+        <div class="custom-month-row">
+          <label>Ou choisir :</label>
+          <select id="selMonth">
+            <option value="0">Janvier</option>
+            <option value="1">Février</option>
+            <option value="2">Mars</option>
+            <option value="3">Avril</option>
+            <option value="4">Mai</option>
+            <option value="5">Juin</option>
+            <option value="6">Juillet</option>
+            <option value="7">Août</option>
+            <option value="8">Septembre</option>
+            <option value="9">Octobre</option>
+            <option value="10">Novembre</option>
+            <option value="11">Décembre</option>
+          </select>
+          <select id="selYear"></select>
+          <button class="btn-custom" id="btnCustom" onclick="setCustomMonth()">Voir</button>
+        </div>
       </div>
       <div>
         <button class="btn-refresh" id="btnLoad" onclick="loadData()">↻ Actualiser</button>
@@ -62,6 +92,8 @@
         <div class="error-box" id="errorBox"></div>
       </div>
     </div>
+
+    <p class="period-label" id="periodLabel"></p>
 
     <div class="metric-grid">
       <div class="metric-card"><p class="metric-label">Chiffre d'affaires HT</p><p class="metric-value" id="mCA">—</p><p class="metric-sub" id="mCASub">En attente</p></div>
@@ -72,22 +104,22 @@
 
     <div class="chart-card">
       <div class="chart-header">
-        <p class="chart-title">CA mensuel — N vs N-1</p>
+        <p class="chart-title" id="chartTitle">CA mensuel — N vs N-1</p>
         <div class="legend">
-          <span><span class="legend-sq" style="background:#378ADD"></span>Cette année</span>
+          <span><span class="legend-sq" style="background:#378ADD"></span>Année sélectionnée</span>
           <span><span class="legend-sq" style="background:#ccc"></span>An passé</span>
         </div>
       </div>
       <div style="position:relative;width:100%;height:260px">
-        <canvas id="chartCA" role="img" aria-label="Graphique CA mensuel N vs N-1">Données en attente.</canvas>
+        <canvas id="chartCA"></canvas>
       </div>
     </div>
 
     <div class="chart-card">
       <div class="chart-header"><p class="chart-title">Dernières factures</p></div>
       <table>
-        <thead><tr><th>Client</th><th>Montant HT</th><th>Date</th><th>Statut</th></tr></thead>
-        <tbody id="invBody"><tr><td colspan="4" style="color:#888;text-align:center;padding:20px">Cliquez sur Actualiser...</td></tr></tbody>
+        <thead><tr><th>Client</th><th>N° Facture</th><th>Montant HT</th><th>Date</th><th>Statut</th></tr></thead>
+        <tbody id="invBody"><tr><td colspan="5" style="color:#888;text-align:center;padding:20px">Cliquez sur Actualiser...</td></tr></tbody>
       </table>
     </div>
   </div>
@@ -95,12 +127,37 @@
 <script>
 let chartInstance = null;
 let currentView = 'month';
-let cachedData = null;
+let customYear = null;
+let customMonth = null;
+
+// Remplir les années (2015 à année en cours)
+const now = new Date();
+const selYear = document.getElementById('selYear');
+for(let y = now.getFullYear(); y >= 2015; y--) {
+  const opt = document.createElement('option');
+  opt.value = y;
+  opt.textContent = y;
+  selYear.appendChild(opt);
+}
+// Pré-sélectionner le mois et l'année en cours
+document.getElementById('selMonth').value = now.getMonth();
 
 function setView(v) {
   currentView = v;
+  customYear = null;
+  customMonth = null;
   ['Month','Week','Year'].forEach(x => document.getElementById('tgl'+x).classList.remove('active'));
   document.getElementById('tgl'+v.charAt(0).toUpperCase()+v.slice(1)).classList.add('active');
+  document.getElementById('btnCustom').classList.remove('active');
+  loadData();
+}
+
+function setCustomMonth() {
+  customMonth = parseInt(document.getElementById('selMonth').value);
+  customYear = parseInt(document.getElementById('selYear').value);
+  currentView = 'custom';
+  ['Month','Week','Year'].forEach(x => document.getElementById('tgl'+x).classList.remove('active'));
+  document.getElementById('btnCustom').classList.add('active');
   loadData();
 }
 
@@ -121,8 +178,16 @@ async function callApi(dateStart, dateEnd) {
 
 function getRange(view) {
   const now = new Date();
-  let s, e, sN1, eN1;
-  if(view==='month') {
+  let s, e, sN1, eN1, year, month;
+
+  if(view === 'custom') {
+    year = customYear;
+    month = customMonth;
+    s = new Date(year, month, 1);
+    e = new Date(year, month+1, 0);
+    sN1 = new Date(year-1, month, 1);
+    eN1 = new Date(year-1, month+1, 0);
+  } else if(view==='month') {
     s = new Date(now.getFullYear(), now.getMonth(), 1);
     e = new Date(now.getFullYear(), now.getMonth()+1, 0);
     sN1 = new Date(now.getFullYear()-1, now.getMonth(), 1);
@@ -140,53 +205,74 @@ function getRange(view) {
     eN1 = new Date(now.getFullYear()-1,11,31);
   }
   const f = d => d.toISOString().split('T')[0];
-  return {s:f(s), e:f(e), sN1:f(sN1), eN1:f(eN1)};
+  return {s:f(s), e:f(e), sN1:f(sN1), eN1:f(eN1), year: (view==='custom' ? year : now.getFullYear())};
 }
 
 function sumCA(invoices) {
   return invoices.reduce((acc, inv) => acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
 }
 
+function getClient(inv) {
+  if(inv.thirdName) return inv.thirdName;
+  if(inv.related) {
+    const c = inv.related.find(r => r.type === 'company' || r.type === 'contact');
+    if(c && c.name) return c.name;
+  }
+  return inv.number || '—';
+}
+
+function getPeriodLabel() {
+  const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  if(currentView==='custom') return `📅 ${months[customMonth]} ${customYear}`;
+  if(currentView==='month') return `📅 ${months[now.getMonth()]} ${now.getFullYear()}`;
+  if(currentView==='week') return `📅 Semaine en cours`;
+  return `📅 Année ${now.getFullYear()}`;
+}
+
 async function loadData() {
   document.getElementById('errorBox').style.display='none';
   document.getElementById('btnLoad').disabled=true;
   setStatus('spin','Chargement...');
-  try {
-    const now = new Date();
-    const months = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-    const curMonth = now.getMonth();
-    let monthlyN=[], monthlyN1=[];
 
-    for(let m=0; m<=curMonth; m++) {
-      const s = new Date(now.getFullYear(),m,1).toISOString().split('T')[0];
-      const e = new Date(now.getFullYear(),m+1,0).toISOString().split('T')[0];
-      const sN1 = new Date(now.getFullYear()-1,m,1).toISOString().split('T')[0];
-      const eN1 = new Date(now.getFullYear()-1,m+1,0).toISOString().split('T')[0];
+  try {
+    const range = getRange(currentView);
+    const selectedYear = range.year;
+    const months = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+    const lastMonth = (currentView==='custom') ? 11 : now.getMonth();
+
+    // Graphique : tous les mois de l'année sélectionnée
+    let monthlyN=[], monthlyN1=[];
+    for(let m=0; m<=lastMonth; m++) {
+      const s = new Date(selectedYear,m,1).toISOString().split('T')[0];
+      const e = new Date(selectedYear,m+1,0).toISOString().split('T')[0];
+      const sN1 = new Date(selectedYear-1,m,1).toISOString().split('T')[0];
+      const eN1 = new Date(selectedYear-1,m+1,0).toISOString().split('T')[0];
       const [dN, dN1] = await Promise.all([callApi(s,e), callApi(sN1,eN1)]);
       monthlyN.push(sumCA(dN.data||[]));
       monthlyN1.push(sumCA(dN1.data||[]));
     }
 
-    const range = getRange(currentView);
-    const [dCur, dN1, dRecent] = await Promise.all([
+    const [dCur, dN1] = await Promise.all([
       callApi(range.s, range.e),
-      callApi(range.sN1, range.eN1),
-      callApi(new Date(now.getFullYear(),now.getMonth(),1).toISOString().split('T')[0],
-              new Date(now.getFullYear(),now.getMonth()+1,0).toISOString().split('T')[0])
+      callApi(range.sN1, range.eN1)
     ]);
 
-    cachedData = {
+    const recentSorted = (dCur.data||[]).sort((a,b) => new Date(b.date) - new Date(a.date));
+
+    const data = {
       monthlyN, monthlyN1,
-      months: months.slice(0, curMonth+1),
+      months: months.slice(0, lastMonth+1),
       dataCurrent: dCur.data||[],
       dataN1: dN1.data||[],
-      dataRecent: (dRecent.data||[]).sort((a,b)=>new Date(b.date)-new Date(a.date)),
-      _unused:[]
+      dataRecent: recentSorted,
+      selectedYear
     };
 
-    renderMetrics(cachedData);
-    renderChart(cachedData);
-    renderInvoices(cachedData.dataRecent.slice(0,8));
+    document.getElementById('periodLabel').textContent = getPeriodLabel();
+    document.getElementById('chartTitle').textContent = `CA mensuel ${selectedYear} vs ${selectedYear-1}`;
+    renderMetrics(data);
+    renderChart(data);
+    renderInvoices(data.dataRecent.slice(0,8));
 
     const t = new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     document.getElementById('lastUpdate').textContent = 'Mis à jour le ' + t;
@@ -206,7 +292,7 @@ function renderMetrics(data) {
   const count = data.dataCurrent.length;
   const avg = count>0 ? ca/count : 0;
   document.getElementById('mCA').textContent = fmt(ca);
-  document.getElementById('mCASub').textContent = currentView==='month'?'Mois en cours':currentView==='week'?'Semaine en cours':'Année en cours';
+  document.getElementById('mCASub').textContent = currentView==='month'?'Mois en cours':currentView==='week'?'Semaine en cours':currentView==='custom'?'Mois sélectionné':'Année en cours';
   if(trend!==null) {
     const sign = trend>=0?'+':'';
     document.getElementById('mTrend').textContent = sign+trend.toFixed(1)+'%';
@@ -229,7 +315,7 @@ function renderChart(data) {
     data:{
       labels: data.months,
       datasets:[
-        {label:'Cette année', data:data.monthlyN.map(v=>Math.round(v)), backgroundColor:'#378ADD', borderRadius:4},
+        {label:'Année sélectionnée', data:data.monthlyN.map(v=>Math.round(v)), backgroundColor:'#378ADD', borderRadius:4},
         {label:'An passé', data:data.monthlyN1.map(v=>Math.round(v)), backgroundColor:'#D3D1C7', borderRadius:4}
       ]
     },
@@ -246,16 +332,20 @@ function renderChart(data) {
 
 function renderInvoices(invoices) {
   const body = document.getElementById('invBody');
-  if(!invoices.length){body.innerHTML='<tr><td colspan="4" style="color:#888;text-align:center;padding:20px">Aucune facture trouvée</td></tr>';return;}
+  if(!invoices.length){
+    body.innerHTML='<tr><td colspan="5" style="color:#888;text-align:center;padding:20px">Aucune facture trouvée</td></tr>';
+    return;
+  }
   body.innerHTML = invoices.map(inv => {
     const amount = parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0);
     const date = inv.date ? new Date(inv.date).toLocaleDateString('fr-FR') : '—';
-    const client = inv.number || '—';
+    const client = getClient(inv);
+    const numero = inv.number || '—';
     const status = inv.status||'';
     let badge = '<span class="badge badge-pending">En attente</span>';
     if(status==='paid') badge='<span class="badge badge-paid">Payée</span>';
     else if(status==='late') badge='<span class="badge badge-late">En retard</span>';
-    return `<tr><td>${client}</td><td style="font-weight:500">${fmt(amount)}</td><td style="color:#888">${date}</td><td>${badge}</td></tr>`;
+    return `<tr><td>${client}</td><td style="color:#888;font-size:12px">${numero}</td><td style="font-weight:500">${fmt(amount)}</td><td style="color:#888">${date}</td><td>${badge}</td></tr>`;
   }).join('');
 }
 </script>
