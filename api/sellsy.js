@@ -23,7 +23,23 @@ export default async function handler(req, res) {
     if (!tokenResp.ok) throw new Error('Auth failed');
     const { access_token } = await tokenResp.json();
 
-    const body = JSON.stringify({ filters: { date: { start: dateStart, end: dateEnd } } });
+    // Filtre : exclure les factures d'acomptes
+    const filters = {
+      date: { start: dateStart, end: dateEnd },
+      is_deposit: false
+    };
+
+    const body = JSON.stringify({ filters });
+
+    if (mode === 'list') {
+      const listResp = await fetch(`https://api.sellsy.com/v2/invoices/search?limit=100&offset=0&order=date&direction=desc`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+        body
+      });
+      const listData = await listResp.json();
+      return res.status(200).json(listData);
+    }
 
     // Première page pour connaître le total
     const firstResp = await fetch(`https://api.sellsy.com/v2/invoices/search?limit=100&offset=0&field[]=amounts.total_excl_tax&field[]=id`, {
@@ -35,17 +51,6 @@ export default async function handler(req, res) {
     const firstPage = await firstResp.json();
     const total = firstPage.pagination?.total || 0;
     let allInvoices = [...(firstPage.data || [])];
-
-    // Si mode list, on retourne juste les 100 premières avec toutes les infos
-    if (mode === 'list') {
-      const listResp = await fetch(`https://api.sellsy.com/v2/invoices/search?limit=100&offset=0&order=date&direction=desc`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
-        body
-      });
-      const listData = await listResp.json();
-      return res.status(200).json(listData);
-    }
 
     // Récupérer toutes les pages EN PARALLÈLE
     if (total > 100) {
@@ -66,7 +71,7 @@ export default async function handler(req, res) {
       }
     }
 
-    const totalCA = allInvoices.reduce((acc, inv) => 
+    const totalCA = allInvoices.reduce((acc, inv) =>
       acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0
     );
 
