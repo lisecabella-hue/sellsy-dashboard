@@ -144,7 +144,7 @@ function getRange(view) {
 }
 
 function sumCA(invoices) {
-  return invoices.reduce((acc, inv) => acc + parseFloat(inv.totalAmountExcludingTaxes||inv.totalExcludingTaxes||0), 0);
+  return invoices.reduce((acc, inv) => acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
 }
 
 async function loadData() {
@@ -247,9 +247,9 @@ function renderInvoices(invoices) {
   const body = document.getElementById('invBody');
   if(!invoices.length){body.innerHTML='<tr><td colspan="4" style="color:#888;text-align:center;padding:20px">Aucune facture trouvée</td></tr>';return;}
   body.innerHTML = invoices.map(inv => {
-    const amount = parseFloat(inv.totalAmountExcludingTaxes||inv.totalExcludingTaxes||0);
-    const date = inv.invoiceDate ? new Date(inv.invoiceDate).toLocaleDateString('fr-FR') : '—';
-    const client = inv.thirdName||inv.subject||'—';
+    const amount = parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0);
+    const date = inv.date ? new Date(inv.date).toLocaleDateString('fr-FR') : '—';
+    const client = inv.number || '—';
     const status = inv.status||'';
     let badge = '<span class="badge badge-pending">En attente</span>';
     if(status==='paid') badge='<span class="badge badge-paid">Payée</span>';
