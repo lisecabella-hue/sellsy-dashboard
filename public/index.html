@@ -201,10 +201,9 @@ async function loadData() {
   document.getElementById('mAvg').textContent = '...';
 
   try {
-    const [caResp, listResp, caPrevResp] = await Promise.all([
+    const [caResp, listResp] = await Promise.all([
       fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=total`),
-      fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=list`),
-      fetch(`/api/sellsy?dateStart=${prevDates.dateStart}&dateEnd=${prevDates.dateEnd}&mode=total`)
+      fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=list`)
     ]);
 
     if(!caResp.ok || !listResp.ok) throw new Error('Erreur API');
@@ -219,25 +218,31 @@ async function loadData() {
     document.getElementById('mCount').textContent = count.toLocaleString('fr-FR');
     document.getElementById('mAvg').textContent = fmt(avg);
 
-    // Comparaison N-1
-    if (caPrevResp.ok) {
-      const caPrevData = await caPrevResp.json();
-      const prevCA = caPrevData._totalCA || 0;
-      if (prevCA > 0) {
-        const diff = ((totalCA - prevCA) / prevCA) * 100;
-        const sign = diff >= 0 ? '+' : '';
-        const vsEl = document.getElementById('mCAVs');
-        vsEl.textContent = `${sign}${diff.toFixed(1)}% vs ${prevDates.dateStart.slice(0,4)} (${fmt(prevCA)})`;
-        vsEl.className = `metric-vs ${diff >= 0 ? 'up' : 'down'}`;
-      }
-    }
-
     const invoices = (listData.data || []).sort((a,b) => new Date(b.date) - new Date(a.date));
     renderInvoices(invoices.slice(0, 10));
 
     const t = new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     document.getElementById('lastUpdate').textContent = 'Mis à jour le ' + t;
     setStatus('ok', 'Données à jour');
+
+    // Comparaison N-1 en arrière-plan
+    const vsEl = document.getElementById('mCAVs');
+    vsEl.textContent = '⏳ vs N-1...';
+    vsEl.className = 'metric-vs neutral';
+    fetch(`/api/sellsy?dateStart=${prevDates.dateStart}&dateEnd=${prevDates.dateEnd}&mode=total`)
+      .then(r => r.json())
+      .then(caPrevData => {
+        const prevCA = caPrevData._totalCA || 0;
+        if (prevCA > 0) {
+          const diff = ((totalCA - prevCA) / prevCA) * 100;
+          const sign = diff >= 0 ? '+' : '';
+          vsEl.textContent = `${sign}${diff.toFixed(1)}% vs ${prevDates.dateStart.slice(0,4)} (${fmt(prevCA)})`;
+          vsEl.className = `metric-vs ${diff >= 0 ? 'up' : 'down'}`;
+        } else {
+          vsEl.textContent = 'Pas de données N-1';
+        }
+      })
+      .catch(() => { vsEl.textContent = ''; });
 
   } catch(e) {
     setStatus('err', 'Erreur');
