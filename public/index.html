@@ -159,7 +159,7 @@ async function refreshCache() {
   btn.disabled = true;
   btn.textContent = '⏳ Calcul en cours... (peut prendre 10-20 min)';
   try {
-    const resp = await fetch('/api/cron', {
+    const resp = await fetch('https://project-a908o.vercel.app/api/cron', {
       headers: { 'Authorization': 'Bearer monSecret2026' }
     });
     const data = await resp.json();
