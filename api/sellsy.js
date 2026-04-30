@@ -31,22 +31,28 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'dateStart and dateEnd are required' });
     }
 
-    const params = new URLSearchParams({
-      'filters[date][gte]': dateStart,
-      'filters[date][lte]': dateEnd,
-      'pagination[limit]': '100'
-    });
+    // Essai avec invoiceDate
+    const url = `https://api.sellsy.com/v2/invoices?filters[invoiceDate][after]=${dateStart}&filters[invoiceDate][before]=${dateEnd}&pagination[limit]=100&embed[]=amounts`;
 
-    const invoicesResp = await fetch(`https://api.sellsy.com/v2/invoices?${params}`, {
+    const invoicesResp = await fetch(url, {
       headers: { 'Authorization': `Bearer ${access_token}` }
     });
 
     if (!invoicesResp.ok) {
       const err = await invoicesResp.json();
-      return res.status(invoicesResp.status).json({ error: err.message || 'API error' });
+      // Si ça échoue, on retourne l'erreur avec l'URL pour debug
+      return res.status(invoicesResp.status).json({ 
+        error: err.message || 'API error',
+        url_tried: url,
+        details: err
+      });
     }
 
     const data = await invoicesResp.json();
+    // Ajouter les dates min/max pour debug
+    const dates = (data.data||[]).map(i => i.date || i.invoiceDate).filter(Boolean);
+    data._debug = { dateStart, dateEnd, count: (data.data||[]).length, firstDate: dates[0], lastDate: dates[dates.length-1] };
+    
     return res.status(200).json(data);
 
   } catch (e) {
