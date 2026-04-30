@@ -181,8 +181,8 @@ function fmt(n) {
   return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
 }
 
-async function callApi(dateStart, dateEnd) {
-  const resp = await fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}`);
+async function callApi(dateStart, dateEnd, mode='total') {
+  const resp = await fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=${mode}`);
   if(!resp.ok) { const e = await resp.json(); throw new Error(e.error || 'Erreur API'); }
   return resp.json();
 }
