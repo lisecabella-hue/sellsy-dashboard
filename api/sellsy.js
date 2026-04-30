@@ -32,8 +32,8 @@ export default async function handler(req, res) {
     }
 
     const params = new URLSearchParams({
-      'filters[invoiceDate][gte]': dateStart,
-      'filters[invoiceDate][lte]': dateEnd,
+      'filters[date][gte]': dateStart,
+      'filters[date][lte]': dateEnd,
       'pagination[limit]': '100'
     });
 
