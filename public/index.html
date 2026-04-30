@@ -28,7 +28,7 @@
     .btn-primary:hover { background: #333; }
     .status { font-size: 12px; color: #888; display: flex; align-items: center; gap: 6px; }
     .dot { width: 7px; height: 7px; border-radius: 50%; background: #ccc; display: inline-block; }
-    .dot.ok { background: #1D9E75; } .dot.err { background: #D85A30; } .dot.spin { background: #EF9F27; animation: pulse 1s infinite; }
+    .dot.ok { background: #1D9E75; } .dot.err { background: #D85A30; } .dot.spin { background: #74A1D6; animation: pulse 1s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
     .error-box { background: #fff0f0; border: 1px solid #fcc; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #c00; margin-bottom: 16px; display: none; }
     .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
@@ -263,13 +263,42 @@ function updateBudgetDisplay(totalCA) {
   }
 
   let budgetTotal = 0;
-  if (currentMode === 'month' && startDate.getFullYear() === 2026) {
+
+  if (currentMode === 'today' && startDate.getFullYear() === 2026) {
+    // Budget du jour = budget mensuel / nb jours du mois
+    const m = startDate.getMonth();
+    const daysInMonth = new Date(2026, m + 1, 0).getDate();
+    budgetTotal = Math.round(budget2026[m] / daysInMonth * 10) / 10;
+  } else if (currentMode === 'week' && endDate.getFullYear() === 2026) {
+    // Budget semaine = budget mensuel / nb jours du mois * 7
+    // Si la semaine chevauche deux mois, on proratise
+    const days = Math.round((endDate - startDate) / 86400000) + 1;
+    for (let d = 0; d < days; d++) {
+      const day = new Date(startDate);
+      day.setDate(startDate.getDate() + d);
+      if (day.getFullYear() === 2026) {
+        const m = day.getMonth();
+        const daysInMonth = new Date(2026, m + 1, 0).getDate();
+        budgetTotal += budget2026[m] / daysInMonth;
+      }
+    }
+    budgetTotal = Math.round(budgetTotal * 10) / 10;
+  } else if (currentMode === 'month' && startDate.getFullYear() === 2026) {
     budgetTotal = budget2026[startDate.getMonth()];
   } else if (currentMode === 'ytd' && endDate.getFullYear() === 2026) {
     for (let m = 0; m <= endDate.getMonth(); m++) budgetTotal += budget2026[m];
-  } else if (currentMode === 'custom') {
-    // Somme des mois couverts
-    for (let m = startDate.getMonth(); m <= endDate.getMonth(); m++) budgetTotal += budget2026[m];
+  } else if (currentMode === 'custom' && endDate.getFullYear() === 2026) {
+    const days = Math.round((endDate - startDate) / 86400000) + 1;
+    for (let d = 0; d < days; d++) {
+      const day = new Date(startDate);
+      day.setDate(startDate.getDate() + d);
+      if (day.getFullYear() === 2026) {
+        const m = day.getMonth();
+        const daysInMonth = new Date(2026, m + 1, 0).getDate();
+        budgetTotal += budget2026[m] / daysInMonth;
+      }
+    }
+    budgetTotal = Math.round(budgetTotal * 10) / 10;
   }
 
   if (budgetTotal <= 0) {
@@ -444,12 +473,12 @@ function renderChart(labels, currentData, prevData, budgetData, year) {
     datasets.push({
       label: 'Budget 2026',
       data: budgetData,
-      borderColor: '#EF9F27',
+      borderColor: '#74A1D6',
       backgroundColor: 'transparent',
       borderWidth: 2,
       borderDash: [3, 3],
       pointRadius: 3,
-      pointBackgroundColor: '#EF9F27',
+      pointBackgroundColor: '#74A1D6',
       tension: 0.3,
       fill: false
     });
