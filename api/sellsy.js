@@ -31,27 +31,45 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'dateStart and dateEnd are required' });
     }
 
-    // Essai avec invoiceDate
-    const url = `https://api.sellsy.com/v2/invoices?filters[invoiceDate][after]=${dateStart}&filters[invoiceDate][before]=${dateEnd}&pagination[limit]=100&embed[]=amounts`;
+    // Récupérer la liste des filtres disponibles via l'API
+    const params = new URLSearchParams();
+    params.append('filters[invoiceDate][gte]', dateStart);
+    params.append('filters[invoiceDate][lte]', dateEnd);
+    params.append('pagination[limit]', '100');
+
+    const url = `https://api.sellsy.com/v2/invoices?${params.toString()}`;
 
     const invoicesResp = await fetch(url, {
       headers: { 'Authorization': `Bearer ${access_token}` }
     });
 
+    const rawText = await invoicesResp.text();
+    
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch(e) {
+      return res.status(500).json({ error: 'Invalid JSON from Sellsy', raw: rawText.slice(0, 500) });
+    }
+
     if (!invoicesResp.ok) {
-      const err = await invoicesResp.json();
-      // Si ça échoue, on retourne l'erreur avec l'URL pour debug
       return res.status(invoicesResp.status).json({ 
-        error: err.message || 'API error',
-        url_tried: url,
-        details: err
+        error: data.message || data.error || 'API error',
+        details: data,
+        url_tried: url
       });
     }
 
-    const data = await invoicesResp.json();
-    // Ajouter les dates min/max pour debug
-    const dates = (data.data||[]).map(i => i.date || i.invoiceDate).filter(Boolean);
-    data._debug = { dateStart, dateEnd, count: (data.data||[]).length, firstDate: dates[0], lastDate: dates[dates.length-1] };
+    // Debug info
+    const dates = (data.data||[]).map(i => i.date).filter(Boolean).sort();
+    data._debug = { 
+      dateStart, 
+      dateEnd, 
+      count: (data.data||[]).length,
+      oldestDate: dates[0],
+      newestDate: dates[dates.length-1],
+      url_tried: url
+    };
     
     return res.status(200).json(data);
 
