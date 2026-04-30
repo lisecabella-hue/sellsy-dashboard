@@ -31,17 +31,27 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'dateStart and dateEnd are required' });
     }
 
-    const params = new URLSearchParams();
-    params.append('filters[invoiceDate][gte]', dateStart);
-    params.append('filters[invoiceDate][lte]', dateEnd);
-    params.append('pagination[limit]', '100');
-    params.append('sort[direction]', 'desc');
-    params.append('sort[field]', 'date');
+    // Utiliser POST /v2/invoices/search avec body JSON
+    const params = new URLSearchParams({
+      'order': 'date',
+      'direction': 'desc',
+      'limit': '100'
+    });
 
-    const url = `https://api.sellsy.com/v2/invoices?${params.toString()}`;
-
-    const invoicesResp = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${access_token}` }
+    const invoicesResp = await fetch(`https://api.sellsy.com/v2/invoices/search?${params}`, {
+      method: 'POST',
+      headers: { 
+        'Authorization': `Bearer ${access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        filters: {
+          date: {
+            start: dateStart,
+            end: dateEnd
+          }
+        }
+      })
     });
 
     const rawText = await invoicesResp.text();
