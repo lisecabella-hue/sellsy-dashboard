@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard CEO</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #1a1a1a; }
@@ -13,36 +12,24 @@
     .header span { font-size: 13px; color: #888; }
     .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
     .top-bar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; gap: 16px; flex-wrap: wrap; }
-    .left-controls { display: flex; flex-direction: column; gap: 12px; }
-    .toggle-row { display: flex; gap: 8px; flex-wrap: wrap; }
-    .tgl { font-size: 13px; padding: 6px 16px; border-radius: 20px; border: 1px solid #ddd; background: white; cursor: pointer; color: #666; }
-    .tgl.active { background: #1a1a1a; color: white; border-color: #1a1a1a; font-weight: 500; }
-    .custom-month-row { display: flex; align-items: center; gap: 8px; }
-    .custom-month-row label { font-size: 13px; color: #888; }
-    .custom-month-row select { font-size: 13px; padding: 6px 10px; border-radius: 8px; border: 1px solid #ddd; background: white; cursor: pointer; color: #1a1a1a; }
-    .custom-month-row select:focus { outline: none; border-color: #1a1a1a; }
-    .btn-custom { font-size: 13px; padding: 6px 14px; border-radius: 8px; border: 1px solid #ddd; background: white; cursor: pointer; color: #666; }
-    .btn-custom:hover { background: #f0f0f0; }
-    .btn-custom.active { background: #1a1a1a; color: white; border-color: #1a1a1a; font-weight: 500; }
-    .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
-    .metric-card { background: white; border-radius: 12px; padding: 20px; border: 1px solid #e5e5e5; }
-    .metric-label { font-size: 12px; color: #888; margin-bottom: 8px; }
-    .metric-value { font-size: 26px; font-weight: 500; }
-    .metric-sub { font-size: 12px; margin-top: 6px; color: #888; }
-    .trend-up { color: #1D9E75; }
-    .trend-down { color: #D85A30; }
-    .chart-card { background: white; border-radius: 12px; padding: 24px; border: 1px solid #e5e5e5; margin-bottom: 24px; }
-    .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-    .chart-title { font-size: 15px; font-weight: 500; }
-    .legend { display: flex; gap: 16px; font-size: 12px; color: #888; }
-    .legend-sq { width: 10px; height: 10px; border-radius: 2px; display: inline-block; margin-right: 4px; vertical-align: middle; }
-    .btn-refresh { background: #1a1a1a; color: white; border: none; padding: 10px 24px; border-radius: 8px; font-size: 14px; cursor: pointer; }
-    .btn-refresh:hover { background: #333; }
-    .btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
+    .left-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .left-controls label { font-size: 13px; color: #888; }
+    select { font-size: 13px; padding: 8px 12px; border-radius: 8px; border: 1px solid #ddd; background: white; cursor: pointer; color: #1a1a1a; }
+    .btn { font-size: 14px; padding: 9px 20px; border-radius: 8px; border: none; cursor: pointer; }
+    .btn-primary { background: #1a1a1a; color: white; }
+    .btn-primary:hover { background: #333; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
     .status { font-size: 12px; color: #888; display: flex; align-items: center; gap: 6px; margin-top: 8px; }
     .dot { width: 7px; height: 7px; border-radius: 50%; background: #ccc; display: inline-block; }
     .dot.ok { background: #1D9E75; } .dot.err { background: #D85A30; } .dot.spin { background: #EF9F27; }
     .error-box { background: #fff0f0; border: 1px solid #fcc; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #c00; margin-top: 12px; display: none; }
+    .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .metric-card { background: white; border-radius: 12px; padding: 24px; border: 1px solid #e5e5e5; }
+    .metric-label { font-size: 12px; color: #888; margin-bottom: 8px; }
+    .metric-value { font-size: 28px; font-weight: 500; }
+    .metric-sub { font-size: 12px; margin-top: 6px; color: #888; }
+    .chart-card { background: white; border-radius: 12px; padding: 24px; border: 1px solid #e5e5e5; margin-bottom: 24px; }
+    .chart-title { font-size: 15px; font-weight: 500; margin-bottom: 16px; }
     table { width: 100%; border-collapse: collapse; font-size: 14px; }
     th { text-align: left; font-weight: 500; font-size: 12px; color: #888; padding: 8px; border-bottom: 1px solid #e5e5e5; }
     td { padding: 10px 8px; border-bottom: 1px solid #f0f0f0; }
@@ -50,9 +37,7 @@
     .badge-paid { background: #E1F5EE; color: #0F6E56; }
     .badge-pending { background: #FAEEDA; color: #854F0B; }
     .badge-late { background: #FCEBEB; color: #A32D2D; }
-    .ytd-bar { margin-bottom: 24px; }
-    .ytd-title { font-size: 14px; font-weight: 500; color: #1a1a1a; margin-bottom: 12px; padding: 10px 16px; background: #f0f4ff; border-radius: 8px; border-left: 3px solid #378ADD; }
-    .period-label { font-size: 13px; color: #888; margin-bottom: 4px; }
+    .period-label { font-size: 20px; font-weight: 500; margin-bottom: 20px; }
   </style>
 </head>
 <body>
@@ -63,34 +48,25 @@
   <div class="container">
     <div class="top-bar">
       <div class="left-controls">
-        <div class="toggle-row">
-          <button class="tgl active" id="tglMonth" onclick="setView('month')">Ce mois</button>
-          <button class="tgl" id="tglWeek" onclick="setView('week')">Cette semaine</button>
-          <button class="tgl" id="tglYear" onclick="setView('year')">Cette année</button>
-        </div>
-        <div class="custom-month-row">
-          <label>Ou choisir :</label>
-          <select id="selMonth">
-            <option value="0">Janvier</option>
-            <option value="1">Février</option>
-            <option value="2">Mars</option>
-            <option value="3">Avril</option>
-            <option value="4">Mai</option>
-            <option value="5">Juin</option>
-            <option value="6">Juillet</option>
-            <option value="7">Août</option>
-            <option value="8">Septembre</option>
-            <option value="9">Octobre</option>
-            <option value="10">Novembre</option>
-            <option value="11">Décembre</option>
-          </select>
-          <select id="selYear"></select>
-          <button class="btn-custom" id="btnCustom" onclick="setCustomMonth()">Voir</button>
-        </div>
+        <label>Mois :</label>
+        <select id="selMonth">
+          <option value="0">Janvier</option>
+          <option value="1">Février</option>
+          <option value="2">Mars</option>
+          <option value="3">Avril</option>
+          <option value="4">Mai</option>
+          <option value="5">Juin</option>
+          <option value="6">Juillet</option>
+          <option value="7">Août</option>
+          <option value="8">Septembre</option>
+          <option value="9">Octobre</option>
+          <option value="10">Novembre</option>
+          <option value="11">Décembre</option>
+        </select>
+        <select id="selYear"></select>
+        <button class="btn btn-primary" onclick="loadData()">↻ Voir</button>
       </div>
       <div>
-        <button class="btn-refresh" id="btnLoad" onclick="loadData()">↻ Actualiser</button>
-        <button class="btn-refresh" id="btnCache" onclick="refreshCache()" style="background:#555;margin-top:8px;font-size:12px;padding:6px 14px">🔄 Recalculer le cache</button>
         <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">En attente</span></div>
         <div class="error-box" id="errorBox"></div>
       </div>
@@ -99,100 +75,29 @@
     <p class="period-label" id="periodLabel"></p>
 
     <div class="metric-grid">
-      <div class="metric-card"><p class="metric-label">Chiffre d'affaires HT</p><p class="metric-value" id="mCA">—</p><p class="metric-sub" id="mCASub">En attente</p></div>
-      <div class="metric-card"><p class="metric-label">Trend vs N-1</p><p class="metric-value" id="mTrend">—</p><p class="metric-sub" id="mTrendSub">Même période an passé</p></div>
+      <div class="metric-card"><p class="metric-label">Chiffre d'affaires HT</p><p class="metric-value" id="mCA">—</p><p class="metric-sub">Total du mois</p></div>
       <div class="metric-card"><p class="metric-label">Nb factures</p><p class="metric-value" id="mCount">—</p><p class="metric-sub">Période sélectionnée</p></div>
       <div class="metric-card"><p class="metric-label">Panier moyen HT</p><p class="metric-value" id="mAvg">—</p><p class="metric-sub">Par facture</p></div>
     </div>
-    <div class="ytd-bar" id="ytdSection" style="display:none">
-      <div class="ytd-title" id="ytdTitle">📊 Cumul YTD</div>
-      <div class="metric-grid">
-        <div class="metric-card" style="border-left:3px solid #378ADD"><p class="metric-label">CA Cumulé (YTD)</p><p class="metric-value" id="mYTD">—</p><p class="metric-sub" id="mYTDSub">Jan → mois sélectionné</p></div>
-        <div class="metric-card" style="border-left:3px solid #B4B2A9"><p class="metric-label">CA Cumulé N-1</p><p class="metric-value" id="mYTDN1">—</p><p class="metric-sub" id="mYTDN1Sub">Même période an passé</p></div>
-        <div class="metric-card"><p class="metric-label">Trend YTD vs N-1</p><p class="metric-value" id="mYTDTrend">—</p><p class="metric-sub" id="mYTDTrendSub">Évolution cumulée</p></div>
-        <div class="metric-card"><p class="metric-label">Nb factures YTD</p><p class="metric-value" id="mYTDCount">—</p><p class="metric-sub">Depuis janvier</p></div>
-      </div>
-    </div>
 
     <div class="chart-card">
-      <div class="chart-header">
-        <p class="chart-title" id="chartTitle">CA mensuel — N vs N-1</p>
-        <div class="legend">
-          <span><span class="legend-sq" style="background:#378ADD"></span>Année sélectionnée</span>
-          <span><span class="legend-sq" style="background:#ccc"></span>An passé</span>
-        </div>
-      </div>
-      <div style="position:relative;width:100%;height:260px">
-        <canvas id="chartCA"></canvas>
-      </div>
-    </div>
-
-    <div class="chart-card">
-      <div class="chart-header"><p class="chart-title">Dernières factures</p></div>
+      <p class="chart-title">Dernières factures</p>
       <table>
-        <thead><tr><th>Client</th><th>N° Facture</th><th>Montant HT</th><th>Date</th><th>Statut</th></tr></thead>
-        <tbody id="invBody"><tr><td colspan="5" style="color:#888;text-align:center;padding:20px">Cliquez sur Actualiser...</td></tr></tbody>
+        <thead><tr><th>N° Facture</th><th>Montant HT</th><th>Date</th><th>Statut</th></tr></thead>
+        <tbody id="invBody"><tr><td colspan="4" style="color:#888;text-align:center;padding:20px">Sélectionnez un mois et cliquez sur Voir...</td></tr></tbody>
       </table>
     </div>
   </div>
 
 <script>
-let chartInstance = null;
-let currentView = 'month';
-let customYear = null;
-let customMonth = null;
-
-// Remplir les années (2015 à année en cours)
 const now = new Date();
 const selYear = document.getElementById('selYear');
 for(let y = now.getFullYear(); y >= 2015; y--) {
   const opt = document.createElement('option');
-  opt.value = y;
-  opt.textContent = y;
+  opt.value = y; opt.textContent = y;
   selYear.appendChild(opt);
 }
-// Pré-sélectionner le mois et l'année en cours
 document.getElementById('selMonth').value = now.getMonth();
-
-async function refreshCache() {
-  const btn = document.getElementById('btnCache');
-  btn.disabled = true;
-  btn.textContent = '⏳ Calcul en cours... (peut prendre 10-20 min)';
-  try {
-    const resp = await fetch(`${BACKEND_URL}/api/trigger?secret=monSecret2026`);
-    const data = await resp.json();
-    if(data.success) {
-      btn.textContent = '✅ Cache mis à jour !';
-      setTimeout(() => { btn.textContent = '🔄 Recalculer le cache'; btn.disabled = false; }, 3000);
-      loadData();
-    } else {
-      btn.textContent = '❌ Erreur : ' + (data.error || 'inconnue');
-      btn.disabled = false;
-    }
-  } catch(e) {
-    btn.textContent = '❌ Erreur réseau';
-    btn.disabled = false;
-  }
-}
-
-function setView(v) {
-  currentView = v;
-  customYear = null;
-  customMonth = null;
-  ['Month','Week','Year'].forEach(x => document.getElementById('tgl'+x).classList.remove('active'));
-  document.getElementById('tgl'+v.charAt(0).toUpperCase()+v.slice(1)).classList.add('active');
-  document.getElementById('btnCustom').classList.remove('active');
-  loadData();
-}
-
-function setCustomMonth() {
-  customMonth = parseInt(document.getElementById('selMonth').value);
-  customYear = parseInt(document.getElementById('selYear').value);
-  currentView = 'custom';
-  ['Month','Week','Year'].forEach(x => document.getElementById('tgl'+x).classList.remove('active'));
-  document.getElementById('btnCustom').classList.add('active');
-  loadData();
-}
 
 function setStatus(state, msg) {
   document.getElementById('statusDot').className = 'dot ' + state;
@@ -201,56 +106,6 @@ function setStatus(state, msg) {
 
 function fmt(n) {
   return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
-}
-
-const BACKEND_URL = 'https://sellsy-dashboard-production.up.railway.app';
-
-async function callApi(dateStart, dateEnd, mode='total') {
-  const resp = await fetch(`${BACKEND_URL}/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=${mode}`);
-  if(!resp.ok) { const e = await resp.json(); throw new Error(e.error || 'Erreur API'); }
-  return resp.json();
-}
-
-function getRange(view) {
-  const now = new Date();
-  let s, e, sN1, eN1, year, month;
-
-  if(view === 'custom') {
-    year = customYear;
-    month = customMonth;
-    s = new Date(year, month, 1);
-    e = new Date(year, month+1, 0);
-    sN1 = new Date(year-1, month, 1);
-    eN1 = new Date(year-1, month+1, 0);
-  } else if(view==='month') {
-    s = new Date(now.getFullYear(), now.getMonth(), 1);
-    e = new Date(now.getFullYear(), now.getMonth()+1, 0);
-    sN1 = new Date(now.getFullYear()-1, now.getMonth(), 1);
-    eN1 = new Date(now.getFullYear()-1, now.getMonth()+1, 0);
-  } else if(view==='week') {
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0=dim, 1=lun, ..., 6=sam
-    const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-    s = new Date(today);
-    s.setDate(today.getDate() + diffToMonday);
-    s.setHours(0,0,0,0);
-    e = new Date(s);
-    e.setDate(s.getDate() + 6);
-    e.setHours(23,59,59,999);
-    sN1 = new Date(s); sN1.setFullYear(s.getFullYear()-1);
-    eN1 = new Date(e); eN1.setFullYear(e.getFullYear()-1);
-  } else {
-    s = new Date(now.getFullYear(),0,1);
-    e = new Date(now.getFullYear(),11,31);
-    sN1 = new Date(now.getFullYear()-1,0,1);
-    eN1 = new Date(now.getFullYear()-1,11,31);
-  }
-  const f = d => d.toISOString().split('T')[0];
-  return {s:f(s), e:f(e), sN1:f(sN1), eN1:f(eN1), year: (view==='custom' ? year : now.getFullYear())};
-}
-
-function sumCA(invoices) {
-  return invoices.reduce((acc, inv) => acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
 }
 
 function getClient(inv) {
@@ -262,178 +117,70 @@ function getClient(inv) {
   return inv.number || '—';
 }
 
-function getPeriodLabel() {
-  const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-  if(currentView==='custom') return `📅 ${months[customMonth]} ${customYear}`;
-  if(currentView==='month') return `📅 ${months[now.getMonth()]} ${now.getFullYear()}`;
-  if(currentView==='week') return `📅 Semaine en cours`;
-  return `📅 Année ${now.getFullYear()}`;
-}
-
 async function loadData() {
+  const month = parseInt(document.getElementById('selMonth').value);
+  const year = parseInt(document.getElementById('selYear').value);
+  const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+  
+  const dateStart = new Date(year, month, 1).toISOString().split('T')[0];
+  const dateEnd = new Date(year, month+1, 0).toISOString().split('T')[0];
+
   document.getElementById('errorBox').style.display='none';
-  document.getElementById('btnLoad').disabled=true;
-  setStatus('spin','Chargement...');
+  document.getElementById('periodLabel').textContent = `${months[month]} ${year}`;
+  setStatus('spin', 'Chargement... (peut prendre 10-30 sec)');
+  document.getElementById('mCA').textContent = '...';
+  document.getElementById('mCount').textContent = '...';
+  document.getElementById('mAvg').textContent = '...';
 
   try {
-    const range = getRange(currentView);
-    const selectedYear = range.year;
-    const months = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-    const lastMonth = (currentView==='custom') ? 11 : now.getMonth();
-
-    // Graphique : tous les mois de l'année sélectionnée
-    let monthlyN=[], monthlyN1=[];
-    for(let m=0; m<=lastMonth; m++) {
-      const s = new Date(selectedYear,m,1).toISOString().split('T')[0];
-      const e = new Date(selectedYear,m+1,0).toISOString().split('T')[0];
-      const sN1 = new Date(selectedYear-1,m,1).toISOString().split('T')[0];
-      const eN1 = new Date(selectedYear-1,m+1,0).toISOString().split('T')[0];
-      const [dN, dN1] = await Promise.all([callApi(s,e), callApi(sN1,eN1)]);
-      monthlyN.push(sumCA(dN.data||[]));
-      monthlyN1.push(sumCA(dN1.data||[]));
-    }
-
-    const [dCur, dN1] = await Promise.all([
-      callApi(range.s, range.e),
-      callApi(range.sN1, range.eN1)
+    // Charger CA total et liste en parallèle
+    const [caResp, listResp] = await Promise.all([
+      fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=total`),
+      fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=list`)
     ]);
 
-    // YTD : cumul de Jan jusqu'au mois sélectionné (seulement pour vue mois ou custom)
-    let ytdN = 0, ytdN1 = 0, ytdCount = 0;
-    const showYTD = (currentView === 'month' || currentView === 'custom');
-    if(showYTD) {
-      const ytdMonth = (currentView === 'custom') ? customMonth : now.getMonth();
-      const ytdYear = (currentView === 'custom') ? customYear : now.getFullYear();
-      const ytdStart = new Date(ytdYear, 0, 1).toISOString().split('T')[0];
-      const ytdEnd = new Date(ytdYear, ytdMonth+1, 0).toISOString().split('T')[0];
-      const ytdStartN1 = new Date(ytdYear-1, 0, 1).toISOString().split('T')[0];
-      const ytdEndN1 = new Date(ytdYear-1, ytdMonth+1, 0).toISOString().split('T')[0];
-      const [dYTD, dYTDN1] = await Promise.all([
-        callApi(ytdStart, ytdEnd),
-        callApi(ytdStartN1, ytdEndN1)
-      ]);
-      ytdN = sumCA(dYTD.data||[]);
-      ytdN1 = sumCA(dYTDN1.data||[]);
-      ytdCount = (dYTD.data||[]).length;
-    }
+    if(!caResp.ok || !listResp.ok) throw new Error('Erreur API');
+    
+    const caData = await caResp.json();
+    const listData = await listResp.json();
 
-    const recentSorted = (dCur.data||[]).sort((a,b) => new Date(b.date) - new Date(a.date));
+    const totalCA = caData._totalCA || 0;
+    const count = caData.pagination?.total || caData._count || 0;
+    const avg = count > 0 ? totalCA / count : 0;
 
-    const data = {
-      monthlyN, monthlyN1,
-      months: months.slice(0, lastMonth+1),
-      dataCurrent: dCur.data||[],
-      dataN1: dN1.data||[],
-      dataRecent: recentSorted,
-      selectedYear,
-      ytdN, ytdN1, ytdCount, showYTD
-    };
+    document.getElementById('mCA').textContent = fmt(totalCA);
+    document.getElementById('mCount').textContent = count.toLocaleString('fr-FR');
+    document.getElementById('mAvg').textContent = fmt(avg);
 
-    document.getElementById('periodLabel').textContent = getPeriodLabel();
-    document.getElementById('chartTitle').textContent = `CA mensuel ${selectedYear} vs ${selectedYear-1}`;
-    renderMetrics(data);
-    renderChart(data);
-    renderInvoices(data.dataRecent.slice(0,8));
+    const invoices = (listData.data || []).sort((a,b) => new Date(b.date) - new Date(a.date));
+    renderInvoices(invoices.slice(0, 10));
 
     const t = new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     document.getElementById('lastUpdate').textContent = 'Mis à jour le ' + t;
-    setStatus('ok','Données à jour');
-  } catch(err) {
-    setStatus('err','Erreur');
+    setStatus('ok', 'Données à jour');
+
+  } catch(e) {
+    setStatus('err', 'Erreur');
     document.getElementById('errorBox').style.display='block';
-    document.getElementById('errorBox').textContent = 'Erreur : ' + err.message;
+    document.getElementById('errorBox').textContent = 'Erreur : ' + e.message;
   }
-  document.getElementById('btnLoad').disabled=false;
-}
-
-function renderMetrics(data) {
-  const ca = sumCA(data.dataCurrent);
-  const caN1 = sumCA(data.dataN1);
-  const trend = caN1>0 ? ((ca-caN1)/caN1*100) : null;
-  const count = data.dataCurrent.length;
-  const avg = count>0 ? ca/count : 0;
-  document.getElementById('mCA').textContent = fmt(ca);
-  document.getElementById('mCASub').textContent = currentView==='month'?'Mois en cours':currentView==='week'?'Semaine en cours':currentView==='custom'?'Mois sélectionné':'Année en cours';
-  if(trend!==null) {
-    const sign = trend>=0?'+':'';
-    document.getElementById('mTrend').textContent = sign+trend.toFixed(1)+'%';
-    document.getElementById('mTrend').className = 'metric-value '+(trend>=0?'trend-up':'trend-down');
-    document.getElementById('mTrendSub').textContent = 'N-1 : '+fmt(caN1);
-  } else {
-    document.getElementById('mTrend').textContent = 'N/A';
-    document.getElementById('mTrend').className = 'metric-value';
-    document.getElementById('mTrendSub').textContent = 'Pas de données N-1';
-  }
-  document.getElementById('mCount').textContent = count;
-  document.getElementById('mAvg').textContent = fmt(avg);
-
-  // YTD
-  const ytdSection = document.getElementById('ytdSection');
-  if(data.showYTD) {
-    ytdSection.style.display = 'block';
-    const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-    const ytdMonth = (currentView === 'custom') ? customMonth : now.getMonth();
-    const ytdYear = (currentView === 'custom') ? customYear : now.getFullYear();
-    document.getElementById('ytdTitle').textContent = `📊 Cumul YTD — Janvier à ${months[ytdMonth]} ${ytdYear}`;
-    document.getElementById('mYTD').textContent = fmt(data.ytdN);
-    document.getElementById('mYTDSub').textContent = `Jan → ${months[ytdMonth]} ${ytdYear}`;
-    document.getElementById('mYTDN1').textContent = fmt(data.ytdN1);
-    document.getElementById('mYTDN1Sub').textContent = `Jan → ${months[ytdMonth]} ${ytdYear-1}`;
-    document.getElementById('mYTDCount').textContent = data.ytdCount;
-    const ytdTrend = data.ytdN1 > 0 ? ((data.ytdN - data.ytdN1) / data.ytdN1 * 100) : null;
-    if(ytdTrend !== null) {
-      const sign = ytdTrend >= 0 ? '+' : '';
-      document.getElementById('mYTDTrend').textContent = sign + ytdTrend.toFixed(1) + '%';
-      document.getElementById('mYTDTrend').className = 'metric-value ' + (ytdTrend >= 0 ? 'trend-up' : 'trend-down');
-      document.getElementById('mYTDTrendSub').textContent = 'N-1 : ' + fmt(data.ytdN1);
-    } else {
-      document.getElementById('mYTDTrend').textContent = 'N/A';
-      document.getElementById('mYTDTrend').className = 'metric-value';
-    }
-  } else {
-    ytdSection.style.display = 'none';
-  }
-}
-
-function renderChart(data) {
-  if(chartInstance) chartInstance.destroy();
-  const ctx = document.getElementById('chartCA').getContext('2d');
-  chartInstance = new Chart(ctx, {
-    type:'bar',
-    data:{
-      labels: data.months,
-      datasets:[
-        {label:'Année sélectionnée', data:data.monthlyN.map(v=>Math.round(v)), backgroundColor:'#378ADD', borderRadius:4},
-        {label:'An passé', data:data.monthlyN1.map(v=>Math.round(v)), backgroundColor:'#D3D1C7', borderRadius:4}
-      ]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{grid:{display:false}, ticks:{color:'#888',font:{size:12}}, border:{display:false}},
-        y:{grid:{color:'rgba(0,0,0,0.05)'}, ticks:{color:'#888',font:{size:12},callback:v=>new Intl.NumberFormat('fr-FR',{notation:'compact',maximumFractionDigits:0}).format(v)+'€'}, border:{display:false}}
-      }
-    }
-  });
 }
 
 function renderInvoices(invoices) {
   const body = document.getElementById('invBody');
-  if(!invoices.length){
-    body.innerHTML='<tr><td colspan="5" style="color:#888;text-align:center;padding:20px">Aucune facture trouvée</td></tr>';
+  if(!invoices.length) {
+    body.innerHTML='<tr><td colspan="4" style="color:#888;text-align:center;padding:20px">Aucune facture trouvée</td></tr>';
     return;
   }
   body.innerHTML = invoices.map(inv => {
     const amount = parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0);
     const date = inv.date ? new Date(inv.date).toLocaleDateString('fr-FR') : '—';
-    const client = getClient(inv);
     const numero = inv.number || '—';
-    const status = inv.status||'';
+    const status = inv.status || '';
     let badge = '<span class="badge badge-pending">En attente</span>';
     if(status==='paid') badge='<span class="badge badge-paid">Payée</span>';
     else if(status==='late') badge='<span class="badge badge-late">En retard</span>';
-    return `<tr><td>${client}</td><td style="color:#888;font-size:12px">${numero}</td><td style="font-weight:500">${fmt(amount)}</td><td style="color:#888">${date}</td><td>${badge}</td></tr>`;
+    return `<tr><td style="color:#888;font-size:12px">${numero}</td><td style="font-weight:500">${fmt(amount)}</td><td style="color:#888">${date}</td><td>${badge}</td></tr>`;
   }).join('');
 }
 </script>
