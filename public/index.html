@@ -68,6 +68,17 @@
     .btn-cancel { background: #f5f5f5; color: #444; }
     .btn-cancel:hover { background: #eee; }
     .save-msg { font-size: 12px; color: #1D9E75; display: none; margin-top: 8px; text-align: right; }
+
+    /* Login */
+    .login-overlay { position: fixed; inset: 0; background: #f5f5f5; z-index: 9999; display: flex; align-items: center; justify-content: center; }
+    .login-box { background: white; border-radius: 16px; padding: 40px; width: 360px; border: 1px solid #e5e5e5; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .login-title { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
+    .login-sub { font-size: 13px; color: #888; margin-bottom: 24px; }
+    .login-input { width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
+    .login-input:focus { outline: none; border-color: #1a1a1a; }
+    .login-btn { width: 100%; padding: 11px; background: #1a1a1a; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
+    .login-btn:hover { background: #333; }
+    .login-error { font-size: 13px; color: #D85A30; margin-top: 10px; display: none; }
   </style>
 </head>
 <body>
@@ -191,7 +202,66 @@
     </div>
   </div>
 
+
+  <!-- Login overlay -->
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-box">
+      <p class="login-title">📊 Dashboard CEO</p>
+      <p class="login-sub">Connectez-vous pour accéder au dashboard</p>
+      <input type="password" class="login-input" id="loginPassword" placeholder="Mot de passe" onkeydown="if(event.key==='Enter') doLogin()" />
+      <button class="login-btn" onclick="doLogin()">Se connecter</button>
+      <p class="login-error" id="loginError">Mot de passe incorrect</p>
+    </div>
+  </div>
+
 <script>
+
+// Auth
+const AUTH_KEY = 'dashboard_auth';
+const AUTH_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 jours
+
+function checkAuth() {
+  try {
+    const auth = JSON.parse(localStorage.getItem(AUTH_KEY));
+    if (auth && auth.token && Date.now() < auth.expires) {
+      document.getElementById('loginOverlay').style.display = 'none';
+      return true;
+    }
+  } catch {}
+  document.getElementById('loginOverlay').style.display = 'flex';
+  return false;
+}
+
+async function doLogin() {
+  const password = document.getElementById('loginPassword').value;
+  const errorEl = document.getElementById('loginError');
+  errorEl.style.display = 'none';
+
+  try {
+    const resp = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+
+    if (resp.ok) {
+      const data = await resp.json();
+      localStorage.setItem(AUTH_KEY, JSON.stringify({
+        token: data.token,
+        expires: Date.now() + AUTH_DURATION
+      }));
+      document.getElementById('loginOverlay').style.display = 'none';
+    } else {
+      errorEl.style.display = 'block';
+    }
+  } catch {
+    errorEl.style.display = 'block';
+  }
+}
+
+// Vérifier auth au chargement
+checkAuth();
+
 const now = new Date();
 const pad = n => String(n).padStart(2,'0');
 const todayStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
