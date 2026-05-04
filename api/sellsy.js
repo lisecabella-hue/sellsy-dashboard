@@ -149,9 +149,55 @@ export default async function handler(req, res) {
       acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0
     );
 
+    // Récupérer les avoirs pour la même période et les soustraire
+    const creditBody = JSON.stringify({
+      filters: {
+        date: { start: dateStart, end: dateEnd }
+      }
+    });
+
+    const fetchCreditPage = async (offset) => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const resp = await fetch(
+          `https://api.sellsy.com/v2/credit-notes/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+            body: creditBody
+          }
+        );
+        if (resp.status === 429) { await sleep(1000 * (attempt + 1)); continue; }
+        if (!resp.ok) return { data: [] };
+        return await resp.json();
+      }
+      return { data: [] };
+    };
+
+    const firstCreditPage = await fetchCreditPage(0);
+    const totalCredits = firstCreditPage.pagination?.total || 0;
+    let allCredits = [...(firstCreditPage.data || [])];
+
+    if (totalCredits > 100) {
+      const totalCreditPages = Math.ceil(totalCredits / 100);
+      for (let p = 1; p < totalCreditPages; p++) {
+        const page = await fetchCreditPage(p * 100);
+        allCredits = allCredits.concat(page.data || []);
+        await sleep(300);
+      }
+    }
+
+    const totalAvoirsCA = allCredits.reduce((acc, credit) =>
+      acc + parseFloat((credit.amounts && credit.amounts.total_excl_tax) || 0), 0
+    );
+
+    const totalCANet = totalCA - totalAvoirsCA;
+
     const result = {
-      _totalCA: Math.round(totalCA * 100) / 100,
+      _totalCA: Math.round(totalCANet * 100) / 100,
+      _totalCABrut: Math.round(totalCA * 100) / 100,
+      _totalAvoirs: Math.round(totalAvoirsCA * 100) / 100,
       _count: allInvoices.length,
+      _countAvoirs: allCredits.length,
       pagination: { total }
     };
 
