@@ -31,8 +31,11 @@
     .dot.ok { background: #1D9E75; } .dot.err { background: #D85A30; } .dot.spin { background: #74A1D6; animation: pulse 1s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
     .error-box { background: #fff0f0; border: 1px solid #fcc; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #c00; margin-bottom: 16px; display: none; }
-    .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px; }
+    .metric-grid-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
     .metric-card { background: white; border-radius: 12px; padding: 24px; border: 1px solid #e5e5e5; }
+    .metric-card.b2c { border-left: 3px solid #74A1D6; }
+    .metric-card.b2b { border-left: 3px solid #1D9E75; }
     .metric-label { font-size: 12px; color: #888; margin-bottom: 8px; }
     .metric-value { font-size: 28px; font-weight: 500; }
     .metric-sub { font-size: 12px; margin-top: 6px; color: #888; }
@@ -40,7 +43,6 @@
     .metric-vs.up { color: #1D9E75; }
     .metric-vs.down { color: #D85A30; }
     .metric-vs.neutral { color: #888; }
-    /* Barre budget */
     .budget-bar-wrap { margin-top: 10px; }
     .budget-bar-label { display: flex; justify-content: space-between; font-size: 11px; color: #888; margin-bottom: 4px; }
     .budget-bar-bg { background: #f0f0f0; border-radius: 4px; height: 6px; overflow: hidden; }
@@ -53,8 +55,6 @@
     .chart-subtitle { font-size: 12px; color: #888; margin-top: 2px; }
     .chart-container { position: relative; height: 280px; }
     .period-label { font-size: 20px; font-weight: 500; margin-bottom: 20px; }
-
-    /* Modal budget */
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; display: none; align-items: center; justify-content: center; }
     .modal-overlay.open { display: flex; }
     .modal { background: white; border-radius: 16px; padding: 32px; width: 600px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
@@ -68,8 +68,6 @@
     .btn-cancel { background: #f5f5f5; color: #444; }
     .btn-cancel:hover { background: #eee; }
     .save-msg { font-size: 12px; color: #1D9E75; display: none; margin-top: 8px; text-align: right; }
-
-    /* Login */
     .login-overlay { position: fixed; inset: 0; background: #f5f5f5; z-index: 9999; display: flex; align-items: center; justify-content: center; }
     .login-box { background: white; border-radius: 16px; padding: 40px; width: 360px; border: 1px solid #e5e5e5; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
     .login-title { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
@@ -90,7 +88,6 @@
     </div>
   </div>
 
-  <!-- Modal Budget -->
   <div class="modal-overlay" id="budgetModal">
     <div class="modal">
       <p class="modal-title">Budget 2026 mensuel</p>
@@ -147,6 +144,7 @@
     <div class="error-box" id="errorBox"></div>
     <p class="period-label" id="periodLabel"></p>
 
+    <!-- Ligne 1 : CA total + nb factures -->
     <div class="metric-grid">
       <div class="metric-card">
         <p class="metric-label">Chiffre d'affaires HT</p>
@@ -168,14 +166,32 @@
         <p class="metric-value" id="mCount">—</p>
         <p class="metric-sub">Période sélectionnée</p>
       </div>
-      <div class="metric-card">
-        <p class="metric-label">Panier moyen HT</p>
-        <p class="metric-value" id="mAvg">—</p>
-        <p class="metric-sub">Par facture</p>
+    </div>
+
+    <!-- Ligne 2 : B2C et B2B -->
+    <div class="metric-grid-split">
+      <div class="metric-card b2c">
+        <p class="metric-label">CA B2C (Shopify)</p>
+        <p class="metric-value" id="mCAB2C">—</p>
+        <p class="metric-sub" id="mCountB2C">— factures</p>
+      </div>
+      <div class="metric-card b2c">
+        <p class="metric-label">Panier moyen B2C</p>
+        <p class="metric-value" id="mAvgB2C">—</p>
+        <p class="metric-sub">Par facture Shopify</p>
+      </div>
+      <div class="metric-card b2b">
+        <p class="metric-label">CA B2B</p>
+        <p class="metric-value" id="mCAB2B">—</p>
+        <p class="metric-sub" id="mCountB2B">— factures</p>
+      </div>
+      <div class="metric-card b2b">
+        <p class="metric-label">Panier moyen B2B</p>
+        <p class="metric-value" id="mAvgB2B">—</p>
+        <p class="metric-sub">Par facture B2B</p>
       </div>
     </div>
 
-    <!-- Graphique -->
     <div class="chart-card">
       <div class="chart-header">
         <div>
@@ -188,7 +204,6 @@
       </div>
     </div>
 
-    <!-- Graphique Réel vs Budget -->
     <div class="chart-card" id="budgetChartCard" style="display:none;">
       <div class="chart-header">
         <div>
@@ -202,8 +217,6 @@
     </div>
   </div>
 
-
-  <!-- Login overlay -->
   <div class="login-overlay" id="loginOverlay">
     <div class="login-box">
       <p class="login-title">📊 Dashboard CEO</p>
@@ -215,10 +228,8 @@
   </div>
 
 <script>
-
-// Auth
 const AUTH_KEY = 'dashboard_auth';
-const AUTH_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 jours
+const AUTH_DURATION = 7 * 24 * 60 * 60 * 1000;
 
 function checkAuth() {
   try {
@@ -236,30 +247,22 @@ async function doLogin() {
   const password = document.getElementById('loginPassword').value;
   const errorEl = document.getElementById('loginError');
   errorEl.style.display = 'none';
-
   try {
     const resp = await fetch('/api/auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password })
     });
-
     if (resp.ok) {
       const data = await resp.json();
-      localStorage.setItem(AUTH_KEY, JSON.stringify({
-        token: data.token,
-        expires: Date.now() + AUTH_DURATION
-      }));
+      localStorage.setItem(AUTH_KEY, JSON.stringify({ token: data.token, expires: Date.now() + AUTH_DURATION }));
       document.getElementById('loginOverlay').style.display = 'none';
     } else {
       errorEl.style.display = 'block';
     }
-  } catch {
-    errorEl.style.display = 'block';
-  }
+  } catch { errorEl.style.display = 'block'; }
 }
 
-// Vérifier auth au chargement
 checkAuth();
 
 const now = new Date();
@@ -273,11 +276,9 @@ let currentTotalCA = 0;
 const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const monthsShort = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
 
-// Budget par défaut en k€
 const DEFAULT_BUDGET = [1617, 1151, 3439, 1267, 1722, 2085, 1498, 814, 1319, 2401, 1461, 1483];
 let budget2026 = [...DEFAULT_BUDGET];
 
-// Charger budget depuis localStorage
 function loadBudgetLocal() {
   try {
     const saved = localStorage.getItem('budget2026');
@@ -286,7 +287,6 @@ function loadBudgetLocal() {
 }
 loadBudgetLocal();
 
-// Modal budget
 function openBudgetModal() {
   const grid = document.getElementById('budgetGrid');
   grid.innerHTML = months.map((m, i) => `
@@ -304,52 +304,41 @@ function closeBudgetModal() {
 }
 
 function saveBudget() {
-  const newBudget = months.map((_, i) => {
-    const val = parseFloat(document.getElementById(`budget_${i}`).value) || 0;
-    return val;
-  });
+  const newBudget = months.map((_, i) => parseFloat(document.getElementById(`budget_${i}`).value) || 0);
   budget2026 = newBudget;
   localStorage.setItem('budget2026', JSON.stringify(budget2026));
   document.getElementById('saveMsg').style.display = 'block';
   setTimeout(() => {
     closeBudgetModal();
-    // Rafraîchir l'affichage budget si données déjà chargées
     if (currentTotalCA > 0) updateBudgetDisplay(currentTotalCA);
   }, 800);
 }
 
 function updateBudgetDisplay(totalCA) {
-  // Calculer le budget pour la période affichée
   const dates = getDates();
   if (!dates) return;
   const { dateStart, dateEnd } = dates;
   const startDate = new Date(dateStart + 'T12:00:00');
   const endDate = new Date(dateEnd + 'T12:00:00');
 
-  // Seulement pour 2026
   if (startDate.getFullYear() !== 2026 && endDate.getFullYear() !== 2026) {
     document.getElementById('budgetBarWrap').style.display = 'none';
     return;
   }
 
   let budgetTotal = 0;
-
   if (currentMode === 'today' && startDate.getFullYear() === 2026) {
-    // Budget du jour = budget mensuel / nb jours du mois
     const m = startDate.getMonth();
     const daysInMonth = new Date(2026, m + 1, 0).getDate();
     budgetTotal = Math.round(budget2026[m] / daysInMonth * 10) / 10;
   } else if (currentMode === 'week' && endDate.getFullYear() === 2026) {
-    // Budget semaine = budget mensuel / nb jours du mois * 7
-    // Si la semaine chevauche deux mois, on proratise
     const days = Math.round((endDate - startDate) / 86400000) + 1;
     for (let d = 0; d < days; d++) {
       const day = new Date(startDate);
       day.setDate(startDate.getDate() + d);
       if (day.getFullYear() === 2026) {
         const m = day.getMonth();
-        const daysInMonth = new Date(2026, m + 1, 0).getDate();
-        budgetTotal += budget2026[m] / daysInMonth;
+        budgetTotal += budget2026[m] / new Date(2026, m + 1, 0).getDate();
       }
     }
     budgetTotal = Math.round(budgetTotal * 10) / 10;
@@ -364,21 +353,16 @@ function updateBudgetDisplay(totalCA) {
       day.setDate(startDate.getDate() + d);
       if (day.getFullYear() === 2026) {
         const m = day.getMonth();
-        const daysInMonth = new Date(2026, m + 1, 0).getDate();
-        budgetTotal += budget2026[m] / daysInMonth;
+        budgetTotal += budget2026[m] / new Date(2026, m + 1, 0).getDate();
       }
     }
     budgetTotal = Math.round(budgetTotal * 10) / 10;
   }
 
-  if (budgetTotal <= 0) {
-    document.getElementById('budgetBarWrap').style.display = 'none';
-    return;
-  }
+  if (budgetTotal <= 0) { document.getElementById('budgetBarWrap').style.display = 'none'; return; }
 
   const realKe = totalCA / 1000;
   const pct = Math.round((realKe / budgetTotal) * 100);
-  const isOver = pct > 100;
   const fill = Math.min(pct, 100);
 
   document.getElementById('budgetBarWrap').style.display = 'block';
@@ -386,10 +370,9 @@ function updateBudgetDisplay(totalCA) {
   document.getElementById('budgetBarPct').textContent = `${pct}% atteint`;
   const fillEl = document.getElementById('budgetBarFill');
   fillEl.style.width = fill + '%';
-  fillEl.className = `budget-bar-fill ${isOver ? 'over' : 'ok'}`;
+  fillEl.className = `budget-bar-fill ${pct >= 100 ? 'over' : 'ok'}`;
 }
 
-// Init sélecteurs années
 [document.getElementById('selYear'), document.getElementById('selYtdYear')].forEach(el => {
   for(let y = now.getFullYear(); y >= 2015; y--) {
     const opt = document.createElement('option');
@@ -472,109 +455,51 @@ function getDates() {
 
 async function loadMonthlyChart(year, upToMonth) {
   document.getElementById('chartSubtitle').textContent = 'Chargement du graphique...';
-  const currentYearData = [];
-  const prevYearData = [];
-  const budgetData = [];
-  const labels = [];
-
+  const currentYearData = [], prevYearData = [], budgetData = [], labels = [];
   const promises = [];
   for (let m = 0; m <= upToMonth; m++) {
     const lastDay = new Date(year, m+1, 0).getDate();
-    const ds = `${year}-${pad(m+1)}-01`;
-    const de = `${year}-${pad(m+1)}-${pad(lastDay)}`;
-    const dsPrev = `${year-1}-${pad(m+1)}-01`;
-    const dePrev = `${year-1}-${pad(m+1)}-${pad(lastDay)}`;
+    const ds = `${year}-${pad(m+1)}-01`, de = `${year}-${pad(m+1)}-${pad(lastDay)}`;
+    const dsPrev = `${year-1}-${pad(m+1)}-01`, dePrev = `${year-1}-${pad(m+1)}-${pad(lastDay)}`;
     labels.push(monthsShort[m]);
     promises.push(
       fetch(`/api/sellsy?dateStart=${ds}&dateEnd=${de}&mode=total`).then(r => r.json()),
       fetch(`/api/sellsy?dateStart=${dsPrev}&dateEnd=${dePrev}&mode=total`).then(r => r.json())
     );
   }
-
   const results = await Promise.all(promises);
   for (let m = 0; m <= upToMonth; m++) {
     currentYearData.push(Math.round((results[m*2]._totalCA || 0) / 1000 * 10) / 10);
     prevYearData.push(Math.round((results[m*2+1]._totalCA || 0) / 1000 * 10) / 10);
     if (year === 2026) budgetData.push(budget2026[m]);
   }
-
   renderChart(labels, currentYearData, prevYearData, budgetData, year);
   document.getElementById('chartSubtitle').textContent = `CA mensuel en k€ — ${year} vs ${year-1}${year === 2026 ? ' vs Budget' : ''}`;
-
-  // Graphique réalisation budget (seulement pour 2026)
-  if (year === 2026) {
-    renderBudgetChart(labels, currentYearData, upToMonth);
-  } else {
-    document.getElementById('budgetChartCard').style.display = 'none';
-  }
+  if (year === 2026) renderBudgetChart(labels, currentYearData, upToMonth);
+  else document.getElementById('budgetChartCard').style.display = 'none';
 }
 
 function renderChart(labels, currentData, prevData, budgetData, year) {
   const ctx = document.getElementById('caChart').getContext('2d');
   if (caChartInstance) caChartInstance.destroy();
-
   const datasets = [
-    {
-      label: `${year}`,
-      data: currentData,
-      borderColor: '#1a1a1a',
-      backgroundColor: 'rgba(26,26,26,0.05)',
-      borderWidth: 2.5,
-      pointRadius: 5,
-      pointBackgroundColor: '#1a1a1a',
-      tension: 0.3,
-      fill: true
-    },
-    {
-      label: `${year-1}`,
-      data: prevData,
-      borderColor: '#aaa',
-      backgroundColor: 'transparent',
-      borderWidth: 1.5,
-      borderDash: [5, 4],
-      pointRadius: 3,
-      pointBackgroundColor: '#aaa',
-      tension: 0.3,
-      fill: false
-    }
+    { label: `${year}`, data: currentData, borderColor: '#1a1a1a', backgroundColor: 'rgba(26,26,26,0.05)', borderWidth: 2.5, pointRadius: 5, pointBackgroundColor: '#1a1a1a', tension: 0.3, fill: true },
+    { label: `${year-1}`, data: prevData, borderColor: '#aaa', backgroundColor: 'transparent', borderWidth: 1.5, borderDash: [5, 4], pointRadius: 3, pointBackgroundColor: '#aaa', tension: 0.3, fill: false }
   ];
-
   if (year === 2026 && budgetData.length > 0) {
-    datasets.push({
-      label: 'Budget 2026',
-      data: budgetData,
-      borderColor: '#74A1D6',
-      backgroundColor: 'transparent',
-      borderWidth: 2,
-      borderDash: [3, 3],
-      pointRadius: 3,
-      pointBackgroundColor: '#74A1D6',
-      tension: 0.3,
-      fill: false
-    });
+    datasets.push({ label: 'Budget 2026', data: budgetData, borderColor: '#74A1D6', backgroundColor: 'transparent', borderWidth: 2, borderDash: [3, 3], pointRadius: 3, pointBackgroundColor: '#74A1D6', tension: 0.3, fill: false });
   }
-
   caChartInstance = new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets },
+    type: 'line', data: { labels, datasets },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { position: 'top', labels: { font: { size: 12 }, boxWidth: 24 } },
-        tooltip: {
-          callbacks: {
-            label: ctx => ` ${ctx.dataset.label} : ${ctx.parsed.y.toLocaleString('fr-FR')} k€`
-          }
-        }
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label} : ${ctx.parsed.y.toLocaleString('fr-FR')} k€` } }
       },
       scales: {
-        y: {
-          beginAtZero: false,
-          grid: { color: '#f0f0f0' },
-          ticks: { font: { size: 11 }, callback: v => v + ' k€' }
-        },
+        y: { beginAtZero: false, grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 }, callback: v => v + ' k€' } },
         x: { grid: { display: false }, ticks: { font: { size: 12 } } }
       }
     }
@@ -584,78 +509,31 @@ function renderChart(labels, currentData, prevData, budgetData, year) {
 function renderBudgetChart(labels, realDataKe, upToMonth) {
   const ctx = document.getElementById('budgetChart').getContext('2d');
   if (budgetChartInstance) budgetChartInstance.destroy();
-
-  const pctData = labels.map((_, i) => {
-    const budgetKe = budget2026[i] || 1;
-    return Math.round((realDataKe[i] / budgetKe) * 100);
-  });
-
+  const pctData = labels.map((_, i) => Math.round((realDataKe[i] / (budget2026[i] || 1)) * 100));
   const barColors = pctData.map(p => p >= 100 ? '#1D9E75' : '#D85A30');
-  const barColorsLight = pctData.map(p => p >= 100 ? 'rgba(29,158,117,0.15)' : 'rgba(216,90,48,0.15)');
-
   budgetChartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: '% de réalisation',
-        data: pctData,
-        backgroundColor: barColors,
-        borderColor: barColors,
-        borderWidth: 0,
-        borderRadius: 6,
-      }]
-    },
+    type: 'bar', data: { labels, datasets: [{ label: '% de réalisation', data: pctData, backgroundColor: barColors, borderWidth: 0, borderRadius: 6 }] },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: ctx => {
-              const m = ctx.dataIndex;
-              const real = realDataKe[m];
-              const budg = budget2026[m];
-              return [
-                ` Réalisation : ${ctx.parsed.y}%`,
-                ` Réel : ${real.toLocaleString('fr-FR')} k€`,
-                ` Budget : ${budg.toLocaleString('fr-FR')} k€`
-              ];
-            }
-          }
-        }
+        tooltip: { callbacks: { label: ctx => { const m = ctx.dataIndex; return [` Réalisation : ${ctx.parsed.y}%`, ` Réel : ${realDataKe[m].toLocaleString('fr-FR')} k€`, ` Budget : ${budget2026[m].toLocaleString('fr-FR')} k€`]; } } }
       },
       scales: {
-        y: {
-          beginAtZero: true,
-          max: Math.max(130, ...pctData) + 10,
-          grid: { color: '#f0f0f0' },
-          ticks: {
-            font: { size: 11 },
-            callback: v => v + '%'
-          }
-        },
+        y: { beginAtZero: true, max: Math.max(130, ...pctData) + 10, grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 }, callback: v => v + '%' } },
         x: { grid: { display: false }, ticks: { font: { size: 12 } } }
       }
     },
-    plugins: [{
-      id: 'pctLabels',
-      afterDatasetsDraw(chart) {
-        const { ctx, data } = chart;
-        chart.getDatasetMeta(0).data.forEach((bar, i) => {
-          const val = data.datasets[0].data[i];
-          ctx.save();
-          ctx.fillStyle = val >= 100 ? '#0F6E56' : '#A32D2D';
-          ctx.font = 'bold 12px -apple-system, sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText(val + '%', bar.x, bar.y - 6);
-          ctx.restore();
-        });
-      }
-    }]
+    plugins: [{ id: 'pctLabels', afterDatasetsDraw(chart) {
+      const { ctx, data } = chart;
+      chart.getDatasetMeta(0).data.forEach((bar, i) => {
+        const val = data.datasets[0].data[i];
+        ctx.save(); ctx.fillStyle = val >= 100 ? '#0F6E56' : '#A32D2D';
+        ctx.font = 'bold 12px -apple-system, sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(val + '%', bar.x, bar.y - 6); ctx.restore();
+      });
+    }}]
   });
-
   document.getElementById('budgetChartCard').style.display = 'block';
 }
 
@@ -665,38 +543,46 @@ async function loadData() {
   const { dateStart, dateEnd, label } = dates;
   const prevDates = shiftYearBack(dateStart, dateEnd);
 
-  document.getElementById('errorBox').style.display='none';
+  document.getElementById('errorBox').style.display = 'none';
   document.getElementById('periodLabel').textContent = label;
   document.getElementById('mCAVs').textContent = '';
   document.getElementById('budgetBarWrap').style.display = 'none';
   setStatus('spin', 'Chargement...');
-  document.getElementById('mCA').textContent = '...';
-  document.getElementById('mCount').textContent = '...';
-  document.getElementById('mAvg').textContent = '...';
+  ['mCA','mCount','mCAB2C','mCAB2B','mAvgB2C','mAvgB2B'].forEach(id => document.getElementById(id).textContent = '...');
+  document.getElementById('mCountB2C').textContent = '—';
+  document.getElementById('mCountB2B').textContent = '—';
   currentTotalCA = 0;
 
   try {
     const caResp = await fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=total`);
-    if(!caResp.ok) throw new Error('Erreur API');
-
+    if (!caResp.ok) throw new Error('Erreur API');
     const caData = await caResp.json();
+
     const totalCA = caData._totalCA || 0;
     const count = caData.pagination?.total || caData._count || 0;
-    const avg = count > 0 ? totalCA / count : 0;
+    const caB2C = caData._totalCAB2C || 0;
+    const caB2B = caData._totalCAB2B || 0;
+    const countB2C = caData._countB2C || 0;
+    const countB2B = caData._countB2B || 0;
+    const panierB2C = caData._panierMoyenB2C || 0;
+    const panierB2B = caData._panierMoyenB2B || 0;
     currentTotalCA = totalCA;
 
     document.getElementById('mCA').textContent = fmt(totalCA);
     document.getElementById('mCount').textContent = count.toLocaleString('fr-FR');
-    document.getElementById('mAvg').textContent = fmt(avg);
+    document.getElementById('mCAB2C').textContent = fmt(caB2C);
+    document.getElementById('mCountB2C').textContent = `${countB2C.toLocaleString('fr-FR')} factures`;
+    document.getElementById('mAvgB2C').textContent = fmt(panierB2C);
+    document.getElementById('mCAB2B').textContent = fmt(caB2B);
+    document.getElementById('mCountB2B').textContent = `${countB2B.toLocaleString('fr-FR')} factures`;
+    document.getElementById('mAvgB2B').textContent = fmt(panierB2B);
 
-    // Afficher barre budget
     updateBudgetDisplay(totalCA);
 
     const t = new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     document.getElementById('lastUpdate').textContent = 'Mis à jour le ' + t;
     setStatus('ok', 'Données à jour');
 
-    // Comparaison N-1
     const vsEl = document.getElementById('mCAVs');
     vsEl.textContent = '⏳ vs N-1...';
     vsEl.className = 'metric-vs neutral';
@@ -715,13 +601,12 @@ async function loadData() {
       })
       .catch(() => { vsEl.textContent = ''; });
 
-    // Graphique
     const endDate = new Date(dateEnd + 'T12:00:00');
     loadMonthlyChart(endDate.getFullYear(), endDate.getMonth());
 
   } catch(e) {
     setStatus('err', 'Erreur');
-    document.getElementById('errorBox').style.display='block';
+    document.getElementById('errorBox').style.display = 'block';
     document.getElementById('errorBox').textContent = 'Erreur : ' + e.message;
   }
 }
