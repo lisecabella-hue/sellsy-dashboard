@@ -12,7 +12,6 @@ export default async function handler(req, res) {
   const { dateStart, dateEnd, mode } = req.query;
   if (!dateStart || !dateEnd) return res.status(400).json({ error: 'dateStart and dateEnd required' });
 
-  // --- Helpers cache Upstash ---
   async function cacheGet(key) {
     try {
       const r = await fetch(`${kvUrl}/get/${encodeURIComponent(key)}`, {
@@ -29,14 +28,10 @@ export default async function handler(req, res) {
       const url = exSeconds
         ? `${kvUrl}/set/${encoded}/${encodeURIComponent(JSON.stringify(value))}?EX=${exSeconds}`
         : `${kvUrl}/set/${encoded}/${encodeURIComponent(JSON.stringify(value))}`;
-      await fetch(url, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${kvToken}` }
-      });
+      await fetch(url, { method: 'GET', headers: { Authorization: `Bearer ${kvToken}` } });
     } catch {}
   }
 
-  // Détermine si on doit cacher ce résultat
   function getCacheTTL(dateStart, dateEnd) {
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -44,32 +39,21 @@ export default async function handler(req, res) {
     const endDate = new Date(dateEnd);
     const endYear = endDate.getFullYear();
     const endMonth = endDate.getMonth() + 1;
-
-    // Même jour = pas de cache
     if (dateStart === dateEnd) return 0;
-
-    // Mois en cours = cache 1 heure
     if (endYear === currentYear && endMonth === currentMonth) return 3600;
-
-    // Mois passé = cache permanent (30 jours)
     if (endDate < now) return 60 * 60 * 24 * 30;
-
     return 0;
   }
 
   const cacheKey = `sellsy:${mode}:${dateStart}:${dateEnd}`;
   const ttl = getCacheTTL(dateStart, dateEnd);
 
-  // Vérifier le cache si applicable
   if (ttl > 0 && kvUrl && kvToken) {
     const cached = await cacheGet(cacheKey);
-    if (cached) {
-      return res.status(200).json({ ...cached, _fromCache: true });
-    }
+    if (cached) return res.status(200).json({ ...cached, _fromCache: true });
   }
 
   try {
-    // Auth Sellsy
     const tokenResp = await fetch('https://login.sellsy.com/oauth2/access-tokens', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -89,7 +73,6 @@ export default async function handler(req, res) {
       }
     });
 
-    // Mode liste (10 premières factures)
     if (mode === 'list') {
       const listResp = await fetch('https://api.sellsy.com/v2/invoices/search?limit=100&offset=0&order=date&direction=desc', {
         method: 'POST',
@@ -101,13 +84,12 @@ export default async function handler(req, res) {
       return res.status(200).json(listData);
     }
 
-    // Mode total — paginer toutes les factures
     const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
     const fetchPage = async (offset, retries = 3) => {
       for (let attempt = 0; attempt < retries; attempt++) {
         const resp = await fetch(
-          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit`,
+          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit&field[]=rate_category_id`,
           {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
@@ -143,17 +125,24 @@ export default async function handler(req, res) {
       }
     }
 
-    // Exclure les factures d'acompte (is_deposit: true)
+    // Exclure les acomptes
     const filteredInvoices = allInvoices.filter(inv => !inv.is_deposit);
-    const totalCA = filteredInvoices.reduce((acc, inv) =>
-      acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0
-    );
 
-    // Récupérer les avoirs pour la même période et les soustraire
+    // Séparer B2C (rate_category_id: 215340) et B2B
+    const B2C_CATEGORY_ID = 215340;
+    const invoicesB2C = filteredInvoices.filter(inv => inv.rate_category_id === B2C_CATEGORY_ID);
+    const invoicesB2B = filteredInvoices.filter(inv => inv.rate_category_id !== B2C_CATEGORY_ID);
+
+    const totalCA = filteredInvoices.reduce((acc, inv) =>
+      acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
+    const totalCAB2C = invoicesB2C.reduce((acc, inv) =>
+      acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
+    const totalCAB2B = invoicesB2B.reduce((acc, inv) =>
+      acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
+
+    // Avoirs
     const creditBody = JSON.stringify({
-      filters: {
-        date: { start: dateStart, end: dateEnd }
-      }
+      filters: { date: { start: dateStart, end: dateEnd } }
     });
 
     const fetchCreditPage = async (offset) => {
@@ -187,8 +176,7 @@ export default async function handler(req, res) {
     }
 
     const totalAvoirsCA = allCredits.reduce((acc, credit) =>
-      acc + parseFloat((credit.amounts && credit.amounts.total_excl_tax) || 0), 0
-    );
+      acc + parseFloat((credit.amounts && credit.amounts.total_excl_tax) || 0), 0);
 
     const totalCANet = totalCA - totalAvoirsCA;
 
@@ -196,13 +184,18 @@ export default async function handler(req, res) {
       _totalCA: Math.round(totalCANet * 100) / 100,
       _totalCABrut: Math.round(totalCA * 100) / 100,
       _totalAvoirs: Math.round(totalAvoirsCA * 100) / 100,
+      _totalCAB2C: Math.round(totalCAB2C * 100) / 100,
+      _totalCAB2B: Math.round(totalCAB2B * 100) / 100,
+      _countB2C: invoicesB2C.length,
+      _countB2B: invoicesB2B.length,
+      _panierMoyenB2C: invoicesB2C.length > 0 ? Math.round((totalCAB2C / invoicesB2C.length) * 100) / 100 : 0,
+      _panierMoyenB2B: invoicesB2B.length > 0 ? Math.round((totalCAB2B / invoicesB2B.length) * 100) / 100 : 0,
       _count: allInvoices.length,
       _countAvoirs: allCredits.length,
       pagination: { total }
     };
 
     if (ttl > 0 && kvUrl) await cacheSet(cacheKey, result, ttl);
-
     return res.status(200).json(result);
 
   } catch (e) {
