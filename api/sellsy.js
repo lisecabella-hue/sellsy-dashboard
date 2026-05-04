@@ -85,7 +85,8 @@ export default async function handler(req, res) {
     const body = JSON.stringify({
       filters: {
         date: { start: dateStart, end: dateEnd },
-        status: ['payinprogress', 'due', 'paid', 'late', 'cancelled']
+        status: ['payinprogress', 'due', 'paid', 'late', 'cancelled'],
+        currency: 'EUR'
       }
     });
 
@@ -107,7 +108,7 @@ export default async function handler(req, res) {
     const fetchPage = async (offset, retries = 3) => {
       for (let attempt = 0; attempt < retries; attempt++) {
         const resp = await fetch(
-          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id`,
+          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit`,
           {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
@@ -143,7 +144,9 @@ export default async function handler(req, res) {
       }
     }
 
-    const totalCA = allInvoices.reduce((acc, inv) =>
+    // Exclure les factures d'acompte (is_deposit: true)
+    const filteredInvoices = allInvoices.filter(inv => !inv.is_deposit);
+    const totalCA = filteredInvoices.reduce((acc, inv) =>
       acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0
     );
 
