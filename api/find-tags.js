@@ -13,8 +13,11 @@ export default async function handler(req, res) {
   });
   const { access_token } = await tokenResp.json();
 
-  const resp = await fetch('https://api.sellsy.com/v2/smart-tags?limit=50&search=B2C', {
-    headers: { 'Authorization': `Bearer ${access_token}` }
+  // Récupérer une facture avec ses smart tags
+  const resp = await fetch('https://api.sellsy.com/v2/invoices/search?limit=1&field[]=smart_tags', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filters: { status: ['paid'] } })
   });
   const data = await resp.json();
   return res.status(200).json(data);
