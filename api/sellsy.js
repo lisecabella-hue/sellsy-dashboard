@@ -45,7 +45,8 @@ export default async function handler(req, res) {
     return 0;
   }
 
-  const cacheKey = `sellsy:${mode}:${dateStart}:${dateEnd}`;
+const CACHE_VERSION = 'v2';
+const cacheKey = `sellsy:${CACHE_VERSION}:${mode}:${dateStart}:${dateEnd}`;
   const ttl = getCacheTTL(dateStart, dateEnd);
 
   if (ttl > 0 && kvUrl && kvToken) {
