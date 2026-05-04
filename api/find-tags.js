@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   const { access_token } = await tokenResp.json();
 
   // Récupérer le détail d'une facture B2C connue
-  const resp = await fetch('https://api.sellsy.com/v2/invoices/26154922', {
+  const resp = await fetch('https://api.sellsy.com/v2/invoices/53529863', {
     headers: { 'Authorization': `Bearer ${access_token}` }
   });
   const data = await resp.json();
