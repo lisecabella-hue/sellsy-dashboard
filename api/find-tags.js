@@ -13,11 +13,9 @@ export default async function handler(req, res) {
   });
   const { access_token } = await tokenResp.json();
 
-  // Récupérer une facture avec ses smart tags
-  const resp = await fetch('https://api.sellsy.com/v2/invoices/search?limit=1&field[]=smart_tags', {
-    method: 'POST',
-    headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ filters: { status: ['paid'] } })
+  // Récupérer le détail d'une facture B2C connue
+  const resp = await fetch('https://api.sellsy.com/v2/invoices/26154922', {
+    headers: { 'Authorization': `Bearer ${access_token}` }
   });
   const data = await resp.json();
   return res.status(200).json(data);
