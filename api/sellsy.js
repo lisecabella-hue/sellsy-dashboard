@@ -85,8 +85,7 @@ export default async function handler(req, res) {
     const body = JSON.stringify({
       filters: {
         date: { start: dateStart, end: dateEnd },
-        status: ['payinprogress', 'due', 'paid', 'late', 'cancelled'],
-        currency: 'EUR'
+        status: ['payinprogress', 'due', 'paid', 'late', 'cancelled']
       }
     });
 
