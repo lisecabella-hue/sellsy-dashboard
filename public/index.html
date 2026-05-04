@@ -38,7 +38,7 @@
     .metric-label { font-size: 12px; color: #888; margin-bottom: 8px; }
     .metric-value { font-size: 28px; font-weight: 500; }
     .metric-sub { font-size: 12px; margin-top: 6px; color: #888; }
-    .metric-vs { font-size: 13px; margin-top: 8px; font-weight: 500; }
+    .metric-vs { font-size: 12px; margin-top: 6px; font-weight: 500; }
     .metric-vs.up { color: #1D9E75; }
     .metric-vs.down { color: #D85A30; }
     .metric-vs.neutral { color: #888; }
@@ -163,7 +163,7 @@
       </div>
     </div>
 
-    <!-- Ligne 2 : Pie chart + paniers moyens -->
+    <!-- Ligne 2 : Pie chart + cartes B2C/B2B -->
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:24px;">
       <div class="metric-card" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
         <p class="metric-label" style="align-self:flex-start;">Répartition CA B2C vs B2B</p>
@@ -183,24 +183,24 @@
       </div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
         <div class="metric-card b2c">
-          <p class="metric-label">🛒 Panier moyen B2C</p>
-          <p class="metric-value" id="mAvgB2C">—</p>
-          <p class="metric-sub" id="mCountB2C">— factures</p>
-        </div>
-        <div class="metric-card b2b">
-          <p class="metric-label">🛒 Panier moyen B2B</p>
-          <p class="metric-value" id="mAvgB2B">—</p>
-          <p class="metric-sub" id="mCountB2B">— factures</p>
-        </div>
-        <div class="metric-card b2c">
           <p class="metric-label">CA B2C (Shopify)</p>
           <p class="metric-value" id="mCAB2C">—</p>
-          <p class="metric-sub">Total période</p>
+          <p class="metric-vs neutral" id="mCAB2CVs">⏳</p>
         </div>
         <div class="metric-card b2b">
           <p class="metric-label">CA B2B</p>
           <p class="metric-value" id="mCAB2B">—</p>
-          <p class="metric-sub">Total période</p>
+          <p class="metric-vs neutral" id="mCAB2BVs">⏳</p>
+        </div>
+        <div class="metric-card b2c">
+          <p class="metric-label">🛒 Panier moyen B2C</p>
+          <p class="metric-value" id="mAvgB2C">—</p>
+          <p class="metric-vs neutral" id="mAvgB2CVs">⏳</p>
+        </div>
+        <div class="metric-card b2b">
+          <p class="metric-label">🛒 Panier moyen B2B</p>
+          <p class="metric-value" id="mAvgB2B">—</p>
+          <p class="metric-vs neutral" id="mAvgB2BVs">⏳</p>
         </div>
       </div>
     </div>
@@ -393,13 +393,21 @@ function fmt(n) {
   return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
 }
 
+function fmtVs(current, prev, prevYear) {
+  if (!prev || prev === 0) return '';
+  const diff = ((current - prev) / prev) * 100;
+  const sign = diff >= 0 ? '+' : '';
+  return { text: `${sign}${diff.toFixed(1)}% vs ${prevYear}`, cls: diff >= 0 ? 'up' : 'down' };
+}
+
 function shiftYearBack(dateStart, dateEnd) {
   const s = new Date(dateStart + 'T12:00:00');
   const e = new Date(dateEnd + 'T12:00:00');
   s.setFullYear(s.getFullYear() - 1); e.setFullYear(e.getFullYear() - 1);
   return {
     dateStart: `${s.getFullYear()}-${pad(s.getMonth()+1)}-${pad(s.getDate())}`,
-    dateEnd: `${e.getFullYear()}-${pad(e.getMonth()+1)}-${pad(e.getDate())}`
+    dateEnd: `${e.getFullYear()}-${pad(e.getMonth()+1)}-${pad(e.getDate())}`,
+    year: s.getFullYear()
   };
 }
 
@@ -455,6 +463,15 @@ function renderPieChart(caB2C, caB2B) {
       }
     }
   });
+}
+
+function setVs(id, current, prev, prevYear) {
+  const el = document.getElementById(id);
+  if (!prev || prev === 0) { el.textContent = ''; el.className = 'metric-vs neutral'; return; }
+  const diff = ((current - prev) / prev) * 100;
+  const sign = diff >= 0 ? '+' : '';
+  el.textContent = `${sign}${diff.toFixed(1)}% vs ${prevYear}`;
+  el.className = `metric-vs ${diff >= 0 ? 'up' : 'down'}`;
 }
 
 async function loadMonthlyChart(year, upToMonth) {
@@ -546,6 +563,7 @@ async function loadData() {
   if (!dates) return;
   const { dateStart, dateEnd, label } = dates;
   const prevDates = shiftYearBack(dateStart, dateEnd);
+  const prevYear = prevDates.year;
 
   document.getElementById('errorBox').style.display = 'none';
   document.getElementById('periodLabel').textContent = label;
@@ -553,8 +571,10 @@ async function loadData() {
   document.getElementById('budgetBarWrap').style.display = 'none';
   setStatus('spin', 'Chargement...');
   ['mCA','mCount','mCAB2C','mCAB2B','mAvgB2C','mAvgB2B'].forEach(id => document.getElementById(id).textContent = '...');
-  document.getElementById('mCountB2C').textContent = '—';
-  document.getElementById('mCountB2B').textContent = '—';
+  ['mCAB2CVs','mCAB2BVs','mAvgB2CVs','mAvgB2BVs'].forEach(id => {
+    document.getElementById(id).textContent = '⏳';
+    document.getElementById(id).className = 'metric-vs neutral';
+  });
   currentTotalCA = 0;
 
   try {
@@ -566,8 +586,6 @@ async function loadData() {
     const count = caData.pagination?.total || caData._count || 0;
     const caB2C = caData._totalCAB2C || 0;
     const caB2B = caData._totalCAB2B || 0;
-    const countB2C = caData._countB2C || 0;
-    const countB2B = caData._countB2B || 0;
     const panierB2C = caData._panierMoyenB2C || 0;
     const panierB2B = caData._panierMoyenB2B || 0;
     currentTotalCA = totalCA;
@@ -575,34 +593,48 @@ async function loadData() {
     document.getElementById('mCA').textContent = fmt(totalCA);
     document.getElementById('mCount').textContent = count.toLocaleString('fr-FR');
     document.getElementById('mCAB2C').textContent = fmt(caB2C);
-    document.getElementById('mCountB2C').textContent = `${countB2C.toLocaleString('fr-FR')} factures`;
-    document.getElementById('mAvgB2C').textContent = fmt(panierB2C);
     document.getElementById('mCAB2B').textContent = fmt(caB2B);
-    document.getElementById('mCountB2B').textContent = `${countB2B.toLocaleString('fr-FR')} factures`;
+    document.getElementById('mAvgB2C').textContent = fmt(panierB2C);
     document.getElementById('mAvgB2B').textContent = fmt(panierB2B);
     renderPieChart(caB2C, caB2B);
-
     updateBudgetDisplay(totalCA);
 
     const t = new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     document.getElementById('lastUpdate').textContent = 'Mis à jour le ' + t;
     setStatus('ok', 'Données à jour');
 
+    // Comparaison N-1 (toutes les métriques)
     const vsEl = document.getElementById('mCAVs');
     vsEl.textContent = '⏳ vs N-1...';
     vsEl.className = 'metric-vs neutral';
+
     fetch(`/api/sellsy?dateStart=${prevDates.dateStart}&dateEnd=${prevDates.dateEnd}&mode=total`)
       .then(r => r.json())
-      .then(caPrevData => {
-        const prevCA = caPrevData._totalCA || 0;
+      .then(prev => {
+        const prevCA = prev._totalCA || 0;
+        const prevB2C = prev._totalCAB2C || 0;
+        const prevB2B = prev._totalCAB2B || 0;
+        const prevPanierB2C = prev._panierMoyenB2C || 0;
+        const prevPanierB2B = prev._panierMoyenB2B || 0;
+
+        // CA total
         if (prevCA > 0) {
           const diff = ((totalCA - prevCA) / prevCA) * 100;
           const sign = diff >= 0 ? '+' : '';
-          vsEl.textContent = `${sign}${diff.toFixed(1)}% vs ${prevDates.dateStart.slice(0,4)} (${fmt(prevCA)})`;
+          vsEl.textContent = `${sign}${diff.toFixed(1)}% vs ${prevYear} (${fmt(prevCA)})`;
           vsEl.className = `metric-vs ${diff >= 0 ? 'up' : 'down'}`;
         } else { vsEl.textContent = 'Pas de données N-1'; }
+
+        // CA B2C, B2B, paniers
+        setVs('mCAB2CVs', caB2C, prevB2C, prevYear);
+        setVs('mCAB2BVs', caB2B, prevB2B, prevYear);
+        setVs('mAvgB2CVs', panierB2C, prevPanierB2C, prevYear);
+        setVs('mAvgB2BVs', panierB2B, prevPanierB2B, prevYear);
       })
-      .catch(() => { vsEl.textContent = ''; });
+      .catch(() => {
+        vsEl.textContent = '';
+        ['mCAB2CVs','mCAB2BVs','mAvgB2CVs','mAvgB2BVs'].forEach(id => { document.getElementById(id).textContent = ''; });
+      });
 
     const endDate = new Date(dateEnd + 'T12:00:00');
     loadMonthlyChart(endDate.getFullYear(), endDate.getMonth());
