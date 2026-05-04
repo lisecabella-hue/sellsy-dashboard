@@ -45,7 +45,7 @@ export default async function handler(req, res) {
     return 0;
   }
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const cacheKey = `sellsy:${CACHE_VERSION}:${mode}:${dateStart}:${dateEnd}`;
   const ttl = getCacheTTL(dateStart, dateEnd);
 
