@@ -32,7 +32,6 @@
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
     .error-box { background: #fff0f0; border: 1px solid #fcc; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #c00; margin-bottom: 16px; display: none; }
     .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px; }
-    .metric-grid-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
     .metric-card { background: white; border-radius: 12px; padding: 24px; border: 1px solid #e5e5e5; }
     .metric-card.b2c { border-left: 3px solid #74A1D6; }
     .metric-card.b2b { border-left: 3px solid #1D9E75; }
@@ -110,7 +109,6 @@
         <button class="period-btn" id="btnYtd" onclick="setPeriod('ytd')">Cumul YTD</button>
         <button class="period-btn" id="btnCustom" onclick="setPeriod('custom')">Période</button>
       </div>
-
       <div class="date-selectors" id="selectorsMonth">
         <select id="selMonth">
           <option value="0">Janvier</option><option value="1">Février</option><option value="2">Mars</option>
@@ -120,7 +118,6 @@
         </select>
         <select id="selYear"></select>
       </div>
-
       <div class="date-selectors" id="selectorsYtd" style="display:none;">
         <select id="selYtdMonth">
           <option value="0">Janvier</option><option value="1">Février</option><option value="2">Mars</option>
@@ -130,13 +127,11 @@
         </select>
         <select id="selYtdYear"></select>
       </div>
-
       <div class="date-selectors" id="selectorsCustom" style="display:none;">
         <input type="date" id="dateFrom" />
         <span class="sep">→</span>
         <input type="date" id="dateTo" />
       </div>
-
       <button class="btn btn-primary" onclick="loadData()">↻ Voir</button>
       <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">En attente</span></div>
     </div>
@@ -168,27 +163,45 @@
       </div>
     </div>
 
-    <!-- Ligne 2 : B2C et B2B -->
-    <div class="metric-grid-split">
-      <div class="metric-card b2c">
-        <p class="metric-label">CA B2C (Shopify)</p>
-        <p class="metric-value" id="mCAB2C">—</p>
-        <p class="metric-sub" id="mCountB2C">— factures</p>
+    <!-- Ligne 2 : Pie chart + paniers moyens -->
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:24px;">
+      <div class="metric-card" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
+        <p class="metric-label" style="align-self:flex-start;">Répartition CA B2C vs B2B</p>
+        <div style="position:relative; width:220px; height:220px;">
+          <canvas id="b2cPieChart"></canvas>
+        </div>
+        <div style="display:flex; gap:16px; margin-top:12px; font-size:12px;">
+          <span style="display:flex; align-items:center; gap:5px;">
+            <span style="width:10px;height:10px;border-radius:50%;background:#74A1D6;display:inline-block;"></span>
+            <span id="pieB2CLabel">B2C</span>
+          </span>
+          <span style="display:flex; align-items:center; gap:5px;">
+            <span style="width:10px;height:10px;border-radius:50%;background:#1D9E75;display:inline-block;"></span>
+            <span id="pieB2BLabel">B2B</span>
+          </span>
+        </div>
       </div>
-      <div class="metric-card b2c">
-        <p class="metric-label">Panier moyen B2C</p>
-        <p class="metric-value" id="mAvgB2C">—</p>
-        <p class="metric-sub">Par facture Shopify</p>
-      </div>
-      <div class="metric-card b2b">
-        <p class="metric-label">CA B2B</p>
-        <p class="metric-value" id="mCAB2B">—</p>
-        <p class="metric-sub" id="mCountB2B">— factures</p>
-      </div>
-      <div class="metric-card b2b">
-        <p class="metric-label">Panier moyen B2B</p>
-        <p class="metric-value" id="mAvgB2B">—</p>
-        <p class="metric-sub">Par facture B2B</p>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div class="metric-card b2c">
+          <p class="metric-label">🛒 Panier moyen B2C</p>
+          <p class="metric-value" id="mAvgB2C">—</p>
+          <p class="metric-sub" id="mCountB2C">— factures</p>
+        </div>
+        <div class="metric-card b2b">
+          <p class="metric-label">🛒 Panier moyen B2B</p>
+          <p class="metric-value" id="mAvgB2B">—</p>
+          <p class="metric-sub" id="mCountB2B">— factures</p>
+        </div>
+        <div class="metric-card b2c">
+          <p class="metric-label">CA B2C (Shopify)</p>
+          <p class="metric-value" id="mCAB2C">—</p>
+          <p class="metric-sub">Total période</p>
+        </div>
+        <div class="metric-card b2b">
+          <p class="metric-label">CA B2B</p>
+          <p class="metric-value" id="mCAB2B">—</p>
+          <p class="metric-sub">Total période</p>
+        </div>
       </div>
     </div>
 
@@ -199,9 +212,7 @@
           <p class="chart-subtitle" id="chartSubtitle">Cliquez sur Voir pour charger le graphique</p>
         </div>
       </div>
-      <div class="chart-container">
-        <canvas id="caChart"></canvas>
-      </div>
+      <div class="chart-container"><canvas id="caChart"></canvas></div>
     </div>
 
     <div class="chart-card" id="budgetChartCard" style="display:none;">
@@ -211,9 +222,7 @@
           <p class="chart-subtitle">% de réalisation par mois</p>
         </div>
       </div>
-      <div class="chart-container" style="height:320px;">
-        <canvas id="budgetChart"></canvas>
-      </div>
+      <div class="chart-container" style="height:320px;"><canvas id="budgetChart"></canvas></div>
     </div>
   </div>
 
@@ -257,9 +266,7 @@ async function doLogin() {
       const data = await resp.json();
       localStorage.setItem(AUTH_KEY, JSON.stringify({ token: data.token, expires: Date.now() + AUTH_DURATION }));
       document.getElementById('loginOverlay').style.display = 'none';
-    } else {
-      errorEl.style.display = 'block';
-    }
+    } else { errorEl.style.display = 'block'; }
   } catch { errorEl.style.display = 'block'; }
 }
 
@@ -271,6 +278,7 @@ const todayStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDat
 let currentMode = 'month';
 let caChartInstance = null;
 let budgetChartInstance = null;
+let pieChartInstance = null;
 let currentTotalCA = 0;
 
 const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
@@ -299,9 +307,7 @@ function openBudgetModal() {
   document.getElementById('saveMsg').style.display = 'none';
 }
 
-function closeBudgetModal() {
-  document.getElementById('budgetModal').classList.remove('open');
-}
+function closeBudgetModal() { document.getElementById('budgetModal').classList.remove('open'); }
 
 function saveBudget() {
   const newBudget = months.map((_, i) => parseFloat(document.getElementById(`budget_${i}`).value) || 0);
@@ -320,26 +326,18 @@ function updateBudgetDisplay(totalCA) {
   const { dateStart, dateEnd } = dates;
   const startDate = new Date(dateStart + 'T12:00:00');
   const endDate = new Date(dateEnd + 'T12:00:00');
-
   if (startDate.getFullYear() !== 2026 && endDate.getFullYear() !== 2026) {
-    document.getElementById('budgetBarWrap').style.display = 'none';
-    return;
+    document.getElementById('budgetBarWrap').style.display = 'none'; return;
   }
-
   let budgetTotal = 0;
   if (currentMode === 'today' && startDate.getFullYear() === 2026) {
     const m = startDate.getMonth();
-    const daysInMonth = new Date(2026, m + 1, 0).getDate();
-    budgetTotal = Math.round(budget2026[m] / daysInMonth * 10) / 10;
+    budgetTotal = Math.round(budget2026[m] / new Date(2026, m+1, 0).getDate() * 10) / 10;
   } else if (currentMode === 'week' && endDate.getFullYear() === 2026) {
     const days = Math.round((endDate - startDate) / 86400000) + 1;
     for (let d = 0; d < days; d++) {
-      const day = new Date(startDate);
-      day.setDate(startDate.getDate() + d);
-      if (day.getFullYear() === 2026) {
-        const m = day.getMonth();
-        budgetTotal += budget2026[m] / new Date(2026, m + 1, 0).getDate();
-      }
+      const day = new Date(startDate); day.setDate(startDate.getDate() + d);
+      if (day.getFullYear() === 2026) { const m = day.getMonth(); budgetTotal += budget2026[m] / new Date(2026, m+1, 0).getDate(); }
     }
     budgetTotal = Math.round(budgetTotal * 10) / 10;
   } else if (currentMode === 'month' && startDate.getFullYear() === 2026) {
@@ -349,35 +347,25 @@ function updateBudgetDisplay(totalCA) {
   } else if (currentMode === 'custom' && endDate.getFullYear() === 2026) {
     const days = Math.round((endDate - startDate) / 86400000) + 1;
     for (let d = 0; d < days; d++) {
-      const day = new Date(startDate);
-      day.setDate(startDate.getDate() + d);
-      if (day.getFullYear() === 2026) {
-        const m = day.getMonth();
-        budgetTotal += budget2026[m] / new Date(2026, m + 1, 0).getDate();
-      }
+      const day = new Date(startDate); day.setDate(startDate.getDate() + d);
+      if (day.getFullYear() === 2026) { const m = day.getMonth(); budgetTotal += budget2026[m] / new Date(2026, m+1, 0).getDate(); }
     }
     budgetTotal = Math.round(budgetTotal * 10) / 10;
   }
-
   if (budgetTotal <= 0) { document.getElementById('budgetBarWrap').style.display = 'none'; return; }
-
-  const realKe = totalCA / 1000;
-  const pct = Math.round((realKe / budgetTotal) * 100);
-  const fill = Math.min(pct, 100);
-
+  const pct = Math.round(((totalCA / 1000) / budgetTotal) * 100);
   document.getElementById('budgetBarWrap').style.display = 'block';
   document.getElementById('budgetBarLabel').textContent = `Budget : ${budgetTotal.toLocaleString('fr-FR')} k€`;
   document.getElementById('budgetBarPct').textContent = `${pct}% atteint`;
   const fillEl = document.getElementById('budgetBarFill');
-  fillEl.style.width = fill + '%';
+  fillEl.style.width = Math.min(pct, 100) + '%';
   fillEl.className = `budget-bar-fill ${pct >= 100 ? 'over' : 'ok'}`;
 }
 
 [document.getElementById('selYear'), document.getElementById('selYtdYear')].forEach(el => {
   for(let y = now.getFullYear(); y >= 2015; y--) {
     const opt = document.createElement('option');
-    opt.value = y; opt.textContent = y;
-    el.appendChild(opt);
+    opt.value = y; opt.textContent = y; el.appendChild(opt);
   }
 });
 document.getElementById('selMonth').value = now.getMonth();
@@ -408,8 +396,7 @@ function fmt(n) {
 function shiftYearBack(dateStart, dateEnd) {
   const s = new Date(dateStart + 'T12:00:00');
   const e = new Date(dateEnd + 'T12:00:00');
-  s.setFullYear(s.getFullYear() - 1);
-  e.setFullYear(e.getFullYear() - 1);
+  s.setFullYear(s.getFullYear() - 1); e.setFullYear(e.getFullYear() - 1);
   return {
     dateStart: `${s.getFullYear()}-${pad(s.getMonth()+1)}-${pad(s.getDate())}`,
     dateEnd: `${e.getFullYear()}-${pad(e.getMonth()+1)}-${pad(e.getDate())}`
@@ -417,40 +404,57 @@ function shiftYearBack(dateStart, dateEnd) {
 }
 
 function getDates() {
-  if (currentMode === 'today') {
-    return { dateStart: todayStr, dateEnd: todayStr,
-      label: `Aujourd'hui — ${now.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long', year:'numeric'})}` };
-  }
+  if (currentMode === 'today') return { dateStart: todayStr, dateEnd: todayStr, label: `Aujourd'hui — ${now.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long', year:'numeric'})}` };
   if (currentMode === 'week') {
     const day = now.getDay() || 7;
     const monday = new Date(now); monday.setDate(now.getDate() - day + 1);
     const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
     const ds = `${monday.getFullYear()}-${pad(monday.getMonth()+1)}-${pad(monday.getDate())}`;
     const de = `${sunday.getFullYear()}-${pad(sunday.getMonth()+1)}-${pad(sunday.getDate())}`;
-    return { dateStart: ds, dateEnd: de,
-      label: `Cette semaine — du ${monday.toLocaleDateString('fr-FR')} au ${sunday.toLocaleDateString('fr-FR')}` };
+    return { dateStart: ds, dateEnd: de, label: `Cette semaine — du ${monday.toLocaleDateString('fr-FR')} au ${sunday.toLocaleDateString('fr-FR')}` };
   }
   if (currentMode === 'month') {
     const month = parseInt(document.getElementById('selMonth').value);
     const year = parseInt(document.getElementById('selYear').value);
     const lastDay = new Date(year, month+1, 0).getDate();
-    return { dateStart: `${year}-${pad(month+1)}-01`, dateEnd: `${year}-${pad(month+1)}-${pad(lastDay)}`,
-      label: `${months[month]} ${year}` };
+    return { dateStart: `${year}-${pad(month+1)}-01`, dateEnd: `${year}-${pad(month+1)}-${pad(lastDay)}`, label: `${months[month]} ${year}` };
   }
   if (currentMode === 'ytd') {
     const month = parseInt(document.getElementById('selYtdMonth').value);
     const year = parseInt(document.getElementById('selYtdYear').value);
     const lastDay = new Date(year, month+1, 0).getDate();
-    return { dateStart: `${year}-01-01`, dateEnd: `${year}-${pad(month+1)}-${pad(lastDay)}`,
-      label: `Cumul YTD — Janvier à ${months[month]} ${year}` };
+    return { dateStart: `${year}-01-01`, dateEnd: `${year}-${pad(month+1)}-${pad(lastDay)}`, label: `Cumul YTD — Janvier à ${months[month]} ${year}` };
   }
   if (currentMode === 'custom') {
     const from = document.getElementById('dateFrom').value;
     const to = document.getElementById('dateTo').value;
     if (!from || !to) { alert('Veuillez sélectionner une date de début et de fin.'); return null; }
-    return { dateStart: from, dateEnd: to,
-      label: `Du ${new Date(from+'T12:00:00').toLocaleDateString('fr-FR')} au ${new Date(to+'T12:00:00').toLocaleDateString('fr-FR')}` };
+    return { dateStart: from, dateEnd: to, label: `Du ${new Date(from+'T12:00:00').toLocaleDateString('fr-FR')} au ${new Date(to+'T12:00:00').toLocaleDateString('fr-FR')}` };
   }
+}
+
+function renderPieChart(caB2C, caB2B) {
+  const ctx = document.getElementById('b2cPieChart').getContext('2d');
+  if (pieChartInstance) pieChartInstance.destroy();
+  const total = caB2C + caB2B;
+  const pctB2C = total > 0 ? Math.round((caB2C / total) * 100) : 0;
+  const pctB2B = total > 0 ? Math.round((caB2B / total) * 100) : 0;
+  document.getElementById('pieB2CLabel').textContent = `B2C ${pctB2C}% (${fmt(caB2C)})`;
+  document.getElementById('pieB2BLabel').textContent = `B2B ${pctB2B}% (${fmt(caB2B)})`;
+  pieChartInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['B2C (Shopify)', 'B2B'],
+      datasets: [{ data: [caB2C, caB2B], backgroundColor: ['#74A1D6', '#1D9E75'], borderWidth: 0, hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true, cutout: '65%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmt(ctx.raw)} (${Math.round((ctx.raw/total)*100)}%)` } }
+      }
+    }
+  });
 }
 
 async function loadMonthlyChart(year, upToMonth) {
@@ -484,10 +488,10 @@ function renderChart(labels, currentData, prevData, budgetData, year) {
   if (caChartInstance) caChartInstance.destroy();
   const datasets = [
     { label: `${year}`, data: currentData, borderColor: '#1a1a1a', backgroundColor: 'rgba(26,26,26,0.05)', borderWidth: 2.5, pointRadius: 5, pointBackgroundColor: '#1a1a1a', tension: 0.3, fill: true },
-    { label: `${year-1}`, data: prevData, borderColor: '#aaa', backgroundColor: 'transparent', borderWidth: 1.5, borderDash: [5, 4], pointRadius: 3, pointBackgroundColor: '#aaa', tension: 0.3, fill: false }
+    { label: `${year-1}`, data: prevData, borderColor: '#aaa', backgroundColor: 'transparent', borderWidth: 1.5, borderDash: [5,4], pointRadius: 3, pointBackgroundColor: '#aaa', tension: 0.3, fill: false }
   ];
   if (year === 2026 && budgetData.length > 0) {
-    datasets.push({ label: 'Budget 2026', data: budgetData, borderColor: '#74A1D6', backgroundColor: 'transparent', borderWidth: 2, borderDash: [3, 3], pointRadius: 3, pointBackgroundColor: '#74A1D6', tension: 0.3, fill: false });
+    datasets.push({ label: 'Budget 2026', data: budgetData, borderColor: '#74A1D6', backgroundColor: 'transparent', borderWidth: 2, borderDash: [3,3], pointRadius: 3, pointBackgroundColor: '#74A1D6', tension: 0.3, fill: false });
   }
   caChartInstance = new Chart(ctx, {
     type: 'line', data: { labels, datasets },
@@ -576,6 +580,7 @@ async function loadData() {
     document.getElementById('mCAB2B').textContent = fmt(caB2B);
     document.getElementById('mCountB2B').textContent = `${countB2B.toLocaleString('fr-FR')} factures`;
     document.getElementById('mAvgB2B').textContent = fmt(panierB2B);
+    renderPieChart(caB2C, caB2B);
 
     updateBudgetDisplay(totalCA);
 
@@ -595,9 +600,7 @@ async function loadData() {
           const sign = diff >= 0 ? '+' : '';
           vsEl.textContent = `${sign}${diff.toFixed(1)}% vs ${prevDates.dateStart.slice(0,4)} (${fmt(prevCA)})`;
           vsEl.className = `metric-vs ${diff >= 0 ? 'up' : 'down'}`;
-        } else {
-          vsEl.textContent = 'Pas de données N-1';
-        }
+        } else { vsEl.textContent = 'Pas de données N-1'; }
       })
       .catch(() => { vsEl.textContent = ''; });
 
