@@ -45,7 +45,7 @@ export default async function handler(req, res) {
     return 0;
   }
 
-  const CACHE_VERSION = 'v4';
+  const CACHE_VERSION = 'v3';
   const cacheKey = `sellsy:${CACHE_VERSION}:${mode}:${dateStart}:${dateEnd}`;
   const ttl = getCacheTTL(dateStart, dateEnd);
 
@@ -57,7 +57,6 @@ export default async function handler(req, res) {
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
   try {
-    // Auth
     const tokenResp = await fetch('https://login.sellsy.com/oauth2/access-tokens', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -70,83 +69,6 @@ export default async function handler(req, res) {
     if (!tokenResp.ok) throw new Error('Auth failed');
     const { access_token } = await tokenResp.json();
 
-    // -------------------------------------------------------
-    // ÉTAPE 1 : Charger tous les tiers avec custom fields
-    // et construire le dictionnaire { company_id → type_client }
-    // On met ça en cache 24h séparément pour ne pas le recharger
-    // à chaque appel
-    // -------------------------------------------------------
-    const companyCacheKey = `sellsy:companies:type_client:v1`;
-    let companyTypeMap = await cacheGet(companyCacheKey);
-
-    if (!companyTypeMap) {
-      companyTypeMap = {};
-      let companyOffset = 0;
-      let hasMoreCompanies = true;
-
-      while (hasMoreCompanies) {
-        const compResp = await fetch(
-          `https://api.sellsy.com/v2/companies?limit=100&offset=${companyOffset}&embed[]=cf.type-de-client&field[]=id&field[]=_embed`,
-          {
-            headers: { 'Authorization': `Bearer ${access_token}` }
-          }
-        );
-        if (!compResp.ok) break;
-        const compData = await compResp.json();
-        const companies = compData.data || [];
-
-        for (const company of companies) {
-          // L'embed custom field via cf.{code} arrive dans _embed sous la clé du code
-          const embed = company._embed || {};
-          // Chercher dans toutes les clés de _embed celle qui correspond au type de client
-          let typeValue = null;
-          for (const key of Object.keys(embed)) {
-            const val = embed[key];
-            if (typeof val === 'string' && val.length > 0) {
-              // Si la clé contient "type" ou "client" c'est probablement notre champ
-              if (key.toLowerCase().includes('type') || key.toLowerCase().includes('client')) {
-                typeValue = val;
-                break;
-              }
-            }
-            // Ou si c'est un objet avec une valeur
-            if (val && typeof val === 'object' && val.value) {
-              if (key.toLowerCase().includes('type') || key.toLowerCase().includes('client')) {
-                typeValue = val.value;
-                break;
-              }
-            }
-          }
-          // Fallback : prendre la première valeur string non vide de _embed
-          if (!typeValue) {
-            for (const key of Object.keys(embed)) {
-              const val = embed[key];
-              if (typeof val === 'string' && val.length > 0) {
-                typeValue = val; break;
-              }
-              if (val && typeof val === 'object' && val.value && typeof val.value === 'string') {
-                typeValue = val.value; break;
-              }
-            }
-          }
-          if (typeValue) {
-            companyTypeMap[company.id] = typeValue;
-          }
-        }
-
-        const totalCompanies = compData.pagination?.total || 0;
-        companyOffset += 100;
-        hasMoreCompanies = companyOffset < totalCompanies;
-        if (hasMoreCompanies) await sleep(300);
-      }
-
-      // Cache 24h
-      await cacheSet(companyCacheKey, companyTypeMap, 86400);
-    }
-
-    // -------------------------------------------------------
-    // ÉTAPE 2 : Récupérer les factures
-    // -------------------------------------------------------
     const body = JSON.stringify({
       filters: {
         date: { start: dateStart, end: dateEnd },
@@ -168,7 +90,7 @@ export default async function handler(req, res) {
     const fetchPage = async (offset, retries = 3) => {
       for (let attempt = 0; attempt < retries; attempt++) {
         const resp = await fetch(
-          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit&field[]=rate_category_id&field[]=related&field[]=_embed&embed[]=cf.type-de-client`,
+          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit&field[]=rate_category_id`,
           {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
@@ -204,33 +126,11 @@ export default async function handler(req, res) {
       }
     }
 
-    // Exclure les acomptes
     const filteredInvoices = allInvoices.filter(inv => !inv.is_deposit);
 
-    // -------------------------------------------------------
-    // ÉTAPE 3 : Ventiler par type de client
-    // -------------------------------------------------------
     const B2C_CATEGORY_ID = 215340;
     const invoicesB2C = filteredInvoices.filter(inv => inv.rate_category_id === B2C_CATEGORY_ID);
     const invoicesB2B = filteredInvoices.filter(inv => inv.rate_category_id !== B2C_CATEGORY_ID);
-
-    // Ventilation par type de client (depuis l'embed cf.type-de-client sur chaque facture)
-    const caByType = {};
-    for (const inv of filteredInvoices) {
-      const embed = inv._embed || {};
-      let typeClient = 'Autre';
-      for (const key of Object.keys(embed)) {
-        const val = embed[key];
-        if (typeof val === 'string' && val.length > 0) { typeClient = val; break; }
-        if (val && typeof val === 'object' && val.value && typeof val.value === 'string') { typeClient = val.value; break; }
-      }
-      const amount = parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0);
-      if (!caByType[typeClient]) caByType[typeClient] = 0;
-      caByType[typeClient] += amount;
-    }
-    for (const key of Object.keys(caByType)) {
-      caByType[key] = Math.round(caByType[key] * 100) / 100;
-    }
 
     const totalCA = filteredInvoices.reduce((acc, inv) =>
       acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
@@ -239,9 +139,6 @@ export default async function handler(req, res) {
     const totalCAB2B = invoicesB2B.reduce((acc, inv) =>
       acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
 
-    // -------------------------------------------------------
-    // ÉTAPE 4 : Avoirs
-    // -------------------------------------------------------
     const creditBody = JSON.stringify({
       filters: { date: { start: dateStart, end: dateEnd } }
     });
@@ -293,7 +190,7 @@ export default async function handler(req, res) {
       _panierMoyenB2B: invoicesB2B.length > 0 ? Math.round((totalCAB2B / invoicesB2B.length) * 100) / 100 : 0,
       _count: allInvoices.length,
       _countAvoirs: allCredits.length,
-      _caByType: caByType,  // { "Pharmacie": 123456, "Marketing": 45678, ... }
+      _caByType: {},
       pagination: { total }
     };
 
