@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   const { access_token } = await tokenResp.json();
 
   const resp = await fetch(
-    'https://api.sellsy.com/v2/companies?limit=1&embed[]=cf.type-de-client&field[]=id&field[]=_embed',
+    'https://api.sellsy.com/v2/companies?limit=1&field[]=id&field[]=name&embed[]=cf.type-de-client',
     { headers: { Authorization: `Bearer ${access_token}` } }
   );
 
