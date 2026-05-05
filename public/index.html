@@ -230,6 +230,28 @@
       </div>
       <div class="chart-container" style="height:320px;"><canvas id="budgetChart"></canvas></div>
     </div>
+
+    <div class="chart-card" id="top30Card" style="display:none;">
+      <div class="chart-header">
+        <div>
+          <p class="chart-title">🏆 Top 30 clients B2B</p>
+          <p class="chart-subtitle" id="top30Subtitle">CA HT de la période</p>
+        </div>
+      </div>
+      <table style="width:100%; border-collapse:collapse; font-size:13px;">
+        <thead>
+          <tr style="border-bottom:2px solid #e5e5e5;">
+            <th style="text-align:left; padding:8px 12px; color:#888; font-weight:500;">#</th>
+            <th style="text-align:left; padding:8px 12px; color:#888; font-weight:500;">Client</th>
+            <th style="text-align:right; padding:8px 12px; color:#888; font-weight:500;">CA HT</th>
+            <th style="text-align:right; padding:8px 12px; color:#888; font-weight:500;">Nb factures</th>
+            <th style="text-align:right; padding:8px 12px; color:#888; font-weight:500;">% du CA B2B</th>
+          </tr>
+        </thead>
+        <tbody id="top30Body"></tbody>
+      </table>
+    </div>
+
   </div>
 
   <div class="login-overlay" id="loginOverlay">
@@ -593,6 +615,27 @@ function renderBudgetChart(labels, realDataKe, upToMonth) {
   document.getElementById('budgetChartCard').style.display = 'block';
 }
 
+
+function renderTop30(top30, totalCAB2B) {
+  const card = document.getElementById('top30Card');
+  const tbody = document.getElementById('top30Body');
+  if (!top30 || top30.length === 0) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  tbody.innerHTML = top30.map((client, i) => {
+    const pct = totalCAB2B > 0 ? ((client.ca / totalCAB2B) * 100).toFixed(1) : 0;
+    const bg = i % 2 === 0 ? '#fafafa' : 'white';
+    return `<tr style="border-bottom:1px solid #f0f0f0; background:${bg};">
+      <td style="padding:8px 12px; color:#888;">${i + 1}</td>
+      <td style="padding:8px 12px; font-weight:500;">${client.name}</td>
+      <td style="padding:8px 12px; text-align:right;">${new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(client.ca)}</td>
+      <td style="padding:8px 12px; text-align:right; color:#888;">${client.nbFactures}</td>
+      <td style="padding:8px 12px; text-align:right;">
+        <span style="background:#f0f0f0; border-radius:4px; padding:2px 8px; font-size:12px;">${pct}%</span>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
 async function loadData() {
   const dates = getDates();
   if (!dates) return;
@@ -634,6 +677,7 @@ async function loadData() {
     if (caData._caByType && Object.keys(caData._caByType).length > 0) {
       renderTypeClientPieChart(caData._caByType);
     }
+    if (caData._top30B2B) renderTop30(caData._top30B2B, caB2B);
     updateBudgetDisplay(totalCA);
 
     const t = new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
