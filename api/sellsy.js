@@ -94,7 +94,9 @@ export default async function handler(req, res) {
         if (!compResp.ok) break;
         const compData = await compResp.json();
         const companies = compData.data || [];
-
+if (companyOffset === 0 && companies.length > 0) {
+  console.log('DEBUG company[0]:', JSON.stringify(companies[0]));
+}
         for (const company of companies) {
           // L'embed custom field via cf.{code} arrive dans _embed sous la clé du code
           const embed = company._embed || {};
