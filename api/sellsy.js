@@ -90,7 +90,7 @@ export default async function handler(req, res) {
     const fetchPage = async (offset, retries = 3) => {
       for (let attempt = 0; attempt < retries; attempt++) {
         const resp = await fetch(
-          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit&field[]=rate_category_id`,
+          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit&field[]=rate_category_id&field[]=company_name`,
           {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
@@ -138,6 +138,20 @@ export default async function handler(req, res) {
       acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
     const totalCAB2B = invoicesB2B.reduce((acc, inv) =>
       acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
+
+    // Top 30 clients B2B par CA
+    const b2bByClient = {};
+    for (const inv of invoicesB2B) {
+      const name = inv.company_name || 'Inconnu';
+      const amount = parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0);
+      if (!b2bByClient[name]) b2bByClient[name] = { ca: 0, nbFactures: 0 };
+      b2bByClient[name].ca += amount;
+      b2bByClient[name].nbFactures += 1;
+    }
+    const top30B2B = Object.entries(b2bByClient)
+      .map(([name, data]) => ({ name, ca: Math.round(data.ca * 100) / 100, nbFactures: data.nbFactures }))
+      .sort((a, b) => b.ca - a.ca)
+      .slice(0, 30);
 
     const creditBody = JSON.stringify({
       filters: { date: { start: dateStart, end: dateEnd } }
@@ -191,6 +205,7 @@ export default async function handler(req, res) {
       _count: allInvoices.length,
       _countAvoirs: allCredits.length,
       _caByType: {},
+      _top30B2B: top30B2B,
       pagination: { total }
     };
 
