@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   const { access_token } = await tokenResp.json();
 
   const resp = await fetch(
-    'https://api.sellsy.com/v2/custom-fields?limit=25',
+    'https://api.sellsy.com/v2/companies?limit=1&field[]=id&field[]=name&field[]=_embed&embed[]=cf.135940',
     { headers: { Authorization: `Bearer ${access_token}` } }
   );
 
