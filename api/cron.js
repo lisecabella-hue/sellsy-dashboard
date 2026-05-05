@@ -9,10 +9,12 @@ export default async function handler(req, res) {
   const kvUrl = process.env.KV_REST_API_URL;
   const kvToken = process.env.KV_REST_API_TOKEN;
 
+  const CACHE_VERSION = 'v4';
   const pad = n => String(n).padStart(2, '0');
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   // Auth Sellsy
   const tokenResp = await fetch('https://login.sellsy.com/oauth2/access-tokens', {
@@ -48,13 +50,54 @@ export default async function handler(req, res) {
     } catch {}
   }
 
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  // -------------------------------------------------------
+  // ÉTAPE 1 : Charger le dictionnaire tiers → type de client
+  // (mis en cache 24h, partagé avec sellsy.js)
+  // -------------------------------------------------------
+  const companyCacheKey = `sellsy:companies:type_client:v1`;
+  let companyTypeMap = await cacheGet(companyCacheKey);
 
+  if (!companyTypeMap) {
+    companyTypeMap = {};
+    let companyOffset = 0;
+    let hasMoreCompanies = true;
+
+    while (hasMoreCompanies) {
+      const compResp = await fetch(
+        `https://api.sellsy.com/v2/companies?limit=100&offset=${companyOffset}&embed[]=custom_fields`,
+        { headers: { Authorization: `Bearer ${access_token}` } }
+      );
+      if (!compResp.ok) break;
+      const compData = await compResp.json();
+      const companies = compData.data || [];
+
+      for (const company of companies) {
+        const customFields = company._embed?.custom_fields || [];
+        const typeField = customFields.find(
+          f => f.name && f.name.toLowerCase() === 'type de client'
+        );
+        if (typeField && typeField.value) {
+          companyTypeMap[company.id] = typeField.value;
+        }
+      }
+
+      const totalCompanies = compData.pagination?.total || 0;
+      companyOffset += 100;
+      hasMoreCompanies = companyOffset < totalCompanies;
+      if (hasMoreCompanies) await sleep(300);
+    }
+
+    await cacheSet(companyCacheKey, companyTypeMap, 86400);
+  }
+
+  // -------------------------------------------------------
+  // ÉTAPE 2 : Précharger les CA par mois
+  // -------------------------------------------------------
   async function fetchMonthCA(year, month, token) {
     const lastDay = new Date(year, month + 1, 0).getDate();
     const dateStart = `${year}-${pad(month + 1)}-01`;
     const dateEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
-    const cacheKey = `sellsy:total:${dateStart}:${dateEnd}`;
+    const cacheKey = `sellsy:${CACHE_VERSION}:total:${dateStart}:${dateEnd}`;
 
     // Mois passé déjà en cache → skip
     const isCurrentMonth = year === currentYear && month === currentMonth;
@@ -77,7 +120,7 @@ export default async function handler(req, res) {
 
     do {
       const resp = await fetch(
-        `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id`,
+        `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit&field[]=rate_category_id&field[]=related`,
         { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body }
       );
       if (resp.status === 429) { await sleep(2000); continue; }
@@ -89,17 +132,76 @@ export default async function handler(req, res) {
       if (offset < total) await sleep(300);
     } while (offset < total);
 
-    const totalCA = allInvoices.reduce((acc, inv) =>
+    // Exclure acomptes
+    const filteredInvoices = allInvoices.filter(inv => !inv.is_deposit);
+
+    // B2C / B2B
+    const B2C_CATEGORY_ID = 215340;
+    const invoicesB2C = filteredInvoices.filter(inv => inv.rate_category_id === B2C_CATEGORY_ID);
+    const invoicesB2B = filteredInvoices.filter(inv => inv.rate_category_id !== B2C_CATEGORY_ID);
+
+    // Ventilation par type de client
+    const caByType = {};
+    for (const inv of filteredInvoices) {
+      const companyId = inv.related?.[0]?.id;
+      const typeClient = (companyId && companyTypeMap[companyId]) || 'Autre';
+      const amount = parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0);
+      if (!caByType[typeClient]) caByType[typeClient] = 0;
+      caByType[typeClient] += amount;
+    }
+    for (const key of Object.keys(caByType)) {
+      caByType[key] = Math.round(caByType[key] * 100) / 100;
+    }
+
+    const totalCA = filteredInvoices.reduce((acc, inv) =>
       acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0
     );
+    const totalCAB2C = invoicesB2C.reduce((acc, inv) =>
+      acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
+    const totalCAB2B = invoicesB2B.reduce((acc, inv) =>
+      acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
+
+    // Avoirs
+    const creditBody = JSON.stringify({
+      filters: { date: { start: dateStart, end: dateEnd } }
+    });
+    let allCredits = [];
+    let creditOffset = 0;
+    let totalCredits = null;
+
+    do {
+      const resp = await fetch(
+        `https://api.sellsy.com/v2/credit-notes/search?limit=100&offset=${creditOffset}&field[]=amounts.total_excl_tax`,
+        { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: creditBody }
+      );
+      if (resp.status === 429) { await sleep(2000); continue; }
+      if (!resp.ok) break;
+      const data = await resp.json();
+      if (totalCredits === null) totalCredits = data.pagination?.total || 0;
+      allCredits = allCredits.concat(data.data || []);
+      creditOffset += 100;
+      if (creditOffset < totalCredits) await sleep(300);
+    } while (creditOffset < (totalCredits || 0));
+
+    const totalAvoirsCA = allCredits.reduce((acc, c) =>
+      acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
 
     const result = {
-      _totalCA: Math.round(totalCA * 100) / 100,
+      _totalCA: Math.round((totalCA - totalAvoirsCA) * 100) / 100,
+      _totalCABrut: Math.round(totalCA * 100) / 100,
+      _totalAvoirs: Math.round(totalAvoirsCA * 100) / 100,
+      _totalCAB2C: Math.round(totalCAB2C * 100) / 100,
+      _totalCAB2B: Math.round(totalCAB2B * 100) / 100,
+      _countB2C: invoicesB2C.length,
+      _countB2B: invoicesB2B.length,
+      _panierMoyenB2C: invoicesB2C.length > 0 ? Math.round((totalCAB2C / invoicesB2C.length) * 100) / 100 : 0,
+      _panierMoyenB2B: invoicesB2B.length > 0 ? Math.round((totalCAB2B / invoicesB2B.length) * 100) / 100 : 0,
       _count: allInvoices.length,
+      _countAvoirs: allCredits.length,
+      _caByType: caByType,
       pagination: { total: total || allInvoices.length }
     };
 
-    // Mois passé → cache 30 jours, mois en cours → cache 2h
     const ttl = isCurrentMonth ? 7200 : 60 * 60 * 24 * 30;
     await cacheSet(cacheKey, result, ttl);
 
@@ -115,7 +217,7 @@ export default async function handler(req, res) {
     for (let month = 0; month <= maxMonth; month++) {
       const result = await fetchMonthCA(year, month, access_token);
       results.push(result);
-      await sleep(500); // pause entre chaque mois
+      await sleep(500);
     }
   }
 
