@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   const kvUrl = process.env.KV_REST_API_URL;
   const kvToken = process.env.KV_REST_API_TOKEN;
 
-  const CACHE_VERSION = 'v5';
+  const CACHE_VERSION = 'v6';
   const pad = n => String(n).padStart(2, '0');
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -176,7 +176,7 @@ export default async function handler(req, res) {
 
     do {
       const resp = await fetch(
-        `https://api.sellsy.com/v2/credit-notes/search?limit=100&offset=${creditOffset}&field[]=amounts.total_excl_tax`,
+        `https://api.sellsy.com/v2/credit-notes/search?limit=100&offset=${creditOffset}&field[]=amounts.total_excl_tax&field[]=rate_category_id`,
         { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: creditBody }
       );
       if (resp.status === 429) { await sleep(2000); continue; }
@@ -188,19 +188,29 @@ export default async function handler(req, res) {
       if (creditOffset < totalCredits) await sleep(300);
     } while (creditOffset < (totalCredits || 0));
 
+    const creditsB2C = allCredits.filter(c => c.rate_category_id === B2C_CATEGORY_ID);
+    const creditsB2B = allCredits.filter(c => c.rate_category_id !== B2C_CATEGORY_ID);
+
     const totalAvoirsCA = allCredits.reduce((acc, c) =>
       acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
+    const totalAvoirsB2C = creditsB2C.reduce((acc, c) =>
+      acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
+    const totalAvoirsB2B = creditsB2B.reduce((acc, c) =>
+      acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
+
+    const totalCAB2CNet = totalCAB2C - totalAvoirsB2C;
+    const totalCAB2BNet = totalCAB2B - totalAvoirsB2B;
 
     const result = {
       _totalCA: Math.round((totalCA - totalAvoirsCA) * 100) / 100,
       _totalCABrut: Math.round(totalCA * 100) / 100,
       _totalAvoirs: Math.round(totalAvoirsCA * 100) / 100,
-      _totalCAB2C: Math.round(totalCAB2C * 100) / 100,
-      _totalCAB2B: Math.round(totalCAB2B * 100) / 100,
+      _totalCAB2C: Math.round(totalCAB2CNet * 100) / 100,
+      _totalCAB2B: Math.round(totalCAB2BNet * 100) / 100,
       _countB2C: invoicesB2C.length,
       _countB2B: invoicesB2B.length,
-      _panierMoyenB2C: invoicesB2C.length > 0 ? Math.round((totalCAB2C / invoicesB2C.length) * 100) / 100 : 0,
-      _panierMoyenB2B: invoicesB2B.length > 0 ? Math.round((totalCAB2B / invoicesB2B.length) * 100) / 100 : 0,
+      _panierMoyenB2C: invoicesB2C.length > 0 ? Math.round((totalCAB2CNet / invoicesB2C.length) * 100) / 100 : 0,
+      _panierMoyenB2B: invoicesB2B.length > 0 ? Math.round((totalCAB2BNet / invoicesB2B.length) * 100) / 100 : 0,
       _count: allInvoices.length,
       _countAvoirs: allCredits.length,
       _caByType: caByType,
