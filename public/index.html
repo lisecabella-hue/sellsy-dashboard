@@ -654,7 +654,8 @@ async function loadData() {
     document.getElementById(id).className = 'metric-vs neutral';
   });
   currentTotalCA = 0;
-
+document.getElementById('top30Body').innerHTML = '';
+document.getElementById('top30Card').style.display = 'none';
   try {
     const caResp = await fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=total`);
     if (!caResp.ok) throw new Error('Erreur API');
