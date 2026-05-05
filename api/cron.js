@@ -136,7 +136,7 @@ export default async function handler(req, res) {
 
     do {
       const resp = await fetch(
-        `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit&field[]=rate_category_id&field[]=related`,
+        `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit&field[]=rate_category_id&field[]=_embed&embed[]=cf.type-de-client`,
         { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body }
       );
       if (resp.status === 429) { await sleep(2000); continue; }
@@ -156,11 +156,16 @@ export default async function handler(req, res) {
     const invoicesB2C = filteredInvoices.filter(inv => inv.rate_category_id === B2C_CATEGORY_ID);
     const invoicesB2B = filteredInvoices.filter(inv => inv.rate_category_id !== B2C_CATEGORY_ID);
 
-    // Ventilation par type de client
+    // Ventilation par type de client (depuis l'embed cf.type-de-client sur chaque facture)
     const caByType = {};
     for (const inv of filteredInvoices) {
-      const companyId = inv.related?.[0]?.id;
-      const typeClient = (companyId && companyTypeMap[companyId]) || 'Autre';
+      const embed = inv._embed || {};
+      let typeClient = 'Autre';
+      for (const key of Object.keys(embed)) {
+        const val = embed[key];
+        if (typeof val === 'string' && val.length > 0) { typeClient = val; break; }
+        if (val && typeof val === 'object' && val.value && typeof val.value === 'string') { typeClient = val.value; break; }
+      }
       const amount = parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0);
       if (!caByType[typeClient]) caByType[typeClient] = 0;
       caByType[typeClient] += amount;
