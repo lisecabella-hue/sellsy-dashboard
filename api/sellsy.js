@@ -86,7 +86,7 @@ export default async function handler(req, res) {
 
       while (hasMoreCompanies) {
         const compResp = await fetch(
-          `https://api.sellsy.com/v2/companies?limit=100&offset=${companyOffset}&embed[]=custom_fields`,
+          `https://api.sellsy.com/v2/companies?limit=100&offset=${companyOffset}&embed[]=cf.type-de-client&field[]=id&field[]=_embed`,
           {
             headers: { 'Authorization': `Bearer ${access_token}` }
           }
@@ -96,12 +96,41 @@ export default async function handler(req, res) {
         const companies = compData.data || [];
 
         for (const company of companies) {
-          const customFields = company._embed?.custom_fields || [];
-          const typeField = customFields.find(
-            f => f.name && f.name.toLowerCase() === 'type de client'
-          );
-          if (typeField && typeField.value) {
-            companyTypeMap[company.id] = typeField.value;
+          // L'embed custom field via cf.{code} arrive dans _embed sous la clé du code
+          const embed = company._embed || {};
+          // Chercher dans toutes les clés de _embed celle qui correspond au type de client
+          let typeValue = null;
+          for (const key of Object.keys(embed)) {
+            const val = embed[key];
+            if (typeof val === 'string' && val.length > 0) {
+              // Si la clé contient "type" ou "client" c'est probablement notre champ
+              if (key.toLowerCase().includes('type') || key.toLowerCase().includes('client')) {
+                typeValue = val;
+                break;
+              }
+            }
+            // Ou si c'est un objet avec une valeur
+            if (val && typeof val === 'object' && val.value) {
+              if (key.toLowerCase().includes('type') || key.toLowerCase().includes('client')) {
+                typeValue = val.value;
+                break;
+              }
+            }
+          }
+          // Fallback : prendre la première valeur string non vide de _embed
+          if (!typeValue) {
+            for (const key of Object.keys(embed)) {
+              const val = embed[key];
+              if (typeof val === 'string' && val.length > 0) {
+                typeValue = val; break;
+              }
+              if (val && typeof val === 'object' && val.value && typeof val.value === 'string') {
+                typeValue = val.value; break;
+              }
+            }
+          }
+          if (typeValue) {
+            companyTypeMap[company.id] = typeValue;
           }
         }
 
