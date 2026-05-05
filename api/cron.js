@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   const kvUrl = process.env.KV_REST_API_URL;
   const kvToken = process.env.KV_REST_API_TOKEN;
 
-  const CACHE_VERSION = 'v6';
+  const CACHE_VERSION = 'v7';
   const pad = n => String(n).padStart(2, '0');
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -176,7 +176,7 @@ export default async function handler(req, res) {
 
     do {
       const resp = await fetch(
-        `https://api.sellsy.com/v2/credit-notes/search?limit=100&offset=${creditOffset}&field[]=amounts.total_excl_tax&field[]=rate_category_id`,
+        `https://api.sellsy.com/v2/credit-notes/search?limit=100&offset=${creditOffset}&field[]=amounts.total_excl_tax&field[]=rate_category_id&field[]=related`,
         { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: creditBody }
       );
       if (resp.status === 429) { await sleep(2000); continue; }
@@ -200,6 +200,21 @@ export default async function handler(req, res) {
 
     const totalCAB2CNet = totalCAB2C - totalAvoirsB2C;
     const totalCAB2BNet = totalCAB2B - totalAvoirsB2B;
+
+    // Déduire les avoirs par type de client
+    const avoirsByType = {};
+    for (const credit of allCredits) {
+      const companyId = credit.related?.[0]?.id;
+      const typeClient = (companyId && companyTypeMap[companyId]) || 'Non catégorisé';
+      const amount = parseFloat((credit.amounts && credit.amounts.total_excl_tax) || 0);
+      if (!avoirsByType[typeClient]) avoirsByType[typeClient] = 0;
+      avoirsByType[typeClient] += amount;
+    }
+    for (const key of Object.keys(avoirsByType)) {
+      if (caByType[key] !== undefined) {
+        caByType[key] = Math.round((caByType[key] - avoirsByType[key]) * 100) / 100;
+      }
+    }
 
     const result = {
       _totalCA: Math.round((totalCA - totalAvoirsCA) * 100) / 100,
