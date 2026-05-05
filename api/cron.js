@@ -64,7 +64,7 @@ export default async function handler(req, res) {
 
     while (hasMoreCompanies) {
       const compResp = await fetch(
-        `https://api.sellsy.com/v2/companies?limit=100&offset=${companyOffset}&embed[]=custom_fields`,
+        `https://api.sellsy.com/v2/companies?limit=100&offset=${companyOffset}&embed[]=cf.type-de-client&field[]=id&field[]=_embed`,
         { headers: { Authorization: `Bearer ${access_token}` } }
       );
       if (!compResp.ok) break;
@@ -72,13 +72,29 @@ export default async function handler(req, res) {
       const companies = compData.data || [];
 
       for (const company of companies) {
-        const customFields = company._embed?.custom_fields || [];
-        const typeField = customFields.find(
-          f => f.name && f.name.toLowerCase() === 'type de client'
-        );
-        if (typeField && typeField.value) {
-          companyTypeMap[company.id] = typeField.value;
+        const embed = company._embed || {};
+        let typeValue = null;
+        for (const key of Object.keys(embed)) {
+          const val = embed[key];
+          if (typeof val === 'string' && val.length > 0) {
+            if (key.toLowerCase().includes('type') || key.toLowerCase().includes('client')) {
+              typeValue = val; break;
+            }
+          }
+          if (val && typeof val === 'object' && val.value) {
+            if (key.toLowerCase().includes('type') || key.toLowerCase().includes('client')) {
+              typeValue = val.value; break;
+            }
+          }
         }
+        if (!typeValue) {
+          for (const key of Object.keys(embed)) {
+            const val = embed[key];
+            if (typeof val === 'string' && val.length > 0) { typeValue = val; break; }
+            if (val && typeof val === 'object' && val.value && typeof val.value === 'string') { typeValue = val.value; break; }
+          }
+        }
+        if (typeValue) companyTypeMap[company.id] = typeValue;
       }
 
       const totalCompanies = compData.pagination?.total || 0;
