@@ -139,7 +139,7 @@
     <div class="error-box" id="errorBox"></div>
     <p class="period-label" id="periodLabel"></p>
 
-    <!-- Ligne 1 : CA total + nb factures -->
+    <!-- Ligne 1 : CA total + pie chart type de client -->
     <div class="metric-grid">
       <div class="metric-card">
         <p class="metric-label">Chiffre d'affaires HT</p>
@@ -156,14 +156,20 @@
         </div>
         <p class="metric-sub">Total de la période</p>
       </div>
-      <div class="metric-card">
-        <p class="metric-label">Nb factures</p>
-        <p class="metric-value" id="mCount">—</p>
-        <p class="metric-sub">Période sélectionnée</p>
+
+      <!-- Nouveau pie chart : répartition par type de client -->
+      <div class="metric-card" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
+        <p class="metric-label" style="align-self:flex-start;">Répartition par type de client</p>
+        <div style="position:relative; width:180px; height:180px;">
+          <canvas id="typeClientPieChart"></canvas>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; font-size:11px; justify-content:center;" id="typeClientLegend">
+          <span style="color:#aaa;">En attente de données...</span>
+        </div>
       </div>
     </div>
 
-    <!-- Ligne 2 : Pie chart + cartes B2C/B2B -->
+    <!-- Ligne 2 : Pie chart B2C/B2B + cartes B2C/B2B -->
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:24px;">
       <div class="metric-card" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
         <p class="metric-label" style="align-self:flex-start;">Répartition CA B2C vs B2B</p>
@@ -393,13 +399,6 @@ function fmt(n) {
   return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
 }
 
-function fmtVs(current, prev, prevYear) {
-  if (!prev || prev === 0) return '';
-  const diff = ((current - prev) / prev) * 100;
-  const sign = diff >= 0 ? '+' : '';
-  return { text: `${sign}${diff.toFixed(1)}% vs ${prevYear}`, cls: diff >= 0 ? 'up' : 'down' };
-}
-
 function shiftYearBack(dateStart, dateEnd) {
   const s = new Date(dateStart + 'T12:00:00');
   const e = new Date(dateEnd + 'T12:00:00');
@@ -441,6 +440,7 @@ function getDates() {
   }
 }
 
+// Pie chart B2C vs B2B (existant — inchangé)
 function renderPieChart(caB2C, caB2B) {
   const ctx = document.getElementById('b2cPieChart').getContext('2d');
   if (pieChartInstance) pieChartInstance.destroy();
@@ -460,6 +460,41 @@ function renderPieChart(caB2C, caB2B) {
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmt(ctx.raw)} (${Math.round((ctx.raw/total)*100)}%)` } }
+      }
+    }
+  });
+}
+
+// Nouveau pie chart : répartition par type de client
+function renderTypeClientPieChart(caByType) {
+  const ctx = document.getElementById('typeClientPieChart').getContext('2d');
+  if (window.typeClientPieInstance) window.typeClientPieInstance.destroy();
+
+  const COLORS = ['#1a1a1a', '#1D9E75', '#74A1D6', '#D85A30', '#F5A623', '#9B59B6', '#888'];
+  const labels = Object.keys(caByType);
+  const values = Object.values(caByType);
+  const total = values.reduce((a, b) => a + b, 0);
+
+  const legendEl = document.getElementById('typeClientLegend');
+  legendEl.innerHTML = labels.map((l, i) => {
+    const pct = total > 0 ? Math.round((values[i] / total) * 100) : 0;
+    return `<span style="display:flex;align-items:center;gap:4px;">
+      <span style="width:9px;height:9px;border-radius:50%;background:${COLORS[i % COLORS.length]};display:inline-block;flex-shrink:0;"></span>
+      <span>${l} ${pct}%</span>
+    </span>`;
+  }).join('');
+
+  window.typeClientPieInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: COLORS.slice(0, labels.length), borderWidth: 0, hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true, cutout: '65%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmt(ctx.raw)} (${Math.round((ctx.raw / total) * 100)}%)` } }
       }
     }
   });
@@ -570,7 +605,7 @@ async function loadData() {
   document.getElementById('mCAVs').textContent = '';
   document.getElementById('budgetBarWrap').style.display = 'none';
   setStatus('spin', 'Chargement...');
-  ['mCA','mCount','mCAB2C','mCAB2B','mAvgB2C','mAvgB2B'].forEach(id => document.getElementById(id).textContent = '...');
+  ['mCA','mCAB2C','mCAB2B','mAvgB2C','mAvgB2B'].forEach(id => document.getElementById(id).textContent = '...');
   ['mCAB2CVs','mCAB2BVs','mAvgB2CVs','mAvgB2BVs'].forEach(id => {
     document.getElementById(id).textContent = '⏳';
     document.getElementById(id).className = 'metric-vs neutral';
@@ -583,7 +618,6 @@ async function loadData() {
     const caData = await caResp.json();
 
     const totalCA = caData._totalCA || 0;
-    const count = caData.pagination?.total || caData._count || 0;
     const caB2C = caData._totalCAB2C || 0;
     const caB2B = caData._totalCAB2B || 0;
     const panierB2C = caData._panierMoyenB2C || 0;
@@ -591,19 +625,22 @@ async function loadData() {
     currentTotalCA = totalCA;
 
     document.getElementById('mCA').textContent = fmt(totalCA);
-    document.getElementById('mCount').textContent = count.toLocaleString('fr-FR');
     document.getElementById('mCAB2C').textContent = fmt(caB2C);
     document.getElementById('mCAB2B').textContent = fmt(caB2B);
     document.getElementById('mAvgB2C').textContent = fmt(panierB2C);
     document.getElementById('mAvgB2B').textContent = fmt(panierB2B);
+
     renderPieChart(caB2C, caB2B);
+    if (caData._caByType && Object.keys(caData._caByType).length > 0) {
+      renderTypeClientPieChart(caData._caByType);
+    }
     updateBudgetDisplay(totalCA);
 
     const t = new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     document.getElementById('lastUpdate').textContent = 'Mis à jour le ' + t;
     setStatus('ok', 'Données à jour');
 
-    // Comparaison N-1 (toutes les métriques)
+    // Comparaison N-1
     const vsEl = document.getElementById('mCAVs');
     vsEl.textContent = '⏳ vs N-1...';
     vsEl.className = 'metric-vs neutral';
@@ -617,7 +654,6 @@ async function loadData() {
         const prevPanierB2C = prev._panierMoyenB2C || 0;
         const prevPanierB2B = prev._panierMoyenB2B || 0;
 
-        // CA total
         if (prevCA > 0) {
           const diff = ((totalCA - prevCA) / prevCA) * 100;
           const sign = diff >= 0 ? '+' : '';
@@ -625,7 +661,6 @@ async function loadData() {
           vsEl.className = `metric-vs ${diff >= 0 ? 'up' : 'down'}`;
         } else { vsEl.textContent = 'Pas de données N-1'; }
 
-        // CA B2C, B2B, paniers
         setVs('mCAB2CVs', caB2C, prevB2C, prevYear);
         setVs('mCAB2BVs', caB2B, prevB2B, prevYear);
         setVs('mAvgB2CVs', panierB2C, prevPanierB2C, prevYear);
