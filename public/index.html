@@ -93,19 +93,12 @@
       <p class="modal-sub">Ces messages s'affichent en bandeau en haut du dashboard</p>
       <div style="margin-bottom:20px;">
         <label style="font-size:12px;color:#888;display:block;margin-bottom:6px;">Message permanent (toujours affiché)</label>
-        <textarea id="notesPermanent" rows="2" placeholder="Ex : Ce dashboard est mis à jour chaque semaine par la direction."
+        <textarea id="notesPermanentInput" rows="2" placeholder="Ex : Ce dashboard est mis à jour chaque semaine par la direction."
           style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;resize:vertical;font-family:inherit;"></textarea>
       </div>
       <div>
         <label style="font-size:12px;color:#888;display:block;margin-bottom:8px;">Messages par mois 2026</label>
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          ${Array.from({length:12},(_,i)=>`
-          <div style="display:grid;grid-template-columns:80px 1fr;gap:8px;align-items:center;">
-            <span style="font-size:12px;color:#444;font-weight:500;" id="notesMonthLabel_${i}"></span>
-            <input type="text" id="notesMonth_${i}" placeholder="Note pour ce mois (optionnel)"
-              style="padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;" />
-          </div>`).join('')}
-        </div>
+        <div id="notesMonthsGrid" style="display:flex;flex-direction:column;gap:8px;"></div>
       </div>
       <div class="modal-actions" style="margin-top:20px;">
         <button class="btn btn-cancel" onclick="closeNotesModal()">Annuler</button>
@@ -376,11 +369,14 @@ function loadNotes() {
 loadNotes();
 
 function openNotesModal() {
-  document.getElementById('notesPermanent').value = notesPermanent;
-  months.forEach((m, i) => {
-    document.getElementById(`notesMonthLabel_${i}`).textContent = m;
-    document.getElementById(`notesMonth_${i}`).value = notesMonths[i] || '';
-  });
+  document.getElementById('notesPermanentInput').value = notesPermanent;
+  const grid = document.getElementById('notesMonthsGrid');
+  grid.innerHTML = months.map((m, i) => `
+    <div style="display:grid;grid-template-columns:80px 1fr;gap:8px;align-items:center;">
+      <span style="font-size:12px;color:#444;font-weight:500;">${m}</span>
+      <input type="text" id="notesMonth_${i}" value="${notesMonths[i] || ''}" placeholder="Note pour ce mois (optionnel)"
+        style="padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;" />
+    </div>`).join('');
   document.getElementById('notesModal').classList.add('open');
   document.getElementById('notesSaveMsg').style.display = 'none';
 }
@@ -388,7 +384,7 @@ function openNotesModal() {
 function closeNotesModal() { document.getElementById('notesModal').classList.remove('open'); }
 
 function saveNotes() {
-  notesPermanent = document.getElementById('notesPermanent').value;
+  notesPermanent = document.getElementById('notesPermanentInput').value;
   notesMonths = months.map((_, i) => document.getElementById(`notesMonth_${i}`).value);
   localStorage.setItem('notesPermanent', notesPermanent);
   localStorage.setItem('notesMonths', JSON.stringify(notesMonths));
