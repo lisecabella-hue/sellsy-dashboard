@@ -116,10 +116,10 @@
   </div>
 
   <!-- Bandeau messages -->
-  <div id="bannerPermanent" style="display:none;background:#1a1a1a;color:white;padding:10px 32px;font-size:13px;display:flex;align-items:center;gap:8px;">
+  <div id="bannerPermanent" style="display:none;background:#1a1a1a;color:white;padding:10px 32px;font-size:13px;align-items:center;gap:8px;">
     <span>📌</span><span id="bannerPermanentText"></span>
   </div>
-  <div id="bannerMonth" style="display:none;background:#FFF8E1;border-bottom:1px solid #FFE082;padding:10px 32px;font-size:13px;color:#7B5E00;display:flex;align-items:center;gap:8px;">
+  <div id="bannerMonth" style="display:none;background:#FFF8E1;border-bottom:1px solid #FFE082;padding:10px 32px;font-size:13px;color:#7B5E00;align-items:center;gap:8px;">
     <span>⚠️</span><span id="bannerMonthText"></span>
   </div>
 
@@ -399,11 +399,13 @@ function saveNotes() {
 
 function updateBanners(monthIndex) {
   const perm = document.getElementById('bannerPermanent');
+  const permText = document.getElementById('bannerPermanentText');
   const month = document.getElementById('bannerMonth');
-  if (!perm || !month) return;
+  const monthText = document.getElementById('bannerMonthText');
+  if (!perm || !permText || !month || !monthText) return;
   if (notesPermanent.trim()) {
     perm.style.display = 'flex';
-    document.getElementById('bannerPermanentText').textContent = notesPermanent;
+    permText.textContent = notesPermanent;
   } else {
     perm.style.display = 'none';
   }
@@ -411,7 +413,7 @@ function updateBanners(monthIndex) {
   const note = notesMonths[idx] || '';
   if (note.trim()) {
     month.style.display = 'flex';
-    document.getElementById('bannerMonthText').textContent = note;
+    monthText.textContent = note;
   } else {
     month.style.display = 'none';
   }
