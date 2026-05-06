@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
   const sleep = ms => new Promise(r => setTimeout(r, ms));
-
+ 
   const TYPE_CLIENT_MAP = {
     3562348: 'Pharmacie',
     3562349: 'Monoprix',
