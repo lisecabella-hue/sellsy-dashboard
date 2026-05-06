@@ -56,7 +56,7 @@
     .period-label { font-size: 20px; font-weight: 500; margin-bottom: 20px; }
     .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; display: none; align-items: center; justify-content: center; }
     .modal-overlay.open { display: flex; }
-    .modal { background: white; border-radius: 16px; padding: 32px; width: 600px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+    .modal { background: white; border-radius: 16px; padding: 32px; width: 700px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
     .modal-title { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
     .modal-sub { font-size: 13px; color: #888; margin-bottom: 24px; }
     .budget-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
@@ -203,11 +203,29 @@
           <p class="metric-label">CA B2C (Shopify)</p>
           <p class="metric-value" id="mCAB2C">—</p>
           <p class="metric-vs neutral" id="mCAB2CVs">⏳</p>
+          <div class="budget-bar-wrap" id="budgetBarB2CWrap" style="display:none;">
+            <div class="budget-bar-label">
+              <span id="budgetBarB2CLabel">vs Budget B2C</span>
+              <span id="budgetBarB2CPct"></span>
+            </div>
+            <div class="budget-bar-bg">
+              <div class="budget-bar-fill ok" id="budgetBarB2CFill" style="width:0%"></div>
+            </div>
+          </div>
         </div>
         <div class="metric-card b2b">
           <p class="metric-label">CA B2B</p>
           <p class="metric-value" id="mCAB2B">—</p>
           <p class="metric-vs neutral" id="mCAB2BVs">⏳</p>
+          <div class="budget-bar-wrap" id="budgetBarB2BWrap" style="display:none;">
+            <div class="budget-bar-label">
+              <span id="budgetBarB2BLabel">vs Budget B2B</span>
+              <span id="budgetBarB2BPct"></span>
+            </div>
+            <div class="budget-bar-bg">
+              <div class="budget-bar-fill ok" id="budgetBarB2BFill" style="width:0%"></div>
+            </div>
+          </div>
         </div>
         <div class="metric-card b2c">
           <p class="metric-label">🛒 Panier moyen B2C</p>
@@ -300,25 +318,41 @@ let currentTotalCA = 0;
 const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const monthsShort = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
 
-const DEFAULT_BUDGET = [1617, 1151, 3439, 1267, 1722, 2085, 1498, 814, 1319, 2401, 1461, 1483];
-let budget2026 = [...DEFAULT_BUDGET];
+const DEFAULT_BUDGET    = [1617, 1151, 3439, 1267, 1722, 2085, 1498, 814, 1319, 2401, 1461, 1483];
+const DEFAULT_BUDGET_B2C = [0,0,0,0,0,0,0,0,0,0,0,0];
+const DEFAULT_BUDGET_B2B = [0,0,0,0,0,0,0,0,0,0,0,0];
+let budget2026    = [...DEFAULT_BUDGET];
+let budgetB2C2026 = [...DEFAULT_BUDGET_B2C];
+let budgetB2B2026 = [...DEFAULT_BUDGET_B2B];
 
 function loadBudgetLocal() {
   try {
     const saved = localStorage.getItem('budget2026');
     if (saved) budget2026 = JSON.parse(saved);
+    const savedB2C = localStorage.getItem('budgetB2C2026');
+    if (savedB2C) budgetB2C2026 = JSON.parse(savedB2C);
+    const savedB2B = localStorage.getItem('budgetB2B2026');
+    if (savedB2B) budgetB2B2026 = JSON.parse(savedB2B);
   } catch {}
 }
 loadBudgetLocal();
 
 function openBudgetModal() {
   const grid = document.getElementById('budgetGrid');
-  grid.innerHTML = months.map((m, i) => `
-    <div class="budget-input-wrap">
-      <label>${m} 2026</label>
-      <input type="number" id="budget_${i}" value="${budget2026[i]}" placeholder="k€" />
+  grid.innerHTML = `
+    <div style="grid-column:1/-1; display:grid; grid-template-columns: 80px 1fr 1fr 1fr; gap:8px; align-items:center; border-bottom:1px solid #e5e5e5; padding-bottom:8px; margin-bottom:4px;">
+      <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>
+      <span style="font-size:11px;color:#888;font-weight:600;text-align:center;">Total (k€)</span>
+      <span style="font-size:11px;color:#74A1D6;font-weight:600;text-align:center;">B2C (k€)</span>
+      <span style="font-size:11px;color:#1D9E75;font-weight:600;text-align:center;">B2B (k€)</span>
     </div>
-  `).join('');
+    ${months.map((m, i) => `
+    <div style="grid-column:1/-1; display:grid; grid-template-columns: 80px 1fr 1fr 1fr; gap:8px; align-items:center;">
+      <span style="font-size:12px;color:#444;">${m}</span>
+      <input type="number" id="budget_${i}" value="${budget2026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center;" />
+      <input type="number" id="budgetB2C_${i}" value="${budgetB2C2026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #c5d9ef;border-radius:6px;font-size:13px;text-align:center;" />
+      <input type="number" id="budgetB2B_${i}" value="${budgetB2B2026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #a8dcc8;border-radius:6px;font-size:13px;text-align:center;" />
+    </div>`).join('')}`;
   document.getElementById('budgetModal').classList.add('open');
   document.getElementById('saveMsg').style.display = 'none';
 }
@@ -326,14 +360,71 @@ function openBudgetModal() {
 function closeBudgetModal() { document.getElementById('budgetModal').classList.remove('open'); }
 
 function saveBudget() {
-  const newBudget = months.map((_, i) => parseFloat(document.getElementById(`budget_${i}`).value) || 0);
-  budget2026 = newBudget;
-  localStorage.setItem('budget2026', JSON.stringify(budget2026));
+  budget2026    = months.map((_, i) => parseFloat(document.getElementById(`budget_${i}`).value) || 0);
+  budgetB2C2026 = months.map((_, i) => parseFloat(document.getElementById(`budgetB2C_${i}`).value) || 0);
+  budgetB2B2026 = months.map((_, i) => parseFloat(document.getElementById(`budgetB2B_${i}`).value) || 0);
+  localStorage.setItem('budget2026',    JSON.stringify(budget2026));
+  localStorage.setItem('budgetB2C2026', JSON.stringify(budgetB2C2026));
+  localStorage.setItem('budgetB2B2026', JSON.stringify(budgetB2B2026));
   document.getElementById('saveMsg').style.display = 'block';
   setTimeout(() => {
     closeBudgetModal();
     if (currentTotalCA > 0) updateBudgetDisplay(currentTotalCA);
   }, 800);
+}
+
+function updateBudgetB2CB2BDisplay(caB2C, caB2B) {
+  const dates = getDates();
+  if (!dates) return;
+  const { dateStart, dateEnd } = dates;
+  const startDate = new Date(dateStart + 'T12:00:00');
+  const endDate = new Date(dateEnd + 'T12:00:00');
+
+  function getBudgetForPeriod(budgetArr) {
+    if (startDate.getFullYear() !== 2026 && endDate.getFullYear() !== 2026) return 0;
+    if (currentMode === 'month' && startDate.getFullYear() === 2026) return budgetArr[startDate.getMonth()];
+    if (currentMode === 'ytd' && endDate.getFullYear() === 2026) {
+      let t = 0; for (let m = 0; m <= endDate.getMonth(); m++) t += budgetArr[m]; return t;
+    }
+    if (currentMode === 'today' && startDate.getFullYear() === 2026) {
+      const m = startDate.getMonth();
+      return Math.round(budgetArr[m] / new Date(2026, m+1, 0).getDate() * 10) / 10;
+    }
+    let t = 0;
+    const days = Math.round((endDate - startDate) / 86400000) + 1;
+    for (let d = 0; d < days; d++) {
+      const day = new Date(startDate); day.setDate(startDate.getDate() + d);
+      if (day.getFullYear() === 2026) { const m = day.getMonth(); t += budgetArr[m] / new Date(2026, m+1, 0).getDate(); }
+    }
+    return Math.round(t * 10) / 10;
+  }
+
+  const budB2C = getBudgetForPeriod(budgetB2C2026);
+  const budB2B = getBudgetForPeriod(budgetB2B2026);
+
+  if (budB2C > 0) {
+    const pct = Math.round(((caB2C / 1000) / budB2C) * 100);
+    document.getElementById('budgetBarB2CWrap').style.display = 'block';
+    document.getElementById('budgetBarB2CLabel').textContent = `Budget B2C : ${budB2C.toLocaleString('fr-FR')} k€`;
+    document.getElementById('budgetBarB2CPct').textContent = `${pct}% atteint`;
+    const fill = document.getElementById('budgetBarB2CFill');
+    fill.style.width = Math.min(pct, 100) + '%';
+    fill.className = `budget-bar-fill ${pct >= 100 ? 'over' : 'ok'}`;
+  } else {
+    document.getElementById('budgetBarB2CWrap').style.display = 'none';
+  }
+
+  if (budB2B > 0) {
+    const pct = Math.round(((caB2B / 1000) / budB2B) * 100);
+    document.getElementById('budgetBarB2BWrap').style.display = 'block';
+    document.getElementById('budgetBarB2BLabel').textContent = `Budget B2B : ${budB2B.toLocaleString('fr-FR')} k€`;
+    document.getElementById('budgetBarB2BPct').textContent = `${pct}% atteint`;
+    const fill = document.getElementById('budgetBarB2BFill');
+    fill.style.width = Math.min(pct, 100) + '%';
+    fill.className = `budget-bar-fill ${pct >= 100 ? 'over' : 'ok'}`;
+  } else {
+    document.getElementById('budgetBarB2BWrap').style.display = 'none';
+  }
 }
 
 function updateBudgetDisplay(totalCA) {
@@ -671,6 +762,7 @@ async function loadData() {
     }
     if (caData._top30B2B) renderTop30(caData._top30B2B, caB2B);
     updateBudgetDisplay(totalCA);
+    updateBudgetB2CB2BDisplay(caB2C, caB2B);
 
     const t = new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     document.getElementById('lastUpdate').textContent = 'Mis à jour le ' + t;
