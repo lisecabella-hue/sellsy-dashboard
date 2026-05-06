@@ -879,9 +879,10 @@ async function loadData() {
     loadMonthlyChart(endDate.getFullYear(), endDate.getMonth());
 
   } catch(e) {
+    console.error('ERREUR DETAIL:', e.stack || e.message, e);
     setStatus('err', 'Erreur');
     document.getElementById('errorBox').style.display = 'block';
-    document.getElementById('errorBox').textContent = 'Erreur : ' + e.message;
+    document.getElementById('errorBox').textContent = 'Erreur : ' + e.message + ' — ' + (e.stack || '').split('\n')[1];
   }
 }
 </script>
