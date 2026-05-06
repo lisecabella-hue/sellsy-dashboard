@@ -11,7 +11,7 @@ export default async function handler(req, res) {
 
   const { dateStart, dateEnd, mode } = req.query;
   if (!dateStart || !dateEnd) return res.status(400).json({ error: 'dateStart and dateEnd required' });
-
+if (mode === 'debug') return res.status(200).json({ version: 'v7-new', mode, dateStart, dateEnd });
   async function cacheGet(key) {
     try {
       const r = await fetch(`${kvUrl}/get/${encodeURIComponent(key)}`, {
