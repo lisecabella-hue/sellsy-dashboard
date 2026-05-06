@@ -1,4 +1,5 @@
 export const maxDuration = 60;
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
@@ -12,7 +13,7 @@ export default async function handler(req, res) {
 
   const { dateStart, dateEnd, mode } = req.query;
   if (!dateStart || !dateEnd) return res.status(400).json({ error: 'dateStart and dateEnd required' });
-if (mode === 'debug') return res.status(200).json({ version: 'v7-new', mode, dateStart, dateEnd });
+
   async function cacheGet(key) {
     try {
       const r = await fetch(`${kvUrl}/get/${encodeURIComponent(key)}`, {
@@ -23,7 +24,6 @@ if (mode === 'debug') return res.status(200).json({ version: 'v7-new', mode, dat
     } catch { return null; }
   }
 
-  
   async function cacheSet(key, value, exSeconds) {
     try {
       const encoded = encodeURIComponent(key);
@@ -47,7 +47,6 @@ if (mode === 'debug') return res.status(200).json({ version: 'v7-new', mode, dat
     return 0;
   }
 
-  // Mapping des IDs de valeur → label
   const TYPE_CLIENT_MAP = {
     3562348: 'Pharmacie',
     3562349: 'Monoprix',
@@ -56,7 +55,7 @@ if (mode === 'debug') return res.status(200).json({ version: 'v7-new', mode, dat
     3957580: 'Grand Compte'
   };
 
-  const CACHE_VERSION = 'v7';
+  const CACHE_VERSION = 'v8';
   const cacheKey = `sellsy:${CACHE_VERSION}:${mode}:${dateStart}:${dateEnd}`;
   const ttl = getCacheTTL(dateStart, dateEnd);
 
@@ -80,11 +79,6 @@ if (mode === 'debug') return res.status(200).json({ version: 'v7-new', mode, dat
     if (!tokenResp.ok) throw new Error('Auth failed');
     const { access_token } = await tokenResp.json();
 
-    // -------------------------------------------------------
-    // ÉTAPE 1 : Charger le dictionnaire company_id → type client
-    // via embed[]=cf.135940 (ID du custom field "Type de client")
-    // Mis en cache 24h
-    // -------------------------------------------------------
     const companyCacheKey = `sellsy:companies:type_client:v2`;
     let companyTypeMap = await cacheGet(companyCacheKey);
 
@@ -120,9 +114,6 @@ if (mode === 'debug') return res.status(200).json({ version: 'v7-new', mode, dat
       await cacheSet(companyCacheKey, companyTypeMap, 86400);
     }
 
-    // -------------------------------------------------------
-    // ÉTAPE 2 : Récupérer les factures
-    // -------------------------------------------------------
     const body = JSON.stringify({
       filters: {
         date: { start: dateStart, end: dateEnd },
@@ -186,7 +177,6 @@ if (mode === 'debug') return res.status(200).json({ version: 'v7-new', mode, dat
     const invoicesB2C = filteredInvoices.filter(inv => inv.rate_category_id === B2C_CATEGORY_ID);
     const invoicesB2B = filteredInvoices.filter(inv => inv.rate_category_id !== B2C_CATEGORY_ID);
 
-    // Ventilation par type de client via dictionnaire companies
     const caByType = {};
     for (const inv of filteredInvoices) {
       const companyId = inv.related?.[0]?.id;
@@ -206,7 +196,6 @@ if (mode === 'debug') return res.status(200).json({ version: 'v7-new', mode, dat
     const totalCAB2B = invoicesB2B.reduce((acc, inv) =>
       acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
 
-    // Top 30 clients B2B par CA
     const b2bByClient = {};
     for (const inv of invoicesB2B) {
       const name = inv.company_name || 'Inconnu';
@@ -220,9 +209,6 @@ if (mode === 'debug') return res.status(200).json({ version: 'v7-new', mode, dat
       .sort((a, b) => b.ca - a.ca)
       .slice(0, 30);
 
-    // -------------------------------------------------------
-    // ÉTAPE 3 : Avoirs
-    // -------------------------------------------------------
     const creditBody = JSON.stringify({
       filters: { date: { start: dateStart, end: dateEnd } }
     });
@@ -267,10 +253,6 @@ if (mode === 'debug') return res.status(200).json({ version: 'v7-new', mode, dat
     const totalAvoirsB2B = creditsB2B.reduce((acc, c) =>
       acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
 
-    const totalCANet = totalCA - totalAvoirsCA;
-    const totalCAB2CNet = totalCAB2C - totalAvoirsB2C;
-    const totalCAB2BNet = totalCAB2B - totalAvoirsB2B;
-
     // Déduire les avoirs par type de client
     const avoirsByType = {};
     for (const credit of allCredits) {
@@ -280,22 +262,20 @@ if (mode === 'debug') return res.status(200).json({ version: 'v7-new', mode, dat
       if (!avoirsByType[typeClient]) avoirsByType[typeClient] = 0;
       avoirsByType[typeClient] += amount;
     }
-    for (const key of Object.keys(avoirsByType)) {
-      if (caByType[key] !== undefined) {
-        caByType[key] = Math.round((caByType[key] - avoirsByType[key]) * 100) / 100;
-      }
-    }
 
     const result = {
-      _totalCA: Math.round(totalCANet * 100) / 100,
+      _totalCA: Math.round(totalCA * 100) / 100,
       _totalCABrut: Math.round(totalCA * 100) / 100,
       _totalAvoirs: Math.round(totalAvoirsCA * 100) / 100,
-      _totalCAB2C: Math.round(totalCAB2CNet * 100) / 100,
-      _totalCAB2B: Math.round(totalCAB2BNet * 100) / 100,
+      _tauxAvoirs: totalCA > 0 ? Math.round((totalAvoirsCA / totalCA) * 10000) / 100 : 0,
+      _totalCAB2C: Math.round(totalCAB2C * 100) / 100,
+      _totalCAB2B: Math.round(totalCAB2B * 100) / 100,
+      _totalCAB2CNet: Math.round((totalCAB2C - totalAvoirsB2C) * 100) / 100,
+      _totalCAB2BNet: Math.round((totalCAB2B - totalAvoirsB2B) * 100) / 100,
       _countB2C: invoicesB2C.length,
       _countB2B: invoicesB2B.length,
-      _panierMoyenB2C: invoicesB2C.length > 0 ? Math.round((totalCAB2CNet / invoicesB2C.length) * 100) / 100 : 0,
-      _panierMoyenB2B: invoicesB2B.length > 0 ? Math.round((totalCAB2BNet / invoicesB2B.length) * 100) / 100 : 0,
+      _panierMoyenB2C: invoicesB2C.length > 0 ? Math.round((totalCAB2C / invoicesB2C.length) * 100) / 100 : 0,
+      _panierMoyenB2B: invoicesB2B.length > 0 ? Math.round((totalCAB2B / invoicesB2B.length) * 100) / 100 : 0,
       _count: allInvoices.length,
       _countAvoirs: allCredits.length,
       _caByType: caByType,
