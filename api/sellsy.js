@@ -22,6 +22,7 @@ export default async function handler(req, res) {
     } catch { return null; }
   }
 
+  
   async function cacheSet(key, value, exSeconds) {
     try {
       const encoded = encodeURIComponent(key);
