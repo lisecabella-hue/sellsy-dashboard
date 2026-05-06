@@ -161,13 +161,7 @@
           </div>
         </div>
         <p class="metric-sub">Total de la période</p>
-      </div>
-
-      <div class="metric-card" id="avoirsCard">
-        <p class="metric-label">Taux d'avoirs</p>
-        <p class="metric-value" id="mTauxAvoirs">—</p>
-        <p class="metric-sub" id="mAvoirsTotal"></p>
-        <p class="metric-sub">⚠️ Seuil max : 2%</p>
+        <p class="metric-sub" id="mAvoirsKpi" style="margin-top:8px;"></p>
       </div>
 
       <div class="metric-card" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
@@ -721,7 +715,7 @@ async function loadData() {
   document.getElementById('mCAVs').textContent = '';
   document.getElementById('budgetBarWrap').style.display = 'none';
   setStatus('spin', 'Chargement...');
-  ['mCA','mCAB2C','mCAB2B','mAvgB2C','mAvgB2B','mTauxAvoirs'].forEach(id => document.getElementById(id).textContent = '...');
+  ['mCA','mCAB2C','mCAB2B','mAvgB2C','mAvgB2B'].forEach(id => document.getElementById(id).textContent = '...');
   ['mCAB2CVs','mCAB2BVs','mAvgB2CVs','mAvgB2BVs'].forEach(id => {
     document.getElementById(id).textContent = '⏳';
     document.getElementById(id).className = 'metric-vs neutral';
@@ -750,11 +744,9 @@ async function loadData() {
     document.getElementById('mAvgB2C').textContent = fmt(panierB2C);
     document.getElementById('mAvgB2B').textContent = fmt(panierB2B);
 
-    const avoirsEl = document.getElementById('mTauxAvoirs');
-    avoirsEl.textContent = tauxAvoirs.toFixed(2) + '%';
-    avoirsEl.style.color = tauxAvoirs > 2 ? '#D85A30' : '#1D9E75';
-    document.getElementById('mAvoirsTotal').textContent = `Avoirs : ${fmt(totalAvoirs)}`;
-    document.getElementById('avoirsCard').style.borderLeft = tauxAvoirs > 2 ? '3px solid #D85A30' : '3px solid #1D9E75';
+    const avoirsEl = document.getElementById('mAvoirsKpi');
+    const avoirsColor = tauxAvoirs > 2 ? '#D85A30' : '#1D9E75';
+    avoirsEl.innerHTML = `Avoirs : <span style="font-weight:600;color:${avoirsColor}">${tauxAvoirs.toFixed(2)}%</span> (${fmt(totalAvoirs)})`;
 
     renderPieChart(caB2C, caB2B);
     if (caData._caByType && Object.keys(caData._caByType).length > 0) {
