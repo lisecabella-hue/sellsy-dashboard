@@ -61,7 +61,6 @@ export default async function handler(req, res) {
     companyTypeMap = {};
     let companyOffset = 0;
     let hasMoreCompanies = true;
-
     while (hasMoreCompanies) {
       const compResp = await fetch(
         `https://api.sellsy.com/v2/companies?limit=100&offset=${companyOffset}&field[]=id&field[]=_embed&embed[]=cf.135940`,
@@ -70,7 +69,6 @@ export default async function handler(req, res) {
       if (!compResp.ok) break;
       const compData = await compResp.json();
       const companies = compData.data || [];
-
       for (const company of companies) {
         const customFields = company._embed?.custom_fields || [];
         const typeField = customFields.find(f => f.id === 135940);
@@ -79,27 +77,19 @@ export default async function handler(req, res) {
           companyTypeMap[company.id] = label;
         }
       }
-
       const totalCompanies = compData.pagination?.total || 0;
       companyOffset += 100;
       hasMoreCompanies = companyOffset < totalCompanies;
       if (hasMoreCompanies) await sleep(300);
     }
-
     await cacheSet(companyCacheKey, companyTypeMap, 86400);
   }
 
-  async function fetchMonthCA(year, month, token) {
+  async function fetchMonthCA(year, month) {
     const lastDay = new Date(year, month + 1, 0).getDate();
     const dateStart = `${year}-${pad(month + 1)}-01`;
     const dateEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
     const cacheKey = `sellsy:${CACHE_VERSION}:total:${dateStart}:${dateEnd}`;
-
-    const isCurrentMonth = year === currentYear && month === currentMonth;
-    if (!isCurrentMonth) {
-      const cached = await cacheGet(cacheKey);
-      if (cached) return { month, year, skipped: true };
-    }
 
     const body = JSON.stringify({
       filters: {
@@ -115,7 +105,7 @@ export default async function handler(req, res) {
     do {
       const resp = await fetch(
         `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit&field[]=rate_category_id&field[]=company_name&field[]=related`,
-        { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body }
+        { method: 'POST', headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' }, body }
       );
       if (resp.status === 429) { await sleep(2000); continue; }
       if (!resp.ok) break;
@@ -123,11 +113,10 @@ export default async function handler(req, res) {
       if (total === null) total = data.pagination?.total || 0;
       allInvoices = allInvoices.concat(data.data || []);
       offset += 100;
-      if (offset < total) await sleep(300);
+      if (offset < total) await sleep(200);
     } while (offset < total);
 
     const filteredInvoices = allInvoices.filter(inv => !inv.is_deposit);
-
     const B2C_CATEGORY_ID = 215340;
     const invoicesB2C = filteredInvoices.filter(inv => inv.rate_category_id === B2C_CATEGORY_ID);
     const invoicesB2B = filteredInvoices.filter(inv => inv.rate_category_id !== B2C_CATEGORY_ID);
@@ -140,9 +129,7 @@ export default async function handler(req, res) {
       if (!caByType[typeClient]) caByType[typeClient] = 0;
       caByType[typeClient] += amount;
     }
-    for (const key of Object.keys(caByType)) {
-      caByType[key] = Math.round(caByType[key] * 100) / 100;
-    }
+    for (const key of Object.keys(caByType)) caByType[key] = Math.round(caByType[key] * 100) / 100;
 
     const b2bByClient = {};
     for (const inv of invoicesB2B) {
@@ -154,25 +141,20 @@ export default async function handler(req, res) {
     }
     const top30B2B = Object.entries(b2bByClient)
       .map(([name, data]) => ({ name, ca: Math.round(data.ca * 100) / 100, nbFactures: data.nbFactures }))
-      .sort((a, b) => b.ca - a.ca)
-      .slice(0, 30);
+      .sort((a, b) => b.ca - a.ca).slice(0, 30);
 
-    const totalCA = filteredInvoices.reduce((acc, inv) =>
-      acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
-    const totalCAB2C = invoicesB2C.reduce((acc, inv) =>
-      acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
-    const totalCAB2B = invoicesB2B.reduce((acc, inv) =>
-      acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
+    const totalCA = filteredInvoices.reduce((acc, inv) => acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
+    const totalCAB2C = invoicesB2C.reduce((acc, inv) => acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
+    const totalCAB2B = invoicesB2B.reduce((acc, inv) => acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
 
     const creditBody = JSON.stringify({ filters: { date: { start: dateStart, end: dateEnd } } });
     let allCredits = [];
     let creditOffset = 0;
     let totalCredits = null;
-
     do {
       const resp = await fetch(
         `https://api.sellsy.com/v2/credit-notes/search?limit=100&offset=${creditOffset}&field[]=amounts.total_excl_tax&field[]=rate_category_id&field[]=related`,
-        { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: creditBody }
+        { method: 'POST', headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' }, body: creditBody }
       );
       if (resp.status === 429) { await sleep(2000); continue; }
       if (!resp.ok) break;
@@ -180,21 +162,14 @@ export default async function handler(req, res) {
       if (totalCredits === null) totalCredits = data.pagination?.total || 0;
       allCredits = allCredits.concat(data.data || []);
       creditOffset += 100;
-      if (creditOffset < totalCredits) await sleep(300);
+      if (creditOffset < totalCredits) await sleep(200);
     } while (creditOffset < (totalCredits || 0));
 
     const creditsB2C = allCredits.filter(c => c.rate_category_id === B2C_CATEGORY_ID);
     const creditsB2B = allCredits.filter(c => c.rate_category_id !== B2C_CATEGORY_ID);
-
-    const totalAvoirsCA = allCredits.reduce((acc, c) =>
-      acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
-    const totalAvoirsB2C = creditsB2C.reduce((acc, c) =>
-      acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
-    const totalAvoirsB2B = creditsB2B.reduce((acc, c) =>
-      acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
-
-    const totalCAB2CNet = totalCAB2C - totalAvoirsB2C;
-    const totalCAB2BNet = totalCAB2B - totalAvoirsB2B;
+    const totalAvoirsCA = allCredits.reduce((acc, c) => acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
+    const totalAvoirsB2C = creditsB2C.reduce((acc, c) => acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
+    const totalAvoirsB2B = creditsB2B.reduce((acc, c) => acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
 
     const result = {
       _totalCA: Math.round(totalCA * 100) / 100,
@@ -203,8 +178,8 @@ export default async function handler(req, res) {
       _tauxAvoirs: totalCA > 0 ? Math.round((totalAvoirsCA / totalCA) * 10000) / 100 : 0,
       _totalCAB2C: Math.round(totalCAB2C * 100) / 100,
       _totalCAB2B: Math.round(totalCAB2B * 100) / 100,
-      _totalCAB2CNet: Math.round(totalCAB2CNet * 100) / 100,
-      _totalCAB2BNet: Math.round(totalCAB2BNet * 100) / 100,
+      _totalCAB2CNet: Math.round((totalCAB2C - totalAvoirsB2C) * 100) / 100,
+      _totalCAB2BNet: Math.round((totalCAB2B - totalAvoirsB2B) * 100) / 100,
       _countB2C: invoicesB2C.length,
       _countB2B: invoicesB2B.length,
       _panierMoyenB2C: invoicesB2C.length > 0 ? Math.round((totalCAB2C / invoicesB2C.length) * 100) / 100 : 0,
@@ -216,27 +191,25 @@ export default async function handler(req, res) {
       pagination: { total: total || allInvoices.length }
     };
 
-    const ttl = isCurrentMonth ? 3600 : 60 * 60 * 24 * 30;
-    await cacheSet(cacheKey, result, ttl);
+    await cacheSet(cacheKey, result, 3600);
     return { month, year, totalCA: result._totalCA, count: result._count };
   }
 
+  // Ne recalculer que le mois en cours et le mois précédent
+  const monthsToRefresh = [
+    { year: currentMonth === 0 ? currentYear - 1 : currentYear, month: currentMonth === 0 ? 11 : currentMonth - 1 },
+    { year: currentYear, month: currentMonth }
+  ];
+
   const results = [];
-  const years = [2025, 2026];
-  for (const year of years) {
-    const maxMonth = (year === currentYear) ? currentMonth : 11;
-    for (let month = 0; month <= maxMonth; month++) {
-      const result = await fetchMonthCA(year, month, access_token);
-      results.push(result);
-      await sleep(500);
-    }
+  for (const { year, month } of monthsToRefresh) {
+    const result = await fetchMonthCA(year, month);
+    results.push(result);
   }
 
   return res.status(200).json({
     success: true,
-    processed: results.length,
-    skipped: results.filter(r => r.skipped).length,
-    refreshed: results.filter(r => !r.skipped).length,
+    refreshed: results.length,
     details: results
   });
 }
