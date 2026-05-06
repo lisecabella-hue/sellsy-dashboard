@@ -67,15 +67,6 @@
     .btn-cancel { background: #f5f5f5; color: #444; }
     .btn-cancel:hover { background: #eee; }
     .save-msg { font-size: 12px; color: #1D9E75; display: none; margin-top: 8px; text-align: right; }
-    .login-overlay { position: fixed; inset: 0; background: #f5f5f5; z-index: 9999; display: flex; align-items: center; justify-content: center; }
-    .login-box { background: white; border-radius: 16px; padding: 40px; width: 360px; border: 1px solid #e5e5e5; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
-    .login-title { font-size: 20px; font-weight: 600; margin-bottom: 6px; }
-    .login-sub { font-size: 13px; color: #888; margin-bottom: 24px; }
-    .login-input { width: 100%; padding: 10px 14px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
-    .login-input:focus { outline: none; border-color: #1a1a1a; }
-    .login-btn { width: 100%; padding: 11px; background: #1a1a1a; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; }
-    .login-btn:hover { background: #333; }
-    .login-error { font-size: 13px; color: #D85A30; margin-top: 10px; display: none; }
   </style>
 </head>
 <body>
@@ -139,7 +130,6 @@
     <div class="error-box" id="errorBox"></div>
     <p class="period-label" id="periodLabel"></p>
 
-    <!-- Ligne 1 : CA total + pie chart type de client -->
     <div class="metric-grid">
       <div class="metric-card">
         <p class="metric-label">Chiffre d'affaires HT</p>
@@ -157,7 +147,6 @@
         <p class="metric-sub">Total de la période</p>
       </div>
 
-      <!-- Nouveau pie chart : répartition par type de client -->
       <div class="metric-card" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
         <p class="metric-label" style="align-self:flex-start;">Répartition par type de client</p>
         <div style="position:relative; width:180px; height:180px;">
@@ -169,7 +158,6 @@
       </div>
     </div>
 
-    <!-- Ligne 2 : Pie chart B2C/B2B + cartes B2C/B2B -->
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:24px;">
       <div class="metric-card" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
         <p class="metric-label" style="align-self:flex-start;">Répartition CA B2C vs B2B</p>
@@ -254,52 +242,7 @@
 
   </div>
 
-  <div class="login-overlay" id="loginOverlay">
-    <div class="login-box">
-      <p class="login-title">📊 Dashboard CEO</p>
-      <p class="login-sub">Connectez-vous pour accéder au dashboard</p>
-      <input type="password" class="login-input" id="loginPassword" placeholder="Mot de passe" onkeydown="if(event.key==='Enter') doLogin()" />
-      <button class="login-btn" onclick="doLogin()">Se connecter</button>
-      <p class="login-error" id="loginError">Mot de passe incorrect</p>
-    </div>
-  </div>
-
 <script>
-const AUTH_KEY = 'dashboard_auth';
-const AUTH_DURATION = 7 * 24 * 60 * 60 * 1000;
-
-function checkAuth() {
-  try {
-    const auth = JSON.parse(localStorage.getItem(AUTH_KEY));
-    if (auth && auth.token && Date.now() < auth.expires) {
-      document.getElementById('loginOverlay').style.display = 'none';
-      return true;
-    }
-  } catch {}
-  document.getElementById('loginOverlay').style.display = 'flex';
-  return false;
-}
-
-async function doLogin() {
-  const password = document.getElementById('loginPassword').value;
-  const errorEl = document.getElementById('loginError');
-  errorEl.style.display = 'none';
-  try {
-    const resp = await fetch('/api/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password })
-    });
-    if (resp.ok) {
-      const data = await resp.json();
-      localStorage.setItem(AUTH_KEY, JSON.stringify({ token: data.token, expires: Date.now() + AUTH_DURATION }));
-      document.getElementById('loginOverlay').style.display = 'none';
-    } else { errorEl.style.display = 'block'; }
-  } catch { errorEl.style.display = 'block'; }
-}
-
-checkAuth();
-
 const now = new Date();
 const pad = n => String(n).padStart(2,'0');
 const todayStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
@@ -462,7 +405,6 @@ function getDates() {
   }
 }
 
-// Pie chart B2C vs B2B (existant — inchangé)
 function renderPieChart(caB2C, caB2B) {
   const ctx = document.getElementById('b2cPieChart').getContext('2d');
   if (pieChartInstance) pieChartInstance.destroy();
@@ -487,16 +429,13 @@ function renderPieChart(caB2C, caB2B) {
   });
 }
 
-// Nouveau pie chart : répartition par type de client
 function renderTypeClientPieChart(caByType) {
   const ctx = document.getElementById('typeClientPieChart').getContext('2d');
   if (window.typeClientPieInstance) window.typeClientPieInstance.destroy();
-
   const COLORS = ['#1a1a1a', '#1D9E75', '#74A1D6', '#D85A30', '#F5A623', '#9B59B6', '#888'];
   const labels = Object.keys(caByType);
   const values = Object.values(caByType);
   const total = values.reduce((a, b) => a + b, 0);
-
   const legendEl = document.getElementById('typeClientLegend');
   legendEl.innerHTML = labels.map((l, i) => {
     const pct = total > 0 ? Math.round((values[i] / total) * 100) : 0;
@@ -505,7 +444,6 @@ function renderTypeClientPieChart(caByType) {
       <span>${l} ${pct}%</span>
     </span>`;
   }).join('');
-
   window.typeClientPieInstance = new Chart(ctx, {
     type: 'doughnut',
     data: {
@@ -615,7 +553,6 @@ function renderBudgetChart(labels, realDataKe, upToMonth) {
   document.getElementById('budgetChartCard').style.display = 'block';
 }
 
-
 function renderTop30(top30, totalCAB2B) {
   const card = document.getElementById('top30Card');
   const tbody = document.getElementById('top30Body');
@@ -654,8 +591,9 @@ async function loadData() {
     document.getElementById(id).className = 'metric-vs neutral';
   });
   currentTotalCA = 0;
-document.getElementById('top30Body').innerHTML = '';
-document.getElementById('top30Card').style.display = 'none';
+  document.getElementById('top30Body').innerHTML = '';
+  document.getElementById('top30Card').style.display = 'none';
+
   try {
     const caResp = await fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=total`);
     if (!caResp.ok) throw new Error('Erreur API');
@@ -685,7 +623,6 @@ document.getElementById('top30Card').style.display = 'none';
     document.getElementById('lastUpdate').textContent = 'Mis à jour le ' + t;
     setStatus('ok', 'Données à jour');
 
-    // Comparaison N-1
     const vsEl = document.getElementById('mCAVs');
     vsEl.textContent = '⏳ vs N-1...';
     vsEl.className = 'metric-vs neutral';
