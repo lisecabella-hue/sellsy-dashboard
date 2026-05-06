@@ -1,16 +1,18 @@
+export const maxDuration = 60;
+
 export default async function handler(req, res) {
   const clientId = process.env.SELLSY_CLIENT_ID;
   const clientSecret = process.env.SELLSY_CLIENT_SECRET;
   const kvUrl = process.env.KV_REST_API_URL;
   const kvToken = process.env.KV_REST_API_TOKEN;
 
-  const CACHE_VERSION = 'v7';
+  const CACHE_VERSION = 'v8';
   const pad = n => String(n).padStart(2, '0');
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
   const sleep = ms => new Promise(r => setTimeout(r, ms));
- 
+
   const TYPE_CLIENT_MAP = {
     3562348: 'Pharmacie',
     3562349: 'Monoprix',
@@ -130,7 +132,6 @@ export default async function handler(req, res) {
     const invoicesB2C = filteredInvoices.filter(inv => inv.rate_category_id === B2C_CATEGORY_ID);
     const invoicesB2B = filteredInvoices.filter(inv => inv.rate_category_id !== B2C_CATEGORY_ID);
 
-    // Ventilation par type de client
     const caByType = {};
     for (const inv of filteredInvoices) {
       const companyId = inv.related?.[0]?.id;
@@ -143,7 +144,6 @@ export default async function handler(req, res) {
       caByType[key] = Math.round(caByType[key] * 100) / 100;
     }
 
-    // Top 30 B2B
     const b2bByClient = {};
     for (const inv of invoicesB2B) {
       const name = inv.company_name || 'Inconnu';
@@ -164,7 +164,6 @@ export default async function handler(req, res) {
     const totalCAB2B = invoicesB2B.reduce((acc, inv) =>
       acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
 
-    // Avoirs
     const creditBody = JSON.stringify({ filters: { date: { start: dateStart, end: dateEnd } } });
     let allCredits = [];
     let creditOffset = 0;
@@ -197,31 +196,19 @@ export default async function handler(req, res) {
     const totalCAB2CNet = totalCAB2C - totalAvoirsB2C;
     const totalCAB2BNet = totalCAB2B - totalAvoirsB2B;
 
-    // Déduire les avoirs par type de client
-    const avoirsByType = {};
-    for (const credit of allCredits) {
-      const companyId = credit.related?.[0]?.id;
-      const typeClient = (companyId && companyTypeMap[companyId]) || 'Non catégorisé';
-      const amount = parseFloat((credit.amounts && credit.amounts.total_excl_tax) || 0);
-      if (!avoirsByType[typeClient]) avoirsByType[typeClient] = 0;
-      avoirsByType[typeClient] += amount;
-    }
-    for (const key of Object.keys(avoirsByType)) {
-      if (caByType[key] !== undefined) {
-        caByType[key] = Math.round((caByType[key] - avoirsByType[key]) * 100) / 100;
-      }
-    }
-
     const result = {
-      _totalCA: Math.round((totalCA - totalAvoirsCA) * 100) / 100,
+      _totalCA: Math.round(totalCA * 100) / 100,
       _totalCABrut: Math.round(totalCA * 100) / 100,
       _totalAvoirs: Math.round(totalAvoirsCA * 100) / 100,
-      _totalCAB2C: Math.round(totalCAB2CNet * 100) / 100,
-      _totalCAB2B: Math.round(totalCAB2BNet * 100) / 100,
+      _tauxAvoirs: totalCA > 0 ? Math.round((totalAvoirsCA / totalCA) * 10000) / 100 : 0,
+      _totalCAB2C: Math.round(totalCAB2C * 100) / 100,
+      _totalCAB2B: Math.round(totalCAB2B * 100) / 100,
+      _totalCAB2CNet: Math.round(totalCAB2CNet * 100) / 100,
+      _totalCAB2BNet: Math.round(totalCAB2BNet * 100) / 100,
       _countB2C: invoicesB2C.length,
       _countB2B: invoicesB2B.length,
-      _panierMoyenB2C: invoicesB2C.length > 0 ? Math.round((totalCAB2CNet / invoicesB2C.length) * 100) / 100 : 0,
-      _panierMoyenB2B: invoicesB2B.length > 0 ? Math.round((totalCAB2BNet / invoicesB2B.length) * 100) / 100 : 0,
+      _panierMoyenB2C: invoicesB2C.length > 0 ? Math.round((totalCAB2C / invoicesB2C.length) * 100) / 100 : 0,
+      _panierMoyenB2B: invoicesB2B.length > 0 ? Math.round((totalCAB2B / invoicesB2B.length) * 100) / 100 : 0,
       _count: allInvoices.length,
       _countAvoirs: allCredits.length,
       _caByType: caByType,
@@ -229,7 +216,7 @@ export default async function handler(req, res) {
       pagination: { total: total || allInvoices.length }
     };
 
-    const ttl = isCurrentMonth ? 7200 : 60 * 60 * 24 * 30;
+    const ttl = isCurrentMonth ? 3600 : 60 * 60 * 24 * 30;
     await cacheSet(cacheKey, result, ttl);
     return { month, year, totalCA: result._totalCA, count: result._count };
   }
@@ -253,4 +240,3 @@ export default async function handler(req, res) {
     details: results
   });
 }
-
