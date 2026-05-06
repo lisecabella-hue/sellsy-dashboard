@@ -547,15 +547,16 @@ function updateBudgetDisplay(totalCA) {
 }
 
 [document.getElementById('selYear'), document.getElementById('selYtdYear')].forEach(el => {
+  if (!el) return;
   for(let y = now.getFullYear(); y >= 2015; y--) {
     const opt = document.createElement('option');
     opt.value = y; opt.textContent = y; el.appendChild(opt);
   }
 });
-document.getElementById('selMonth').value = now.getMonth();
-document.getElementById('selYtdMonth').value = now.getMonth();
-document.getElementById('dateFrom').value = todayStr;
-document.getElementById('dateTo').value = todayStr;
+if (document.getElementById('selMonth')) document.getElementById('selMonth').value = now.getMonth();
+if (document.getElementById('selYtdMonth')) document.getElementById('selYtdMonth').value = now.getMonth();
+if (document.getElementById('dateFrom')) document.getElementById('dateFrom').value = todayStr;
+if (document.getElementById('dateTo')) document.getElementById('dateTo').value = todayStr;
 
 function setPeriod(mode) {
   currentMode = mode;
