@@ -1,10 +1,10 @@
 export default async function handler(req, res) {
-  const authHeader = req.headers.authorization;
-  const cronHeader = req.headers['x-vercel-cron-key'];
-  const isAuthorized = authHeader === `Bearer ${process.env.CRON_SECRET}` || cronHeader === process.env.CRON_SECRET;
-  if (!isAuthorized) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
+  // const authHeader = req.headers.authorization;
+  // const cronHeader = req.headers['x-vercel-cron-key'];
+  // const isAuthorized = authHeader === `Bearer ${process.env.CRON_SECRET}` || cronHeader === process.env.CRON_SECRET;
+  // if (!isAuthorized) {
+  //   return res.status(401).json({ error: 'Unauthorized' });
+  // }
 
   const clientId = process.env.SELLSY_CLIENT_ID;
   const clientSecret = process.env.SELLSY_CLIENT_SECRET;
