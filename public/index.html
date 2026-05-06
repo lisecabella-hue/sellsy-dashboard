@@ -70,6 +70,22 @@
   </style>
 </head>
 <body>
+
+  <!-- Login overlay -->
+  <div id="loginOverlay" style="position:fixed;inset:0;background:#f5f5f5;z-index:9999;display:flex;align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:16px;padding:40px;width:380px;max-width:90vw;border:1px solid #e5e5e5;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
+      <h2 style="font-size:20px;font-weight:600;margin-bottom:6px;">📊 Dashboard CEO</h2>
+      <p style="font-size:13px;color:#888;margin-bottom:24px;">Accès restreint — entrez votre mot de passe</p>
+      <input id="passwordInput" type="password" placeholder="Mot de passe" onkeydown="handlePasswordKey(event)"
+        style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:12px;outline:none;" />
+      <p id="loginError" style="display:none;color:#D85A30;font-size:12px;margin-bottom:12px;">❌ Mot de passe incorrect</p>
+      <button onclick="checkPassword()" style="width:100%;padding:11px;background:#1a1a1a;color:white;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;">
+        Accéder au dashboard
+      </button>
+    </div>
+  </div>
+
+  <div id="app" style="display:none;">
   <div class="header">
     <h1>📊 Dashboard CEO</h1>
     <div class="header-right">
@@ -132,7 +148,7 @@
 
     <div class="metric-grid">
       <div class="metric-card">
-        <p class="metric-label">Chiffre d'affaires HT</p>
+        <p class="metric-label">Chiffre d'affaires HT (brut)</p>
         <p class="metric-value" id="mCA">—</p>
         <p class="metric-vs neutral" id="mCAVs"></p>
         <div class="budget-bar-wrap" id="budgetBarWrap" style="display:none;">
@@ -145,6 +161,13 @@
           </div>
         </div>
         <p class="metric-sub">Total de la période</p>
+      </div>
+
+      <div class="metric-card" id="avoirsCard">
+        <p class="metric-label">Taux d'avoirs</p>
+        <p class="metric-value" id="mTauxAvoirs">—</p>
+        <p class="metric-sub" id="mAvoirsTotal"></p>
+        <p class="metric-sub">⚠️ Seuil max : 2%</p>
       </div>
 
       <div class="metric-card" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
@@ -240,9 +263,31 @@
       </table>
     </div>
 
-  </div>
+    </div><!-- end app -->
 
 <script>
+const PASSWORD = 'DashboardCEO';
+function checkPassword() {
+  const saved = sessionStorage.getItem('dashboard_auth');
+  if (saved === PASSWORD) return true;
+  const input = document.getElementById('passwordInput').value;
+  if (input === PASSWORD) {
+    sessionStorage.setItem('dashboard_auth', PASSWORD);
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    return true;
+  }
+  document.getElementById('loginError').style.display = 'block';
+  return false;
+}
+function handlePasswordKey(e) { if (e.key === 'Enter') checkPassword(); }
+window.addEventListener('DOMContentLoaded', () => {
+  if (sessionStorage.getItem('dashboard_auth') === PASSWORD) {
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+  }
+});
+
 const now = new Date();
 const pad = n => String(n).padStart(2,'0');
 const todayStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
@@ -585,7 +630,7 @@ async function loadData() {
   document.getElementById('mCAVs').textContent = '';
   document.getElementById('budgetBarWrap').style.display = 'none';
   setStatus('spin', 'Chargement...');
-  ['mCA','mCAB2C','mCAB2B','mAvgB2C','mAvgB2B'].forEach(id => document.getElementById(id).textContent = '...');
+  ['mCA','mCAB2C','mCAB2B','mAvgB2C','mAvgB2B','mTauxAvoirs'].forEach(id => document.getElementById(id).textContent = '...');
   ['mCAB2CVs','mCAB2BVs','mAvgB2CVs','mAvgB2BVs'].forEach(id => {
     document.getElementById(id).textContent = '⏳';
     document.getElementById(id).className = 'metric-vs neutral';
@@ -604,6 +649,8 @@ async function loadData() {
     const caB2B = caData._totalCAB2B || 0;
     const panierB2C = caData._panierMoyenB2C || 0;
     const panierB2B = caData._panierMoyenB2B || 0;
+    const tauxAvoirs = caData._tauxAvoirs || 0;
+    const totalAvoirs = caData._totalAvoirs || 0;
     currentTotalCA = totalCA;
 
     document.getElementById('mCA').textContent = fmt(totalCA);
@@ -611,6 +658,12 @@ async function loadData() {
     document.getElementById('mCAB2B').textContent = fmt(caB2B);
     document.getElementById('mAvgB2C').textContent = fmt(panierB2C);
     document.getElementById('mAvgB2B').textContent = fmt(panierB2B);
+
+    const avoirsEl = document.getElementById('mTauxAvoirs');
+    avoirsEl.textContent = tauxAvoirs.toFixed(2) + '%';
+    avoirsEl.style.color = tauxAvoirs > 2 ? '#D85A30' : '#1D9E75';
+    document.getElementById('mAvoirsTotal').textContent = `Avoirs : ${fmt(totalAvoirs)}`;
+    document.getElementById('avoirsCard').style.borderLeft = tauxAvoirs > 2 ? '3px solid #D85A30' : '3px solid #1D9E75';
 
     renderPieChart(caB2C, caB2B);
     if (caData._caByType && Object.keys(caData._caByType).length > 0) {
