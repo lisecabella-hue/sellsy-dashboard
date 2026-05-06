@@ -316,6 +316,7 @@ function checkPassword() {
     sessionStorage.setItem('dashboard_auth', PASSWORD);
     document.getElementById('loginOverlay').style.display = 'none';
     document.getElementById('app').style.display = 'block';
+    updateBanners();
     return true;
   }
   document.getElementById('loginError').style.display = 'block';
@@ -326,6 +327,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (sessionStorage.getItem('dashboard_auth') === PASSWORD) {
     document.getElementById('loginOverlay').style.display = 'none';
     document.getElementById('app').style.display = 'block';
+    updateBanners();
   }
 });
 
@@ -397,13 +399,14 @@ function saveNotes() {
 
 function updateBanners(monthIndex) {
   const perm = document.getElementById('bannerPermanent');
+  const month = document.getElementById('bannerMonth');
+  if (!perm || !month) return;
   if (notesPermanent.trim()) {
     perm.style.display = 'flex';
     document.getElementById('bannerPermanentText').textContent = notesPermanent;
   } else {
     perm.style.display = 'none';
   }
-  const month = document.getElementById('bannerMonth');
   const idx = monthIndex !== undefined ? monthIndex : now.getMonth();
   const note = notesMonths[idx] || '';
   if (note.trim()) {
@@ -413,8 +416,6 @@ function updateBanners(monthIndex) {
     month.style.display = 'none';
   }
 }
-window.addEventListener('DOMContentLoaded', () => updateBanners());
-
 function openBudgetModal() {
   const grid = document.getElementById('budgetGrid');
   grid.innerHTML = `
