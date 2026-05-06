@@ -413,7 +413,7 @@ function updateBanners(monthIndex) {
     month.style.display = 'none';
   }
 }
-updateBanners();
+window.addEventListener('DOMContentLoaded', () => updateBanners());
 
 function openBudgetModal() {
   const grid = document.getElementById('budgetGrid');
