@@ -85,13 +85,50 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="notesModal">
+    <div class="modal">
+      <p class="modal-title">📝 Messages du dashboard</p>
+      <p class="modal-sub">Ces messages s'affichent en bandeau en haut du dashboard</p>
+      <div style="margin-bottom:20px;">
+        <label style="font-size:12px;color:#888;display:block;margin-bottom:6px;">Message permanent (toujours affiché)</label>
+        <textarea id="notesPermanent" rows="2" placeholder="Ex : Ce dashboard est mis à jour chaque semaine par la direction."
+          style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;resize:vertical;font-family:inherit;"></textarea>
+      </div>
+      <div>
+        <label style="font-size:12px;color:#888;display:block;margin-bottom:8px;">Messages par mois 2026</label>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${Array.from({length:12},(_,i)=>`
+          <div style="display:grid;grid-template-columns:80px 1fr;gap:8px;align-items:center;">
+            <span style="font-size:12px;color:#444;font-weight:500;" id="notesMonthLabel_${i}"></span>
+            <input type="text" id="notesMonth_${i}" placeholder="Note pour ce mois (optionnel)"
+              style="padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;" />
+          </div>`).join('')}
+        </div>
+      </div>
+      <div class="modal-actions" style="margin-top:20px;">
+        <button class="btn btn-cancel" onclick="closeNotesModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="saveNotes()">💾 Enregistrer</button>
+      </div>
+      <p class="save-msg" id="notesSaveMsg">✓ Notes enregistrées !</p>
+    </div>
+  </div>
+
   <div id="app" style="display:none;">
   <div class="header">
     <h1>📊 Dashboard CEO</h1>
     <div class="header-right">
       <span id="lastUpdate">Pas encore actualisé</span>
       <button class="btn-settings" onclick="openBudgetModal()">⚙️ Budget</button>
+      <button class="btn-settings" onclick="openNotesModal()">📝 Notes</button>
     </div>
+  </div>
+
+  <!-- Bandeau messages -->
+  <div id="bannerPermanent" style="display:none;background:#1a1a1a;color:white;padding:10px 32px;font-size:13px;display:flex;align-items:center;gap:8px;">
+    <span>📌</span><span id="bannerPermanentText"></span>
+  </div>
+  <div id="bannerMonth" style="display:none;background:#FFF8E1;border-bottom:1px solid #FFE082;padding:10px 32px;font-size:13px;color:#7B5E00;display:flex;align-items:center;gap:8px;">
+    <span>⚠️</span><span id="bannerMonthText"></span>
   </div>
 
   <div class="modal-overlay" id="budgetModal">
@@ -330,6 +367,61 @@ function loadBudgetLocal() {
   } catch {}
 }
 loadBudgetLocal();
+
+// Notes
+let notesPermanent = '';
+let notesMonths = Array(12).fill('');
+
+function loadNotes() {
+  try {
+    notesPermanent = localStorage.getItem('notesPermanent') || '';
+    const saved = localStorage.getItem('notesMonths');
+    if (saved) notesMonths = JSON.parse(saved);
+  } catch {}
+}
+loadNotes();
+
+function openNotesModal() {
+  document.getElementById('notesPermanent').value = notesPermanent;
+  months.forEach((m, i) => {
+    document.getElementById(`notesMonthLabel_${i}`).textContent = m;
+    document.getElementById(`notesMonth_${i}`).value = notesMonths[i] || '';
+  });
+  document.getElementById('notesModal').classList.add('open');
+  document.getElementById('notesSaveMsg').style.display = 'none';
+}
+
+function closeNotesModal() { document.getElementById('notesModal').classList.remove('open'); }
+
+function saveNotes() {
+  notesPermanent = document.getElementById('notesPermanent').value;
+  notesMonths = months.map((_, i) => document.getElementById(`notesMonth_${i}`).value);
+  localStorage.setItem('notesPermanent', notesPermanent);
+  localStorage.setItem('notesMonths', JSON.stringify(notesMonths));
+  document.getElementById('notesSaveMsg').style.display = 'block';
+  updateBanners();
+  setTimeout(closeNotesModal, 800);
+}
+
+function updateBanners(monthIndex) {
+  const perm = document.getElementById('bannerPermanent');
+  if (notesPermanent.trim()) {
+    perm.style.display = 'flex';
+    document.getElementById('bannerPermanentText').textContent = notesPermanent;
+  } else {
+    perm.style.display = 'none';
+  }
+  const month = document.getElementById('bannerMonth');
+  const idx = monthIndex !== undefined ? monthIndex : now.getMonth();
+  const note = notesMonths[idx] || '';
+  if (note.trim()) {
+    month.style.display = 'flex';
+    document.getElementById('bannerMonthText').textContent = note;
+  } else {
+    month.style.display = 'none';
+  }
+}
+updateBanners();
 
 function openBudgetModal() {
   const grid = document.getElementById('budgetGrid');
@@ -791,6 +883,7 @@ async function loadData() {
       });
 
     const endDate = new Date(dateEnd + 'T12:00:00');
+    updateBanners(new Date(dateStart + 'T12:00:00').getMonth());
     loadMonthlyChart(endDate.getFullYear(), endDate.getMonth());
 
   } catch(e) {
