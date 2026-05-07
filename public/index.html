@@ -108,6 +108,14 @@
     </div>
   </div>
 
+  <!-- Bandeau messages -->
+  <div id="bannerPermanent" style="display:none;background:#1a1a1a;color:white;padding:10px 32px;font-size:13px;align-items:center;gap:8px;">
+    <span>📌</span><span id="bannerPermanentText"></span>
+  </div>
+  <div id="bannerMonth" style="display:none;background:#FFF8E1;border-bottom:1px solid #FFE082;padding:10px 32px;font-size:13px;color:#7B5E00;align-items:center;gap:8px;">
+    <span>⚠️</span><span id="bannerMonthText"></span>
+  </div>
+
   <div class="modal-overlay" id="budgetModal">
     <div class="modal">
       <p class="modal-title">Budget 2026 mensuel</p>
@@ -122,7 +130,13 @@
   </div>
 
   <div class="header">
-    <h1>📊 Dashboard CEO</h1>
+    <div style="display:flex;align-items:center;gap:24px;">
+      <h1>📊 Dashboard CEO</h1>
+      <div style="display:flex;gap:4px;background:#f5f5f5;border-radius:10px;padding:4px;">
+        <button id="navBusiness" onclick="switchView('business')" style="font-size:13px;padding:7px 16px;border-radius:7px;border:none;cursor:pointer;background:#1a1a1a;color:white;font-weight:500;">🛒 Business</button>
+        <button id="navFinancier" onclick="switchView('financier')" style="font-size:13px;padding:7px 16px;border-radius:7px;border:none;cursor:pointer;background:transparent;color:#666;font-weight:500;">💰 Financier</button>
+      </div>
+    </div>
     <div class="header-right">
       <span id="lastUpdate">Pas encore actualisé</span>
       <button class="btn-settings" onclick="openBudgetModal()">⚙️ Budget</button>
@@ -175,6 +189,8 @@
     <div id="bannerMonth" style="display:none;background:#FFF8E1;border:1px solid #FFE082;padding:12px 16px;font-size:13px;color:#7B5E00;border-radius:10px;margin-bottom:16px;align-items:center;gap:8px;">
       <span>⚠️</span><span id="bannerMonthText"></span>
     </div>
+
+    <div id="businessView">
 
     <div class="metric-grid">
       <div class="metric-card">
@@ -303,7 +319,103 @@
         </thead>
         <tbody id="top30Body"></tbody>
       </table>
-    </div>
+    </div><!-- end top30Card -->
+
+    </div><!-- end businessView -->
+
+    <!-- VUE FINANCIER -->
+    <div id="financierView" style="display:none;">
+      <div class="controls-bar">
+        <div class="period-btns">
+          <button class="period-btn active" id="finBtnMonth" onclick="setFinPeriod('month')">Ce mois</button>
+          <button class="period-btn" id="finBtnYtd" onclick="setFinPeriod('ytd')">Cumul YTD</button>
+          <button class="period-btn" id="finBtnCustom" onclick="setFinPeriod('custom')">Période</button>
+        </div>
+        <div class="date-selectors" id="finSelectorsMonth">
+          <select id="finSelMonth">
+            <option value="0">Janvier</option><option value="1">Février</option><option value="2">Mars</option>
+            <option value="3">Avril</option><option value="4">Mai</option><option value="5">Juin</option>
+            <option value="6">Juillet</option><option value="7">Août</option><option value="8">Septembre</option>
+            <option value="9">Octobre</option><option value="10">Novembre</option><option value="11">Décembre</option>
+          </select>
+          <select id="finSelYear"></select>
+        </div>
+        <div class="date-selectors" id="finSelectorsYtd" style="display:none;">
+          <select id="finSelYtdMonth">
+            <option value="0">Janvier</option><option value="1">Février</option><option value="2">Mars</option>
+            <option value="3">Avril</option><option value="4">Mai</option><option value="5">Juin</option>
+            <option value="6">Juillet</option><option value="7">Août</option><option value="8">Septembre</option>
+            <option value="9">Octobre</option><option value="10">Novembre</option><option value="11">Décembre</option>
+          </select>
+          <select id="finSelYtdYear"></select>
+        </div>
+        <div class="date-selectors" id="finSelectorsCustom" style="display:none;">
+          <input type="date" id="finDateFrom" />
+          <span class="sep">→</span>
+          <input type="date" id="finDateTo" />
+        </div>
+        <button class="btn btn-primary" onclick="loadFinancier()">↻ Voir</button>
+        <div class="status"><span class="dot" id="finStatusDot"></span><span id="finStatusText">En attente</span></div>
+      </div>
+
+      <div class="error-box" id="finErrorBox"></div>
+      <p class="period-label" id="finPeriodLabel"></p>
+
+      <div class="metric-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+
+        <div class="metric-card" style="border-left:3px solid #1a1a1a;">
+          <p class="metric-label">CA Comptable</p>
+          <p class="metric-value" id="finCA">—</p>
+          <p class="metric-sub">Pennylane</p>
+        </div>
+
+        <div class="metric-card" style="border-left:3px solid #74A1D6;">
+          <p class="metric-label">CM1</p>
+          <p class="metric-value" id="finCM1">—</p>
+          <p class="metric-sub" id="finTauxCM1"></p>
+          <div class="budget-bar-wrap" id="finBudgetCM1Wrap" style="display:none;">
+            <div class="budget-bar-label">
+              <span id="finBudgetCM1Label">vs Budget CM1</span>
+              <span id="finBudgetCM1Pct"></span>
+            </div>
+            <div class="budget-bar-bg">
+              <div class="budget-bar-fill ok" id="finBudgetCM1Fill" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="metric-card" style="border-left:3px solid #1D9E75;">
+          <p class="metric-label">CM2</p>
+          <p class="metric-value" id="finCM2">—</p>
+          <p class="metric-sub" id="finTauxCM2"></p>
+          <div class="budget-bar-wrap" id="finBudgetCM2Wrap" style="display:none;">
+            <div class="budget-bar-label">
+              <span id="finBudgetCM2Label">vs Budget CM2</span>
+              <span id="finBudgetCM2Pct"></span>
+            </div>
+            <div class="budget-bar-bg">
+              <div class="budget-bar-fill ok" id="finBudgetCM2Fill" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="metric-card" style="border-left:3px solid #D85A30;">
+          <p class="metric-label">EBITDA</p>
+          <p class="metric-value" id="finEBITDA">—</p>
+          <p class="metric-sub" id="finTauxEBITDA"></p>
+          <div class="budget-bar-wrap" id="finBudgetEBITDAWrap" style="display:none;">
+            <div class="budget-bar-label">
+              <span id="finBudgetEBITDALabel">vs Budget EBITDA</span>
+              <span id="finBudgetEBITDAPct"></span>
+            </div>
+            <div class="budget-bar-bg">
+              <div class="budget-bar-fill ok" id="finBudgetEBITDAFill" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div><!-- end financierView -->
 
     </div><!-- end app -->
 
@@ -891,6 +1003,192 @@ async function loadData() {
     setStatus('err', 'Erreur');
     document.getElementById('errorBox').style.display = 'block';
     document.getElementById('errorBox').textContent = 'Erreur : ' + e.message + ' — ' + (e.stack || '').split('\n')[1];
+  }
+// ============ VUE SWITCHER ============
+let currentView = 'business';
+
+function switchView(view) {
+  currentView = view;
+  document.getElementById('businessView').style.display = view === 'business' ? 'block' : 'none';
+  document.getElementById('financierView').style.display = view === 'financier' ? 'block' : 'none';
+  document.getElementById('navBusiness').style.background = view === 'business' ? '#1a1a1a' : 'transparent';
+  document.getElementById('navBusiness').style.color = view === 'business' ? 'white' : '#666';
+  document.getElementById('navFinancier').style.background = view === 'financier' ? '#1a1a1a' : 'transparent';
+  document.getElementById('navFinancier').style.color = view === 'financier' ? 'white' : '#666';
+}
+
+// ============ VUE FINANCIER ============
+let finCurrentMode = 'month';
+
+const DEFAULT_BUDGET_CM1 = [0,0,0,0,0,0,0,0,0,0,0,0];
+const DEFAULT_BUDGET_CM2 = [0,0,0,0,0,0,0,0,0,0,0,0];
+const DEFAULT_BUDGET_EBITDA = [0,0,0,0,0,0,0,0,0,0,0,0];
+let budgetCM12026 = [...DEFAULT_BUDGET_CM1];
+let budgetCM22026 = [...DEFAULT_BUDGET_CM2];
+let budgetEBITDA2026 = [...DEFAULT_BUDGET_EBITDA];
+
+function loadFinBudgetLocal() {
+  try {
+    const s1 = localStorage.getItem('budgetCM12026'); if (s1) budgetCM12026 = JSON.parse(s1);
+    const s2 = localStorage.getItem('budgetCM22026'); if (s2) budgetCM22026 = JSON.parse(s2);
+    const s3 = localStorage.getItem('budgetEBITDA2026'); if (s3) budgetEBITDA2026 = JSON.parse(s3);
+  } catch {}
+}
+loadFinBudgetLocal();
+
+// Ajouter budgets CM1/CM2/EBITDA au modal Budget
+const origOpenBudgetModal = openBudgetModal;
+openBudgetModal = function() {
+  origOpenBudgetModal();
+  // Ajouter section Pennylane au modal
+  const grid = document.getElementById('budgetGrid');
+  const finSection = document.createElement('div');
+  finSection.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
+  finSection.innerHTML = `
+    <p style="font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px;">💰 Budgets Financier (k€)</p>
+    <div style="grid-column:1/-1; display:grid; grid-template-columns: 80px 1fr 1fr 1fr; gap:8px; align-items:center; border-bottom:1px solid #e5e5e5; padding-bottom:8px; margin-bottom:4px;">
+      <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>
+      <span style="font-size:11px;color:#74A1D6;font-weight:600;text-align:center;">CM1 (k€)</span>
+      <span style="font-size:11px;color:#1D9E75;font-weight:600;text-align:center;">CM2 (k€)</span>
+      <span style="font-size:11px;color:#D85A30;font-weight:600;text-align:center;">EBITDA (k€)</span>
+    </div>
+    ${months.map((m, i) => `
+    <div style="display:grid;grid-template-columns:80px 1fr 1fr 1fr;gap:8px;align-items:center;margin-bottom:4px;">
+      <span style="font-size:12px;color:#444;">${m}</span>
+      <input type="number" id="budgetCM1_${i}" value="${budgetCM12026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #c5d9ef;border-radius:6px;font-size:13px;text-align:center;" />
+      <input type="number" id="budgetCM2_${i}" value="${budgetCM22026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #a8dcc8;border-radius:6px;font-size:13px;text-align:center;" />
+      <input type="number" id="budgetEBITDA_${i}" value="${budgetEBITDA2026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #f0b8a0;border-radius:6px;font-size:13px;text-align:center;" />
+    </div>`).join('')}
+  `;
+  grid.appendChild(finSection);
+};
+
+const origSaveBudget = saveBudget;
+saveBudget = function() {
+  origSaveBudget();
+  budgetCM12026 = months.map((_, i) => parseFloat(document.getElementById(`budgetCM1_${i}`)?.value) || 0);
+  budgetCM22026 = months.map((_, i) => parseFloat(document.getElementById(`budgetCM2_${i}`)?.value) || 0);
+  budgetEBITDA2026 = months.map((_, i) => parseFloat(document.getElementById(`budgetEBITDA_${i}`)?.value) || 0);
+  localStorage.setItem('budgetCM12026', JSON.stringify(budgetCM12026));
+  localStorage.setItem('budgetCM22026', JSON.stringify(budgetCM22026));
+  localStorage.setItem('budgetEBITDA2026', JSON.stringify(budgetEBITDA2026));
+};
+
+// Initialiser les sélecteurs Financier
+window.addEventListener('DOMContentLoaded', () => {
+  ['finSelYear','finSelYtdYear'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    for(let y = now.getFullYear(); y >= 2025; y--) {
+      const opt = document.createElement('option');
+      opt.value = y; opt.textContent = y; el.appendChild(opt);
+    }
+  });
+  if (document.getElementById('finSelMonth')) document.getElementById('finSelMonth').value = now.getMonth();
+  if (document.getElementById('finSelYtdMonth')) document.getElementById('finSelYtdMonth').value = now.getMonth();
+  if (document.getElementById('finDateFrom')) document.getElementById('finDateFrom').value = todayStr;
+  if (document.getElementById('finDateTo')) document.getElementById('finDateTo').value = todayStr;
+});
+
+function setFinPeriod(mode) {
+  finCurrentMode = mode;
+  ['month','ytd','custom'].forEach(m => {
+    const btn = document.getElementById('finBtn' + m.charAt(0).toUpperCase() + m.slice(1));
+    if (btn) btn.classList.toggle('active', m === mode);
+  });
+  document.getElementById('finSelectorsMonth').style.display = mode === 'month' ? 'flex' : 'none';
+  document.getElementById('finSelectorsYtd').style.display = mode === 'ytd' ? 'flex' : 'none';
+  document.getElementById('finSelectorsCustom').style.display = mode === 'custom' ? 'flex' : 'none';
+}
+
+function getFinDates() {
+  if (finCurrentMode === 'month') {
+    const month = parseInt(document.getElementById('finSelMonth').value);
+    const year = parseInt(document.getElementById('finSelYear').value);
+    const lastDay = new Date(year, month+1, 0).getDate();
+    return { dateStart: `${year}-${pad(month+1)}-01`, dateEnd: `${year}-${pad(month+1)}-${pad(lastDay)}`, label: `${months[month]} ${year}`, monthIndex: month };
+  }
+  if (finCurrentMode === 'ytd') {
+    const month = parseInt(document.getElementById('finSelYtdMonth').value);
+    const year = parseInt(document.getElementById('finSelYtdYear').value);
+    const lastDay = new Date(year, month+1, 0).getDate();
+    return { dateStart: `${year}-01-01`, dateEnd: `${year}-${pad(month+1)}-${pad(lastDay)}`, label: `Cumul YTD — Janvier à ${months[month]} ${year}`, monthIndex: month };
+  }
+  if (finCurrentMode === 'custom') {
+    const from = document.getElementById('finDateFrom').value;
+    const to = document.getElementById('finDateTo').value;
+    if (!from || !to) { alert('Veuillez sélectionner une date de début et de fin.'); return null; }
+    return { dateStart: from, dateEnd: to, label: `Du ${new Date(from+'T12:00:00').toLocaleDateString('fr-FR')} au ${new Date(to+'T12:00:00').toLocaleDateString('fr-FR')}`, monthIndex: new Date(from+'T12:00:00').getMonth() };
+  }
+}
+
+function showFinBudgetBar(wrapperId, labelId, pctId, fillId, value, budgetVal, label) {
+  if (budgetVal <= 0) { document.getElementById(wrapperId).style.display = 'none'; return; }
+  const pct = Math.round(((value / 1000) / budgetVal) * 100);
+  document.getElementById(wrapperId).style.display = 'block';
+  document.getElementById(labelId).textContent = `${label} : ${budgetVal.toLocaleString('fr-FR')} k€`;
+  document.getElementById(pctId).textContent = `${pct}% atteint`;
+  const fill = document.getElementById(fillId);
+  fill.style.width = Math.min(pct, 100) + '%';
+  fill.className = `budget-bar-fill ${pct >= 100 ? 'over' : 'ok'}`;
+}
+
+async function loadFinancier() {
+  const dates = getFinDates();
+  if (!dates) return;
+  const { dateStart, dateEnd, label, monthIndex } = dates;
+
+  document.getElementById('finErrorBox').style.display = 'none';
+  document.getElementById('finPeriodLabel').textContent = label;
+  document.getElementById('finStatusDot').className = 'dot spin';
+  document.getElementById('finStatusText').textContent = 'Chargement...';
+  ['finCA','finCM1','finCM2','finEBITDA'].forEach(id => document.getElementById(id).textContent = '...');
+
+  try {
+    const resp = await fetch(`/api/pennylane?dateStart=${dateStart}&dateEnd=${dateEnd}`);
+    if (!resp.ok) throw new Error('Erreur API Pennylane');
+    const data = await resp.json();
+
+    document.getElementById('finCA').textContent = fmt(data._caComptable || 0);
+    document.getElementById('finCM1').textContent = fmt(data._cm1 || 0);
+    document.getElementById('finTauxCM1').textContent = `Taux : ${(data._tauxCm1 || 0).toFixed(1)}%`;
+    document.getElementById('finCM2').textContent = fmt(data._cm2 || 0);
+    document.getElementById('finTauxCM2').textContent = `Taux : ${(data._tauxCm2 || 0).toFixed(1)}%`;
+    document.getElementById('finEBITDA').textContent = fmt(data._ebitda || 0);
+    document.getElementById('finTauxEBITDA').textContent = `Taux : ${(data._tauxEbitda || 0).toFixed(1)}%`;
+
+    // Couleurs EBITDA selon positif/négatif
+    const ebitdaEl = document.getElementById('finEBITDA');
+    ebitdaEl.style.color = (data._ebitda || 0) >= 0 ? '#1D9E75' : '#D85A30';
+
+    // Barres budget
+    const year = new Date(dateStart + 'T12:00:00').getFullYear();
+    if (year === 2026) {
+      let budCM1 = 0, budCM2 = 0, budEBITDA = 0;
+      if (finCurrentMode === 'month') {
+        budCM1 = budgetCM12026[monthIndex];
+        budCM2 = budgetCM22026[monthIndex];
+        budEBITDA = budgetEBITDA2026[monthIndex];
+      } else if (finCurrentMode === 'ytd') {
+        for (let m = 0; m <= monthIndex; m++) {
+          budCM1 += budgetCM12026[m];
+          budCM2 += budgetCM22026[m];
+          budEBITDA += budgetEBITDA2026[m];
+        }
+      }
+      showFinBudgetBar('finBudgetCM1Wrap','finBudgetCM1Label','finBudgetCM1Pct','finBudgetCM1Fill', data._cm1||0, budCM1, 'Budget CM1');
+      showFinBudgetBar('finBudgetCM2Wrap','finBudgetCM2Label','finBudgetCM2Pct','finBudgetCM2Fill', data._cm2||0, budCM2, 'Budget CM2');
+      showFinBudgetBar('finBudgetEBITDAWrap','finBudgetEBITDALabel','finBudgetEBITDAPct','finBudgetEBITDAFill', data._ebitda||0, budEBITDA, 'Budget EBITDA');
+    }
+
+    document.getElementById('finStatusDot').className = 'dot ok';
+    document.getElementById('finStatusText').textContent = `Données à jour${data._fromCache ? ' (cache)' : ''}`;
+
+  } catch(e) {
+    document.getElementById('finStatusDot').className = 'dot err';
+    document.getElementById('finStatusText').textContent = 'Erreur';
+    document.getElementById('finErrorBox').style.display = 'block';
+    document.getElementById('finErrorBox').textContent = 'Erreur : ' + e.message;
   }
 }
 </script>
