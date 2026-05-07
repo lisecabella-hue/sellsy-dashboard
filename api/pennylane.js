@@ -104,28 +104,28 @@ export default async function handler(req, res) {
     let ebitdaProducts = 0;
 
     for (const item of allItems) {
-      const num = (item.number || '').toString().trim();
+      const num = (item.number || item.formatted_number || '').toString().trim();
       const credits = parseFloat(item.credits || 0);
       const debits = parseFloat(item.debits || 0);
 
       // CA
-      if (CA_ACCOUNTS.includes(num)) {
+      if (CA_ACCOUNTS.some(a => num.startsWith(a) || num === a)) {
         caComptable += (credits - debits);
       }
       // Déduction CA
-      if (CA_DEDUCTION_ACCOUNTS.includes(num)) {
+      if (CA_DEDUCTION_ACCOUNTS.some(a => num.startsWith(a) || num === a)) {
         caComptable -= (debits - credits);
       }
       // COGS
-      if (COGS_ACCOUNTS.includes(num)) {
+      if (COGS_ACCOUNTS.some(a => num.startsWith(a) || num === a)) {
         cogsTotal += (debits - credits);
       }
       // Charges EBITDA
-      if (EBITDA_CHARGE_ACCOUNTS.includes(num)) {
+      if (EBITDA_CHARGE_ACCOUNTS.some(a => num.startsWith(a) || num === a)) {
         ebitdaCharges += (debits - credits);
       }
       // Produits supplémentaires EBITDA
-      if (EBITDA_PRODUCT_ACCOUNTS.includes(num)) {
+      if (EBITDA_PRODUCT_ACCOUNTS.some(a => num.startsWith(a) || num === a)) {
         ebitdaProducts += (credits - debits);
       }
     }
@@ -141,6 +141,15 @@ export default async function handler(req, res) {
     const ebitda = Math.round((caComptable - ebitdaCharges + ebitdaProducts) * 100) / 100;
     const tauxEbitda = caComptable > 0 ? Math.round((ebitda / caComptable) * 10000) / 100 : 0;
 
+    const debugAccounts = allItems
+      .filter(item => {
+        const n = (item.number || '').toString().trim();
+        const fn = (item.formatted_number || '').toString().trim();
+        return n.startsWith('70') || n.startsWith('60') || fn.startsWith('70') || fn.startsWith('60');
+      })
+      .slice(0, 20)
+      .map(item => ({ number: item.number, formatted_number: item.formatted_number, label: item.label, credits: item.credits, debits: item.debits }));
+
     const result = {
       _caComptable: caComptable,
       _cogs: cogsTotal,
@@ -152,7 +161,8 @@ export default async function handler(req, res) {
       _tauxEbitda: tauxEbitda,
       _dateStart: dateStart,
       _dateEnd: dateEnd,
-      _itemCount: allItems.length
+      _itemCount: allItems.length,
+      _debugAccounts: debugAccounts
     };
 
     if (kvUrl && kvToken) await cacheSet(cacheKey, result, ttl);
