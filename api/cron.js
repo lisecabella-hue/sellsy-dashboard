@@ -216,11 +216,8 @@ export default async function handler(req, res) {
   const dayOfMonth = now.getDate();
   const monthToRotate = allMonths[dayOfMonth % allMonths.length];
 
-  // Toujours recalculer : mois en rotation + mois en cours
+  // Un seul mois par nuit en rotation, en partant des plus récents
   const monthsToRefresh = [monthToRotate];
-  if (!(monthToRotate.year === currentYear && monthToRotate.month === currentMonth)) {
-    monthsToRefresh.push({ year: currentYear, month: currentMonth });
-  }
 
   const results = [];
   for (const { year, month } of monthsToRefresh) {
