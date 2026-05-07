@@ -283,8 +283,9 @@ export default async function handler(req, res) {
       pagination: { total }
     };
 
-    if (ttl > 0 && kvUrl) await cacheSet(cacheKey, result, ttl);
-    return res.status(200).json(result);
+    const isComplete = allInvoices.length >= total;
+    if (ttl > 0 && kvUrl && isComplete) await cacheSet(cacheKey, result, ttl);
+    return res.status(200).json({ ...result, _complete: isComplete });
 
   } catch (e) {
     return res.status(500).json({ error: e.message });
