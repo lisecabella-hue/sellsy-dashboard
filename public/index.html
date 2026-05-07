@@ -363,7 +363,7 @@
         <div class="status"><span class="dot" id="finStatusDot"></span><span id="finStatusText">En attente</span></div>
       </div>
       <div id="finLockMsg" style="display:none;background:#fff0f0;border:1px solid #fcc;border-radius:8px;padding:12px 16px;font-size:13px;color:#c00;margin-bottom:16px;">
-        🔒 Ce mois n'est pas encore finalisé dans Pennylane. Cochez-le dans Notes pour y accéder.
+        🔒 Ce mois n'est pas encore finalisé dans Pennylane.
       </div>
 
       <div class="error-box" id="finErrorBox"></div>
@@ -1163,9 +1163,11 @@ function loadFinancierChecked() {
   const lockMsg = document.getElementById('finLockMsg');
   if (!isMonthFinalized(dates.dateStart)) {
     lockMsg.style.display = 'block';
+    updateBanners(dates.monthIndex);
     return;
   }
   lockMsg.style.display = 'none';
+  updateBanners(dates.monthIndex);
   loadFinancier();
 }
 
