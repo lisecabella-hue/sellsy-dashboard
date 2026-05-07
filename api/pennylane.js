@@ -152,7 +152,7 @@ export default async function handler(req, res) {
 
     // EBITDA = produits - charges (tous comptes confondus)
     const ebitda = Math.round((ebitdaProducts - ebitdaCharges) * 100) / 100;
-    const tauxEbitda = ebitdaProducts > 0 ? Math.round((ebitda / ebitdaProducts) * 10000) / 100 : 0;
+    const tauxEbitda = caComptable > 0 ? Math.round((ebitda / caComptable) * 10000) / 100 : 0;
 
     const debugAccounts = allItems
       .filter(item => {
