@@ -72,7 +72,10 @@ export default async function handler(req, res) {
     '6475000000','6480000000','6490000000','6560000000','6580000000','6582000000','6712000000'
   ];
   // Comptes produits supplémentaires pour EBITDA
-  const EBITDA_PRODUCT_ACCOUNTS = ['7085210000','7085220000','7085230000','7085240000','7580000000'];
+  const EBITDA_PRODUCT_ACCOUNTS = ['7085210000','7085220000','7085230000','7085240000','7580000000',
+    '7011110000','7011130000','7011140000','7011210000','7011220000','7011230000','7011240000',
+    '7091111000','7091113000','7091114000','7091121000','7091122000','7091123000'
+  ];
 
   try {
     let allItems = [];
@@ -120,11 +123,11 @@ export default async function handler(req, res) {
       if (COGS_ACCOUNTS.some(a => num.startsWith(a))) {
         cogsTotal += (debits - credits);
       }
-      // Charges EBITDA
+      // Charges EBITDA (comptes 6xx)
       if (EBITDA_CHARGE_ACCOUNTS.some(a => num.startsWith(a))) {
         ebitdaCharges += (debits - credits);
       }
-      // Produits supplémentaires EBITDA
+      // Produits EBITDA (comptes 7xx)
       if (EBITDA_PRODUCT_ACCOUNTS.some(a => num.startsWith(a))) {
         ebitdaProducts += (credits - debits);
       }
@@ -138,8 +141,9 @@ export default async function handler(req, res) {
     const cm1 = Math.round((caComptable - cogsTotal) * 100) / 100;
     const tauxCm1 = caComptable > 0 ? Math.round((cm1 / caComptable) * 10000) / 100 : 0;
 
-    const ebitda = Math.round((caComptable - ebitdaCharges + ebitdaProducts) * 100) / 100;
-    const tauxEbitda = caComptable > 0 ? Math.round((ebitda / caComptable) * 10000) / 100 : 0;
+    // EBITDA = produits - charges (tous comptes confondus)
+    const ebitda = Math.round((ebitdaProducts - ebitdaCharges) * 100) / 100;
+    const tauxEbitda = ebitdaProducts > 0 ? Math.round((ebitda / ebitdaProducts) * 10000) / 100 : 0;
 
     const debugAccounts = allItems
       .filter(item => {
