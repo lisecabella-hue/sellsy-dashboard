@@ -194,6 +194,13 @@
       <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">En attente</span></div>
     </div>
 
+    <!-- Onglets segment -->
+    <div style="display:flex;gap:4px;background:#f5f5f5;border-radius:10px;padding:4px;width:fit-content;margin-bottom:20px;">
+      <button id="segTotal" onclick="setSegment('total')" style="font-size:13px;padding:7px 18px;border-radius:7px;border:none;cursor:pointer;background:#1a1a1a;color:white;font-weight:500;">Total</button>
+      <button id="segB2B" onclick="setSegment('b2b')" style="font-size:13px;padding:7px 18px;border-radius:7px;border:none;cursor:pointer;background:transparent;color:#666;font-weight:500;">B2B</button>
+      <button id="segB2C" onclick="setSegment('b2c')" style="font-size:13px;padding:7px 18px;border-radius:7px;border:none;cursor:pointer;background:transparent;color:#666;font-weight:500;">B2C</button>
+    </div>
+
     <div class="error-box" id="errorBox"></div>
     <p class="period-label" id="periodLabel"></p>
 
@@ -479,10 +486,86 @@ const now = new Date();
 const pad = n => String(n).padStart(2,'0');
 const todayStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
 let currentMode = 'month';
+let currentSegment = 'total';
+let lastCaData = null;
 let caChartInstance = null;
 let budgetChartInstance = null;
 let pieChartInstance = null;
 let currentTotalCA = 0;
+
+function setSegment(seg) {
+  currentSegment = seg;
+  ['total','b2b','b2c'].forEach(s => {
+    const btn = document.getElementById('seg' + s.charAt(0).toUpperCase() + s.slice(1));
+    if (btn) {
+      btn.style.background = s === seg ? '#1a1a1a' : 'transparent';
+      btn.style.color = s === seg ? 'white' : '#666';
+    }
+  });
+  if (lastCaData) applySegment(lastCaData);
+}
+
+function applySegment(caData) {
+  const seg = currentSegment;
+  let ca, caB2C, caB2B, panierB2C, panierB2B, countB2C, countB2B;
+
+  if (seg === 'total') {
+    ca = caData._totalCA || 0;
+    caB2C = caData._totalCAB2C || 0;
+    caB2B = caData._totalCAB2B || 0;
+    panierB2C = caData._panierMoyenB2C || 0;
+    panierB2B = caData._panierMoyenB2B || 0;
+    countB2C = caData._countB2C || 0;
+    countB2B = caData._countB2B || 0;
+  } else if (seg === 'b2b') {
+    ca = caData._totalCAB2B || 0;
+    caB2C = 0;
+    caB2B = caData._totalCAB2B || 0;
+    panierB2C = 0;
+    panierB2B = caData._panierMoyenB2B || 0;
+    countB2C = 0;
+    countB2B = caData._countB2B || 0;
+  } else {
+    ca = caData._totalCAB2C || 0;
+    caB2C = caData._totalCAB2C || 0;
+    caB2B = 0;
+    panierB2C = caData._panierMoyenB2C || 0;
+    panierB2B = 0;
+    countB2C = caData._countB2C || 0;
+    countB2B = 0;
+  }
+
+  document.getElementById('mCA').textContent = fmt(ca);
+  document.getElementById('mCAB2C').textContent = fmt(caB2C);
+  document.getElementById('mCAB2B').textContent = fmt(caB2B);
+  document.getElementById('mAvgB2C').textContent = fmt(panierB2C);
+  document.getElementById('mAvgB2B').textContent = fmt(panierB2B);
+
+  // Avoirs
+  const tauxAvoirs = caData._tauxAvoirs || 0;
+  const totalAvoirs = caData._totalAvoirs || 0;
+  const avoirsEl = document.getElementById('mAvoirsKpi');
+  if (avoirsEl && seg === 'total') {
+    const avoirsColor = tauxAvoirs > 2 ? '#D85A30' : '#1D9E75';
+    avoirsEl.innerHTML = `Avoirs : <span style="font-weight:600;color:${avoirsColor}">${tauxAvoirs.toFixed(2)}%</span> (${fmt(totalAvoirs)})`;
+  } else if (avoirsEl) {
+    avoirsEl.innerHTML = '';
+  }
+
+  renderPieChart(caB2C, caB2B);
+  currentTotalCA = ca;
+  updateBudgetDisplay(ca);
+  updateBudgetB2CB2BDisplay(caB2C, caB2B);
+
+  // Top 30 B2B
+  if (seg !== 'b2c' && caData._top30B2B) renderTop30(caData._top30B2B, caB2B);
+  else { document.getElementById('top30Card').style.display = 'none'; }
+
+  // Type client pie
+  if (seg === 'total' && caData._caByType && Object.keys(caData._caByType).length > 0) {
+    renderTypeClientPieChart(caData._caByType);
+  }
+}
 
 const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const monthsShort = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
@@ -975,32 +1058,14 @@ async function loadData() {
     if (!caResp.ok) throw new Error('Erreur API');
     const caData = await caResp.json();
 
+    lastCaData = caData;
+    applySegment(caData);
+
     const totalCA = caData._totalCA || 0;
     const caB2C = caData._totalCAB2C || 0;
     const caB2B = caData._totalCAB2B || 0;
     const panierB2C = caData._panierMoyenB2C || 0;
     const panierB2B = caData._panierMoyenB2B || 0;
-    const tauxAvoirs = caData._tauxAvoirs || 0;
-    const totalAvoirs = caData._totalAvoirs || 0;
-    currentTotalCA = totalCA;
-
-    document.getElementById('mCA').textContent = fmt(totalCA);
-    document.getElementById('mCAB2C').textContent = fmt(caB2C);
-    document.getElementById('mCAB2B').textContent = fmt(caB2B);
-    document.getElementById('mAvgB2C').textContent = fmt(panierB2C);
-    document.getElementById('mAvgB2B').textContent = fmt(panierB2B);
-
-    const avoirsEl = document.getElementById('mAvoirsKpi');
-    const avoirsColor = tauxAvoirs > 2 ? '#D85A30' : '#1D9E75';
-    avoirsEl.innerHTML = `Avoirs : <span style="font-weight:600;color:${avoirsColor}">${tauxAvoirs.toFixed(2)}%</span> (${fmt(totalAvoirs)})`;
-
-    renderPieChart(caB2C, caB2B);
-    if (caData._caByType && Object.keys(caData._caByType).length > 0) {
-      renderTypeClientPieChart(caData._caByType);
-    }
-    if (caData._top30B2B) renderTop30(caData._top30B2B, caB2B);
-    updateBudgetDisplay(totalCA);
-    updateBudgetB2CB2BDisplay(caB2C, caB2B);
 
     const t = new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     document.getElementById('lastUpdate').textContent = 'Mis à jour le ' + t;
@@ -1013,14 +1078,16 @@ async function loadData() {
     fetch(`/api/sellsy?dateStart=${prevDates.dateStart}&dateEnd=${prevDates.dateEnd}&mode=total`)
       .then(r => r.json())
       .then(prev => {
-        const prevCA = prev._totalCA || 0;
+        const seg = currentSegment;
+        const prevCA = seg === 'b2b' ? (prev._totalCAB2B || 0) : seg === 'b2c' ? (prev._totalCAB2C || 0) : (prev._totalCA || 0);
         const prevB2C = prev._totalCAB2C || 0;
         const prevB2B = prev._totalCAB2B || 0;
         const prevPanierB2C = prev._panierMoyenB2C || 0;
         const prevPanierB2B = prev._panierMoyenB2B || 0;
+        const curCA = seg === 'b2b' ? caB2B : seg === 'b2c' ? caB2C : totalCA;
 
         if (prevCA > 0) {
-          const diff = ((totalCA - prevCA) / prevCA) * 100;
+          const diff = ((curCA - prevCA) / prevCA) * 100;
           const sign = diff >= 0 ? '+' : '';
           vsEl.textContent = `${sign}${diff.toFixed(1)}% vs ${prevYear} (${fmt(prevCA)})`;
           vsEl.className = `metric-vs ${diff >= 0 ? 'up' : 'down'}`;
