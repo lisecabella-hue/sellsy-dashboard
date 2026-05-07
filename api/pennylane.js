@@ -51,6 +51,8 @@ export default async function handler(req, res) {
   try {
     // Comptes CA : 701xxx et 709xxx
     const CA_ACCOUNTS = ['7011', '7091'];
+    // Comptes RRR accordés (déduction du CA) : 609xxx
+    const CA_DEDUCTION_ACCOUNTS = ['6091'];
     // Comptes COGS : 601xxx, 602xxx, 603xxx
     const COGS_ACCOUNTS = ['6010', '6022', '6031'];
 
@@ -93,6 +95,11 @@ export default async function handler(req, res) {
       // CA = comptes 701x et 709x → net = crédits - débits
       if (CA_ACCOUNTS.some(prefix => num.startsWith(prefix))) {
         caComptable += (credits - debits);
+      }
+
+      // RRR accordés = comptes 609x → déduction du CA (débits - crédits)
+      if (CA_DEDUCTION_ACCOUNTS.some(prefix => num.startsWith(prefix))) {
+        caComptable -= (debits - credits);
       }
 
       // COGS = comptes 601x, 602x, 603x → net = débits - crédits
