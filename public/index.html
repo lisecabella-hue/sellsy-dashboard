@@ -748,7 +748,7 @@ function saveBudget() {
   document.getElementById('saveMsg').style.display = 'block';
   setTimeout(() => {
     closeBudgetModal();
-    if (currentTotalCA > 0) updateBudgetDisplay(currentTotalCA);
+    if (lastCaData) applySegment(lastCaData);
   }, 800);
 }
 
