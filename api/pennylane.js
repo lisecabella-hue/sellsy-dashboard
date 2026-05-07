@@ -104,28 +104,28 @@ export default async function handler(req, res) {
     let ebitdaProducts = 0;
 
     for (const item of allItems) {
-      const num = (item.number || item.formatted_number || '').toString().trim();
+      const num = (item.formatted_number || item.number || '').toString().trim();
       const credits = parseFloat(item.credits || 0);
       const debits = parseFloat(item.debits || 0);
 
       // CA
-      if (CA_ACCOUNTS.some(a => num.startsWith(a) || num === a)) {
+      if (CA_ACCOUNTS.some(a => num.startsWith(a))) {
         caComptable += (credits - debits);
       }
       // Déduction CA
-      if (CA_DEDUCTION_ACCOUNTS.some(a => num.startsWith(a) || num === a)) {
+      if (CA_DEDUCTION_ACCOUNTS.some(a => num.startsWith(a))) {
         caComptable -= (debits - credits);
       }
       // COGS
-      if (COGS_ACCOUNTS.some(a => num.startsWith(a) || num === a)) {
+      if (COGS_ACCOUNTS.some(a => num.startsWith(a))) {
         cogsTotal += (debits - credits);
       }
       // Charges EBITDA
-      if (EBITDA_CHARGE_ACCOUNTS.some(a => num.startsWith(a) || num === a)) {
+      if (EBITDA_CHARGE_ACCOUNTS.some(a => num.startsWith(a))) {
         ebitdaCharges += (debits - credits);
       }
       // Produits supplémentaires EBITDA
-      if (EBITDA_PRODUCT_ACCOUNTS.some(a => num.startsWith(a) || num === a)) {
+      if (EBITDA_PRODUCT_ACCOUNTS.some(a => num.startsWith(a))) {
         ebitdaProducts += (credits - debits);
       }
     }
