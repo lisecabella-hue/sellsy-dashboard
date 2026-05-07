@@ -101,7 +101,6 @@ export default async function handler(req, res) {
     let allInvoices = [];
     let offset = 0;
     let total = null;
-
     do {
       const resp = await fetch(
         `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit&field[]=rate_category_id&field[]=company_name&field[]=related`,
@@ -191,15 +190,32 @@ export default async function handler(req, res) {
       pagination: { total: total || allInvoices.length }
     };
 
-    await cacheSet(cacheKey, result, 3600);
-    return { month, year, totalCA: result._totalCA, count: result._count };
+    const isCurrentMonth = year === currentYear && month === currentMonth;
+    const ttl = isCurrentMonth ? 3600 : 60 * 60 * 24 * 35;
+    await cacheSet(cacheKey, result, ttl);
+    return { month, year, totalCA: result._totalCA, count: result._count, invoicesTotal: total };
   }
 
-  // Ne recalculer que le mois en cours et le mois précédent
-  const monthsToRefresh = [
-    { year: currentMonth === 0 ? currentYear - 1 : currentYear, month: currentMonth === 0 ? 11 : currentMonth - 1 },
-    { year: currentYear, month: currentMonth }
-  ];
+  // Rotation : chaque nuit on recalcule un mois différent
+  // Liste des mois du plus récent au plus ancien
+  const allMonths = [];
+  for (let y = currentYear; y >= 2025; y--) {
+    const maxM = (y === currentYear) ? currentMonth - 1 : 11;
+    const minM = 0;
+    for (let m = maxM; m >= minM; m--) {
+      allMonths.push({ year: y, month: m });
+    }
+  }
+
+  // Choisir le mois à recalculer selon le jour du mois (rotation)
+  const dayOfMonth = now.getDate();
+  const monthToRotate = allMonths[dayOfMonth % allMonths.length];
+
+  // Toujours recalculer : mois en rotation + mois en cours
+  const monthsToRefresh = [monthToRotate];
+  if (!(monthToRotate.year === currentYear && monthToRotate.month === currentMonth)) {
+    monthsToRefresh.push({ year: currentYear, month: currentMonth });
+  }
 
   const results = [];
   for (const { year, month } of monthsToRefresh) {
