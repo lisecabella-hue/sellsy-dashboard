@@ -209,6 +209,19 @@ export default async function handler(req, res) {
       .sort((a, b) => b.ca - a.ca)
       .slice(0, 30);
 
+    const b2cByClient = {};
+    for (const inv of invoicesB2C) {
+      const name = inv.company_name || 'Inconnu';
+      const amount = parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0);
+      if (!b2cByClient[name]) b2cByClient[name] = { ca: 0, nbFactures: 0 };
+      b2cByClient[name].ca += amount;
+      b2cByClient[name].nbFactures += 1;
+    }
+    const top30B2C = Object.entries(b2cByClient)
+      .map(([name, data]) => ({ name, ca: Math.round(data.ca * 100) / 100, nbFactures: data.nbFactures }))
+      .sort((a, b) => b.ca - a.ca)
+      .slice(0, 30);
+
     const creditBody = JSON.stringify({
       filters: { date: { start: dateStart, end: dateEnd } }
     });
@@ -280,6 +293,7 @@ export default async function handler(req, res) {
       _countAvoirs: allCredits.length,
       _caByType: caByType,
       _top30B2B: top30B2B,
+      _top30B2C: top30B2C,
       pagination: { total }
     };
 
