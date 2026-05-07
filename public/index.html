@@ -554,25 +554,41 @@ function applySegment(caData) {
 
   renderPieChart(caB2C, caB2B);
   currentTotalCA = ca;
-  updateBudgetDisplay(ca);
-  updateBudgetB2CB2BDisplay(caB2C, caB2B);
+  if (seg === 'b2b') {
+    updateBudgetDisplay(ca);
+    updateBudgetB2CB2BDisplay(0, caB2B);
+  } else if (seg === 'b2c') {
+    updateBudgetDisplay(ca);
+    updateBudgetB2CB2BDisplay(caB2C, 0);
+  } else {
+    updateBudgetDisplay(ca);
+    updateBudgetB2CB2BDisplay(caB2C, caB2B);
+  }
 
   // Cacher/montrer les cartes selon le segment
-  const b2cCard = document.querySelector('.metric-card.b2c:nth-of-type(1)');
-  const b2bCard = document.querySelector('.metric-card.b2b:nth-of-type(1)');
   const avgB2CCard = document.getElementById('mAvgB2C')?.closest('.metric-card');
   const avgB2BCard = document.getElementById('mAvgB2B')?.closest('.metric-card');
+  const caB2CCard = document.getElementById('mCAB2C')?.closest('.metric-card');
+  const caB2BCard = document.getElementById('mCAB2B')?.closest('.metric-card');
   const pieCard = document.getElementById('b2cPieChart')?.closest('.metric-card');
 
   if (seg === 'b2b') {
     if (avgB2CCard) avgB2CCard.style.display = 'none';
+    if (caB2CCard) caB2CCard.style.display = 'none';
     if (pieCard) pieCard.style.display = 'none';
+    if (avgB2BCard) avgB2BCard.style.display = '';
+    if (caB2BCard) caB2BCard.style.display = '';
   } else if (seg === 'b2c') {
     if (avgB2BCard) avgB2BCard.style.display = 'none';
+    if (caB2BCard) caB2BCard.style.display = 'none';
     if (pieCard) pieCard.style.display = 'none';
+    if (avgB2CCard) avgB2CCard.style.display = '';
+    if (caB2CCard) caB2CCard.style.display = '';
   } else {
     if (avgB2CCard) avgB2CCard.style.display = '';
     if (avgB2BCard) avgB2BCard.style.display = '';
+    if (caB2CCard) caB2CCard.style.display = '';
+    if (caB2BCard) caB2BCard.style.display = '';
     if (pieCard) pieCard.style.display = '';
   }
 
@@ -582,10 +598,11 @@ function applySegment(caData) {
     document.getElementById('top30PctHeader').textContent = '% du CA B2C';
     if (lastCaData._top30B2C) renderTop30(lastCaData._top30B2C, caB2C);
     else document.getElementById('top30Card').style.display = 'none';
-  } else if (seg !== 'b2c' && lastCaData._top30B2B) {
+  } else if (seg === 'b2b') {
     document.getElementById('top30Title').textContent = '🏆 Top 30 clients B2B';
     document.getElementById('top30PctHeader').textContent = '% du CA B2B';
-    renderTop30(lastCaData._top30B2B, caB2B);
+    if (lastCaData._top30B2B) renderTop30(lastCaData._top30B2B, caB2B);
+    else document.getElementById('top30Card').style.display = 'none';
   } else {
     document.getElementById('top30Card').style.display = 'none';
   }
