@@ -72,7 +72,7 @@
 <body>
 
   <!-- Login overlay -->
-  <div id="loginOverlay" style="position:fixed;inset:0;background:#f5f5f5;z-index:9999;display:flex;align-items:center;justify-content:center;">
+  <div id="loginOverlay" style="position:fixed;inset:0;background:#f5f5f5;z-index:99999;display:flex;align-items:center;justify-content:center;">
     <div style="background:white;border-radius:16px;padding:40px;width:380px;max-width:90vw;border:1px solid #e5e5e5;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
       <h2 style="font-size:20px;font-weight:600;margin-bottom:6px;">📊 Dashboard CEO</h2>
       <p style="font-size:13px;color:#888;margin-bottom:24px;">Accès restreint — entrez votre mot de passe</p>
@@ -123,7 +123,7 @@
       <div class="budget-grid" id="budgetGrid"></div>
       <div class="modal-actions">
         <button class="btn btn-cancel" onclick="closeBudgetModal()">Annuler</button>
-        <button class="btn btn-primary" onclick="saveBudget()">💾 Enregistrer</button>
+        <button class="btn btn-primary" onclick="saveBudgetWithFin()">💾 Enregistrer</button>
       </div>
       <p class="save-msg" id="saveMsg">✓ Budget enregistré !</p>
     </div>
@@ -139,7 +139,7 @@
     </div>
     <div class="header-right">
       <span id="lastUpdate">Pas encore actualisé</span>
-      <button class="btn-settings" onclick="openBudgetModal()">⚙️ Budget</button>
+      <button class="btn-settings" onclick="openBudgetModalWithFin()">⚙️ Budget</button>
       <button class="btn-settings" onclick="openNotesModal()">📝 Notes</button>
     </div>
   </div>
@@ -1004,6 +1004,7 @@ async function loadData() {
     document.getElementById('errorBox').style.display = 'block';
     document.getElementById('errorBox').textContent = 'Erreur : ' + e.message + ' — ' + (e.stack || '').split('\n')[1];
   }
+}
 // ============ VUE SWITCHER ============
 let currentView = 'business';
 
@@ -1037,42 +1038,39 @@ function loadFinBudgetLocal() {
 loadFinBudgetLocal();
 
 // Ajouter budgets CM1/CM2/EBITDA au modal Budget
-const origOpenBudgetModal = openBudgetModal;
-openBudgetModal = function() {
-  origOpenBudgetModal();
+function openBudgetModalWithFin() {
+  openBudgetModal();
   // Ajouter section Pennylane au modal
   const grid = document.getElementById('budgetGrid');
   const finSection = document.createElement('div');
   finSection.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
-  finSection.innerHTML = `
-    <p style="font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px;">💰 Budgets Financier (k€)</p>
-    <div style="grid-column:1/-1; display:grid; grid-template-columns: 80px 1fr 1fr 1fr; gap:8px; align-items:center; border-bottom:1px solid #e5e5e5; padding-bottom:8px; margin-bottom:4px;">
-      <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>
-      <span style="font-size:11px;color:#74A1D6;font-weight:600;text-align:center;">CM1 (k€)</span>
-      <span style="font-size:11px;color:#1D9E75;font-weight:600;text-align:center;">CM2 (k€)</span>
-      <span style="font-size:11px;color:#D85A30;font-weight:600;text-align:center;">EBITDA (k€)</span>
-    </div>
-    ${months.map((m, i) => `
-    <div style="display:grid;grid-template-columns:80px 1fr 1fr 1fr;gap:8px;align-items:center;margin-bottom:4px;">
-      <span style="font-size:12px;color:#444;">${m}</span>
-      <input type="number" id="budgetCM1_${i}" value="${budgetCM12026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #c5d9ef;border-radius:6px;font-size:13px;text-align:center;" />
-      <input type="number" id="budgetCM2_${i}" value="${budgetCM22026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #a8dcc8;border-radius:6px;font-size:13px;text-align:center;" />
-      <input type="number" id="budgetEBITDA_${i}" value="${budgetEBITDA2026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #f0b8a0;border-radius:6px;font-size:13px;text-align:center;" />
-    </div>`).join('')}
-  `;
+  finSection.innerHTML = '<p style="font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px;">💰 Budgets Financier (k€)</p>' +
+    '<div style="display:grid;grid-template-columns:80px 1fr 1fr 1fr;gap:8px;align-items:center;border-bottom:1px solid #e5e5e5;padding-bottom:8px;margin-bottom:4px;">' +
+    '<span style="font-size:11px;color:#888;font-weight:600;">Mois</span>' +
+    '<span style="font-size:11px;color:#74A1D6;font-weight:600;text-align:center;">CM1 (k€)</span>' +
+    '<span style="font-size:11px;color:#1D9E75;font-weight:600;text-align:center;">CM2 (k€)</span>' +
+    '<span style="font-size:11px;color:#D85A30;font-weight:600;text-align:center;">EBITDA (k€)</span>' +
+    '</div>' +
+    months.map((m, i) =>
+      '<div style="display:grid;grid-template-columns:80px 1fr 1fr 1fr;gap:8px;align-items:center;margin-bottom:4px;">' +
+      '<span style="font-size:12px;color:#444;">' + m + '</span>' +
+      '<input type="number" id="budgetCM1_' + i + '" value="' + budgetCM12026[i] + '" placeholder="0" style="padding:6px 8px;border:1px solid #c5d9ef;border-radius:6px;font-size:13px;text-align:center;" />' +
+      '<input type="number" id="budgetCM2_' + i + '" value="' + budgetCM22026[i] + '" placeholder="0" style="padding:6px 8px;border:1px solid #a8dcc8;border-radius:6px;font-size:13px;text-align:center;" />' +
+      '<input type="number" id="budgetEBITDA_' + i + '" value="' + budgetEBITDA2026[i] + '" placeholder="0" style="padding:6px 8px;border:1px solid #f0b8a0;border-radius:6px;font-size:13px;text-align:center;" />' +
+      '</div>'
+    ).join('');
   grid.appendChild(finSection);
-};
+}
 
-const origSaveBudget = saveBudget;
-saveBudget = function() {
-  origSaveBudget();
+function saveBudgetWithFin() {
+  saveBudget();
   budgetCM12026 = months.map((_, i) => parseFloat(document.getElementById(`budgetCM1_${i}`)?.value) || 0);
   budgetCM22026 = months.map((_, i) => parseFloat(document.getElementById(`budgetCM2_${i}`)?.value) || 0);
   budgetEBITDA2026 = months.map((_, i) => parseFloat(document.getElementById(`budgetEBITDA_${i}`)?.value) || 0);
   localStorage.setItem('budgetCM12026', JSON.stringify(budgetCM12026));
   localStorage.setItem('budgetCM22026', JSON.stringify(budgetCM22026));
   localStorage.setItem('budgetEBITDA2026', JSON.stringify(budgetEBITDA2026));
-};
+}
 
 // Initialiser les sélecteurs Financier
 window.addEventListener('DOMContentLoaded', () => {
