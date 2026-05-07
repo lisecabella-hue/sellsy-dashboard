@@ -106,13 +106,13 @@ export default async function handler(req, res) {
         `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit&field[]=rate_category_id&field[]=company_name&field[]=related`,
         { method: 'POST', headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' }, body }
       );
-      if (resp.status === 429) { await sleep(2000); continue; }
+      if (resp.status === 429) { await sleep(3000); continue; }
       if (!resp.ok) break;
       const data = await resp.json();
       if (total === null) total = data.pagination?.total || 0;
       allInvoices = allInvoices.concat(data.data || []);
       offset += 100;
-      if (offset < total) await sleep(200);
+      if (offset < total) await sleep(500);
     } while (offset < total);
 
     const filteredInvoices = allInvoices.filter(inv => !inv.is_deposit);
@@ -189,6 +189,11 @@ export default async function handler(req, res) {
       _top30B2B: top30B2B,
       pagination: { total: total || allInvoices.length }
     };
+
+    // Ne pas mettre en cache si aucune facture récupérée (erreur 429 ou timeout)
+    if (result._count === 0 && (total === null || total > 0)) {
+      return { month, year, totalCA: 0, count: 0, invoicesTotal: total, skipped: true, reason: 'empty_result' };
+    }
 
     const isCurrentMonth = year === currentYear && month === currentMonth;
     const ttl = isCurrentMonth ? 3600 : 60 * 60 * 24 * 35;
