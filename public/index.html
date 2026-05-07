@@ -554,14 +554,13 @@ function applySegment(caData) {
 
   renderPieChart(caB2C, caB2B);
   currentTotalCA = ca;
+  const budgetArray = seg === 'b2b' ? budgetB2B2026 : seg === 'b2c' ? budgetB2C2026 : budget2026;
+  updateBudgetDisplay(ca, budgetArray);
   if (seg === 'b2b') {
-    updateBudgetDisplay(ca);
     updateBudgetB2CB2BDisplay(0, caB2B);
   } else if (seg === 'b2c') {
-    updateBudgetDisplay(ca);
     updateBudgetB2CB2BDisplay(caB2C, 0);
   } else {
-    updateBudgetDisplay(ca);
     updateBudgetB2CB2BDisplay(caB2C, caB2B);
   }
 
@@ -807,7 +806,8 @@ function updateBudgetB2CB2BDisplay(caB2C, caB2B) {
   }
 }
 
-function updateBudgetDisplay(totalCA) {
+function updateBudgetDisplay(totalCA, budgetArr) {
+  const arr = budgetArr || budget2026;
   const dates = getDates();
   if (!dates) return;
   const { dateStart, dateEnd } = dates;
@@ -819,23 +819,23 @@ function updateBudgetDisplay(totalCA) {
   let budgetTotal = 0;
   if (currentMode === 'today' && startDate.getFullYear() === 2026) {
     const m = startDate.getMonth();
-    budgetTotal = Math.round(budget2026[m] / new Date(2026, m+1, 0).getDate() * 10) / 10;
+    budgetTotal = Math.round(arr[m] / new Date(2026, m+1, 0).getDate() * 10) / 10;
   } else if (currentMode === 'week' && endDate.getFullYear() === 2026) {
     const days = Math.round((endDate - startDate) / 86400000) + 1;
     for (let d = 0; d < days; d++) {
       const day = new Date(startDate); day.setDate(startDate.getDate() + d);
-      if (day.getFullYear() === 2026) { const m = day.getMonth(); budgetTotal += budget2026[m] / new Date(2026, m+1, 0).getDate(); }
+      if (day.getFullYear() === 2026) { const m = day.getMonth(); budgetTotal += arr[m] / new Date(2026, m+1, 0).getDate(); }
     }
     budgetTotal = Math.round(budgetTotal * 10) / 10;
   } else if (currentMode === 'month' && startDate.getFullYear() === 2026) {
-    budgetTotal = budget2026[startDate.getMonth()];
+    budgetTotal = arr[startDate.getMonth()];
   } else if (currentMode === 'ytd' && endDate.getFullYear() === 2026) {
-    for (let m = 0; m <= endDate.getMonth(); m++) budgetTotal += budget2026[m];
+    for (let m = 0; m <= endDate.getMonth(); m++) budgetTotal += arr[m];
   } else if (currentMode === 'custom' && endDate.getFullYear() === 2026) {
     const days = Math.round((endDate - startDate) / 86400000) + 1;
     for (let d = 0; d < days; d++) {
       const day = new Date(startDate); day.setDate(startDate.getDate() + d);
-      if (day.getFullYear() === 2026) { const m = day.getMonth(); budgetTotal += budget2026[m] / new Date(2026, m+1, 0).getDate(); }
+      if (day.getFullYear() === 2026) { const m = day.getMonth(); budgetTotal += arr[m] / new Date(2026, m+1, 0).getDate(); }
     }
     budgetTotal = Math.round(budgetTotal * 10) / 10;
   }
