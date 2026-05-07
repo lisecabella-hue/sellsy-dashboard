@@ -1002,8 +1002,9 @@ async function loadMonthlyChart(year, upToMonth) {
   }
   const results = await Promise.all(promises);
   for (let m = 0; m <= upToMonth; m++) {
-    currentYearData.push(Math.round((results[m*2]._totalCA || 0) / 1000 * 10) / 10);
-    prevYearData.push(Math.round((results[m*2+1]._totalCA || 0) / 1000 * 10) / 10);
+    const caField = currentSegment === 'b2b' ? '_totalCAB2B' : currentSegment === 'b2c' ? '_totalCAB2C' : '_totalCA';
+    currentYearData.push(Math.round((results[m*2][caField] || 0) / 1000 * 10) / 10);
+    prevYearData.push(Math.round((results[m*2+1][caField] || 0) / 1000 * 10) / 10);
     if (year === 2026) budgetData.push(currentSegment === 'b2b' ? budgetB2B2026[m] : currentSegment === 'b2c' ? budgetB2C2026[m] : budget2026[m]);
   }
   renderChart(labels, currentYearData, prevYearData, budgetData, year);
