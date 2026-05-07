@@ -315,7 +315,7 @@
     <div class="chart-card" id="top30Card" style="display:none;">
       <div class="chart-header">
         <div>
-          <p class="chart-title">🏆 Top 30 clients B2B</p>
+          <p class="chart-title" id="top30Title">🏆 Top 30 clients B2B</p>
           <p class="chart-subtitle" id="top30Subtitle">CA HT de la période</p>
         </div>
       </div>
@@ -326,7 +326,7 @@
             <th style="text-align:left; padding:8px 12px; color:#888; font-weight:500;">Client</th>
             <th style="text-align:right; padding:8px 12px; color:#888; font-weight:500;">CA HT</th>
             <th style="text-align:right; padding:8px 12px; color:#888; font-weight:500;">Nb factures</th>
-            <th style="text-align:right; padding:8px 12px; color:#888; font-weight:500;">% du CA B2B</th>
+            <th style="text-align:right; padding:8px 12px; color:#888; font-weight:500;" id="top30PctHeader">% du CA B2B</th>
           </tr>
         </thead>
         <tbody id="top30Body"></tbody>
@@ -557,13 +557,54 @@ function applySegment(caData) {
   updateBudgetDisplay(ca);
   updateBudgetB2CB2BDisplay(caB2C, caB2B);
 
-  // Top 30 B2B
-  if (seg !== 'b2c' && caData._top30B2B) renderTop30(caData._top30B2B, caB2B);
-  else { document.getElementById('top30Card').style.display = 'none'; }
+  // Cacher/montrer les cartes selon le segment
+  const b2cCard = document.querySelector('.metric-card.b2c:nth-of-type(1)');
+  const b2bCard = document.querySelector('.metric-card.b2b:nth-of-type(1)');
+  const avgB2CCard = document.getElementById('mAvgB2C')?.closest('.metric-card');
+  const avgB2BCard = document.getElementById('mAvgB2B')?.closest('.metric-card');
+  const pieCard = document.getElementById('b2cPieChart')?.closest('.metric-card');
 
-  // Type client pie
-  if (seg === 'total' && caData._caByType && Object.keys(caData._caByType).length > 0) {
-    renderTypeClientPieChart(caData._caByType);
+  if (seg === 'b2b') {
+    if (avgB2CCard) avgB2CCard.style.display = 'none';
+    if (pieCard) pieCard.style.display = 'none';
+  } else if (seg === 'b2c') {
+    if (avgB2BCard) avgB2BCard.style.display = 'none';
+    if (pieCard) pieCard.style.display = 'none';
+  } else {
+    if (avgB2CCard) avgB2CCard.style.display = '';
+    if (avgB2BCard) avgB2BCard.style.display = '';
+    if (pieCard) pieCard.style.display = '';
+  }
+
+  // Top 30
+  if (seg === 'b2c') {
+    document.getElementById('top30Title').textContent = '🏆 Top 30 clients B2C';
+    document.getElementById('top30PctHeader').textContent = '% du CA B2C';
+    if (lastCaData._top30B2C) renderTop30(lastCaData._top30B2C, caB2C);
+    else document.getElementById('top30Card').style.display = 'none';
+  } else if (seg !== 'b2c' && lastCaData._top30B2B) {
+    document.getElementById('top30Title').textContent = '🏆 Top 30 clients B2B';
+    document.getElementById('top30PctHeader').textContent = '% du CA B2B';
+    renderTop30(lastCaData._top30B2B, caB2B);
+  } else {
+    document.getElementById('top30Card').style.display = 'none';
+  }
+
+  // Répartition type client
+  const typeClientCard = document.getElementById('typeClientPieChart')?.closest('.metric-card');
+  if (seg === 'b2c') {
+    if (typeClientCard) typeClientCard.style.display = 'none';
+  } else {
+    if (typeClientCard) typeClientCard.style.display = '';
+    if (seg === 'b2b' && lastCaData._caByType) {
+      // Filtrer les Non catégorisé (= B2C) pour la vue B2B
+      const caByTypeB2B = Object.fromEntries(
+        Object.entries(lastCaData._caByType).filter(([k]) => k !== 'Non catégorisé')
+      );
+      renderTypeClientPieChart(caByTypeB2B);
+    } else if (lastCaData._caByType && Object.keys(lastCaData._caByType).length > 0) {
+      renderTypeClientPieChart(lastCaData._caByType);
+    }
   }
 }
 
