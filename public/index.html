@@ -96,6 +96,11 @@
         <textarea id="notesPermanentInput" rows="2" placeholder="Ex : Ce dashboard est mis à jour chaque semaine par la direction."
           style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;resize:vertical;font-family:inherit;"></textarea>
       </div>
+      <div style="margin-bottom:20px;">
+        <label style="font-size:12px;color:#888;display:block;margin-bottom:8px;">✅ Mois finalisés Pennylane 2026</label>
+        <p style="font-size:11px;color:#aaa;margin-bottom:8px;">Seuls les mois cochés sont accessibles dans la vue Financier</p>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;" id="finalizedMonthsGrid"></div>
+      </div>
       <div>
         <label style="font-size:12px;color:#888;display:block;margin-bottom:8px;">Messages par mois 2026</label>
         <div id="notesMonthsGrid" style="display:flex;flex-direction:column;gap:8px;"></div>
@@ -354,8 +359,11 @@
           <span class="sep">→</span>
           <input type="date" id="finDateTo" />
         </div>
-        <button class="btn btn-primary" onclick="loadFinancier()">↻ Voir</button>
+        <button class="btn btn-primary" id="finVoirBtn" onclick="loadFinancierChecked()">↻ Voir</button>
         <div class="status"><span class="dot" id="finStatusDot"></span><span id="finStatusText">En attente</span></div>
+      </div>
+      <div id="finLockMsg" style="display:none;background:#fff0f0;border:1px solid #fcc;border-radius:8px;padding:12px 16px;font-size:13px;color:#c00;margin-bottom:16px;">
+        🔒 Ce mois n'est pas encore finalisé dans Pennylane. Cochez-le dans Notes pour y accéder.
       </div>
 
       <div class="error-box" id="finErrorBox"></div>
@@ -415,6 +423,29 @@
         </div>
 
       </div>
+
+      <!-- Graphique évolution mensuelle -->
+      <div class="chart-card" id="finChartCard" style="display:none;margin-top:24px;">
+        <div class="chart-header">
+          <div>
+            <p class="chart-title">Évolution mensuelle — CM1, CM2, EBITDA</p>
+            <p class="chart-subtitle" id="finChartSubtitle">en k€</p>
+          </div>
+        </div>
+        <div class="chart-container" style="height:300px;"><canvas id="finLineChart"></canvas></div>
+      </div>
+
+      <!-- Graphique taux de réalisation -->
+      <div class="chart-card" id="finBudgetChartCard" style="display:none;margin-top:24px;">
+        <div class="chart-header">
+          <div>
+            <p class="chart-title">Taux de réalisation vs Budget</p>
+            <p class="chart-subtitle">% de réalisation par mois</p>
+          </div>
+        </div>
+        <div class="chart-container" style="height:300px;"><canvas id="finBarChart"></canvas></div>
+      </div>
+
     </div><!-- end financierView -->
 
     </div><!-- end app -->
@@ -490,6 +521,15 @@ loadNotes();
 
 function openNotesModal() {
   document.getElementById('notesPermanentInput').value = notesPermanent;
+  
+  // Mois finalisés
+  const finGrid = document.getElementById('finalizedMonthsGrid');
+  finGrid.innerHTML = months.map((m, i) =>
+    '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;padding:6px 8px;border:1px solid ' + (finalizedMonths[i] ? '#1D9E75' : '#ddd') + ';border-radius:6px;background:' + (finalizedMonths[i] ? '#f0faf6' : 'white') + ';">' +
+    '<input type="checkbox" id="finalized_' + i + '" ' + (finalizedMonths[i] ? 'checked' : '') + ' style="accent-color:#1D9E75;" />' +
+    m + '</label>'
+  ).join('');
+
   const grid = document.getElementById('notesMonthsGrid');
   grid.innerHTML = months.map((m, i) => `
     <div style="display:grid;grid-template-columns:80px 1fr;gap:8px;align-items:center;">
@@ -506,8 +546,10 @@ function closeNotesModal() { document.getElementById('notesModal').classList.rem
 function saveNotes() {
   notesPermanent = document.getElementById('notesPermanentInput').value;
   notesMonths = months.map((_, i) => document.getElementById(`notesMonth_${i}`).value);
+  finalizedMonths = months.map((_, i) => document.getElementById(`finalized_${i}`)?.checked || false);
   localStorage.setItem('notesPermanent', notesPermanent);
   localStorage.setItem('notesMonths', JSON.stringify(notesMonths));
+  localStorage.setItem('finalizedMonths2026', JSON.stringify(finalizedMonths));
   document.getElementById('notesSaveMsg').style.display = 'block';
   updateBanners();
   setTimeout(closeNotesModal, 800);
@@ -1005,6 +1047,142 @@ async function loadData() {
     document.getElementById('errorBox').textContent = 'Erreur : ' + e.message + ' — ' + (e.stack || '').split('\n')[1];
   }
 }
+let finLineChartInstance = null;
+let finBarChartInstance = null;
+
+async function loadFinancierCharts(year, upToMonth) {
+  const labels = [];
+  const cm1Data = [], cm2Data = [], ebitdaData = [];
+  const budCM1Data = [], budCM2Data = [], budEBITDAData = [];
+  const promises = [];
+
+  for (let m = 0; m <= upToMonth; m++) {
+    if (year === 2026 && !finalizedMonths[m]) continue;
+    const lastDay = new Date(year, m+1, 0).getDate();
+    const ds = `${year}-${pad(m+1)}-01`;
+    const de = `${year}-${pad(m+1)}-${pad(lastDay)}`;
+    labels.push(monthsShort[m]);
+    promises.push({ m, ds, de });
+  }
+
+  const results = await Promise.all(promises.map(({ ds, de }) =>
+    fetch(`/api/pennylane?dateStart=${ds}&dateEnd=${de}`).then(r => r.json()).catch(() => ({}))
+  ));
+
+  for (let i = 0; i < promises.length; i++) {
+    const { m } = promises[i];
+    const d = results[i];
+    cm1Data.push(Math.round((d._cm1 || 0) / 1000 * 10) / 10);
+    cm2Data.push(Math.round((d._cm2 || 0) / 1000 * 10) / 10);
+    ebitdaData.push(Math.round((d._ebitda || 0) / 1000 * 10) / 10);
+    if (year === 2026) {
+      budCM1Data.push(budgetCM12026[m] || 0);
+      budCM2Data.push(budgetCM22026[m] || 0);
+      budEBITDAData.push(budgetEBITDA2026[m] || 0);
+    }
+  }
+
+  // Graphique courbes
+  const ctx1 = document.getElementById('finLineChart').getContext('2d');
+  if (finLineChartInstance) finLineChartInstance.destroy();
+  const datasets = [
+    { label: 'CM1', data: cm1Data, borderColor: '#74A1D6', backgroundColor: 'rgba(116,161,214,0.05)', borderWidth: 2.5, pointRadius: 5, tension: 0.3, fill: false },
+    { label: 'CM2', data: cm2Data, borderColor: '#1D9E75', backgroundColor: 'transparent', borderWidth: 2.5, pointRadius: 5, tension: 0.3, fill: false },
+    { label: 'EBITDA', data: ebitdaData, borderColor: '#D85A30', backgroundColor: 'transparent', borderWidth: 2.5, pointRadius: 5, tension: 0.3, fill: false },
+  ];
+  if (year === 2026 && budCM1Data.some(v => v > 0)) {
+    datasets.push({ label: 'Budget CM1', data: budCM1Data, borderColor: '#74A1D6', borderDash: [4,4], borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false });
+  }
+  if (year === 2026 && budCM2Data.some(v => v > 0)) {
+    datasets.push({ label: 'Budget CM2', data: budCM2Data, borderColor: '#1D9E75', borderDash: [4,4], borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false });
+  }
+  if (year === 2026 && budEBITDAData.some(v => v > 0)) {
+    datasets.push({ label: 'Budget EBITDA', data: budEBITDAData, borderColor: '#D85A30', borderDash: [4,4], borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: false });
+  }
+  finLineChartInstance = new Chart(ctx1, {
+    type: 'line', data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { font: { size: 12 }, boxWidth: 24 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label} : ${ctx.parsed.y.toLocaleString('fr-FR')} k€` } }
+      },
+      scales: {
+        y: { grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 }, callback: v => v + ' k€' } },
+        x: { grid: { display: false }, ticks: { font: { size: 12 } } }
+      }
+    }
+  });
+  document.getElementById('finChartCard').style.display = 'block';
+
+  // Graphique barres taux de réalisation
+  if (year === 2026 && (budCM1Data.some(v => v > 0) || budCM2Data.some(v => v > 0) || budEBITDAData.some(v => v > 0))) {
+    const ctx2 = document.getElementById('finBarChart').getContext('2d');
+    if (finBarChartInstance) finBarChartInstance.destroy();
+
+    const pctCM1 = labels.map((_, i) => budCM1Data[i] > 0 ? Math.round((cm1Data[i] / budCM1Data[i]) * 100) : null);
+    const pctCM2 = labels.map((_, i) => budCM2Data[i] > 0 ? Math.round((cm2Data[i] / budCM2Data[i]) * 100) : null);
+    const pctEBITDA = labels.map((_, i) => budEBITDAData[i] > 0 ? Math.round((ebitdaData[i] / budEBITDAData[i]) * 100) : null);
+
+    finBarChartInstance = new Chart(ctx2, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [
+          { label: '% CM1', data: pctCM1, backgroundColor: '#74A1D6', borderRadius: 4 },
+          { label: '% CM2', data: pctCM2, backgroundColor: '#1D9E75', borderRadius: 4 },
+          { label: '% EBITDA', data: pctEBITDA, backgroundColor: '#D85A30', borderRadius: 4 },
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { font: { size: 12 }, boxWidth: 24 } },
+          tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label} : ${ctx.parsed.y}%` } }
+        },
+        scales: {
+          y: { beginAtZero: true, grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 }, callback: v => v + '%' } },
+          x: { grid: { display: false }, ticks: { font: { size: 12 } } }
+        }
+      }
+    });
+    document.getElementById('finBudgetChartCard').style.display = 'block';
+  } else {
+    document.getElementById('finBudgetChartCard').style.display = 'none';
+  }
+}
+
+// ============ MOIS FINALISÉS PENNYLANE ============
+let finalizedMonths = Array(12).fill(false);
+
+function loadFinalizedMonths() {
+  try {
+    const saved = localStorage.getItem('finalizedMonths2026');
+    if (saved) finalizedMonths = JSON.parse(saved);
+  } catch {}
+}
+loadFinalizedMonths();
+
+function isMonthFinalized(dateStart) {
+  const d = new Date(dateStart + 'T12:00:00');
+  if (d.getFullYear() !== 2026) return true; // Années passées toujours accessibles
+  return finalizedMonths[d.getMonth()] === true;
+}
+
+function loadFinancierChecked() {
+  const dates = getFinDates();
+  if (!dates) return;
+  const lockMsg = document.getElementById('finLockMsg');
+  if (!isMonthFinalized(dates.dateStart)) {
+    lockMsg.style.display = 'block';
+    return;
+  }
+  lockMsg.style.display = 'none';
+  loadFinancier();
+}
+
 // ============ VUE SWITCHER ============
 let currentView = 'business';
 
@@ -1181,6 +1359,10 @@ async function loadFinancier() {
 
     document.getElementById('finStatusDot').className = 'dot ok';
     document.getElementById('finStatusText').textContent = `Données à jour${data._fromCache ? ' (cache)' : ''}`;
+
+    // Charger les graphiques
+    const endDateObj = new Date(dateEnd + 'T12:00:00');
+    await loadFinancierCharts(endDateObj.getFullYear(), endDateObj.getMonth());
 
   } catch(e) {
     document.getElementById('finStatusDot').className = 'dot err';
