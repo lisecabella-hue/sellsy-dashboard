@@ -1004,7 +1004,7 @@ async function loadMonthlyChart(year, upToMonth) {
   for (let m = 0; m <= upToMonth; m++) {
     currentYearData.push(Math.round((results[m*2]._totalCA || 0) / 1000 * 10) / 10);
     prevYearData.push(Math.round((results[m*2+1]._totalCA || 0) / 1000 * 10) / 10);
-    if (year === 2026) budgetData.push(budget2026[m]);
+    if (year === 2026) budgetData.push(currentSegment === 'b2b' ? budgetB2B2026[m] : currentSegment === 'b2c' ? budgetB2C2026[m] : budget2026[m]);
   }
   renderChart(labels, currentYearData, prevYearData, budgetData, year);
   document.getElementById('chartSubtitle').textContent = `CA mensuel en k€ — ${year} vs ${year-1}${year === 2026 ? ' vs Budget' : ''}`;
@@ -1042,7 +1042,8 @@ function renderChart(labels, currentData, prevData, budgetData, year) {
 function renderBudgetChart(labels, realDataKe, upToMonth) {
   const ctx = document.getElementById('budgetChart').getContext('2d');
   if (budgetChartInstance) budgetChartInstance.destroy();
-  const pctData = labels.map((_, i) => Math.round((realDataKe[i] / (budget2026[i] || 1)) * 100));
+  const activeBudget = currentSegment === 'b2b' ? budgetB2B2026 : currentSegment === 'b2c' ? budgetB2C2026 : budget2026;
+  const pctData = labels.map((_, i) => Math.round((realDataKe[i] / (activeBudget[i] || 1)) * 100));
   const barColors = pctData.map(p => p >= 100 ? '#1D9E75' : '#D85A30');
   budgetChartInstance = new Chart(ctx, {
     type: 'bar', data: { labels, datasets: [{ label: '% de réalisation', data: pctData, backgroundColor: barColors, borderWidth: 0, borderRadius: 6 }] },
