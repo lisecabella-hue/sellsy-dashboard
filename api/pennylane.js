@@ -103,6 +103,7 @@ export default async function handler(req, res) {
 
     let caComptable = 0;
     let cogsTotal = 0;
+    let logistique = 0;
     let ebitdaCharges = 0;
     let ebitdaProducts = 0;
 
@@ -123,6 +124,10 @@ export default async function handler(req, res) {
       if (COGS_ACCOUNTS.some(a => num.startsWith(a))) {
         cogsTotal += (debits - credits);
       }
+      // Logistique (CM2)
+      if (num.startsWith('6040020001')) {
+        logistique += (debits - credits);
+      }
       // Charges EBITDA (comptes 6xx)
       if (EBITDA_CHARGE_ACCOUNTS.some(a => num.startsWith(a))) {
         ebitdaCharges += (debits - credits);
@@ -135,11 +140,15 @@ export default async function handler(req, res) {
 
     caComptable = Math.round(caComptable * 100) / 100;
     cogsTotal = Math.round(cogsTotal * 100) / 100;
+    logistique = Math.round(logistique * 100) / 100;
     ebitdaCharges = Math.round(ebitdaCharges * 100) / 100;
     ebitdaProducts = Math.round(ebitdaProducts * 100) / 100;
 
     const cm1 = Math.round((caComptable - cogsTotal) * 100) / 100;
     const tauxCm1 = caComptable > 0 ? Math.round((cm1 / caComptable) * 10000) / 100 : 0;
+
+    const cm2 = Math.round((cm1 - logistique) * 100) / 100;
+    const tauxCm2 = caComptable > 0 ? Math.round((cm2 / caComptable) * 10000) / 100 : 0;
 
     // EBITDA = produits - charges (tous comptes confondus)
     const ebitda = Math.round((ebitdaProducts - ebitdaCharges) * 100) / 100;
@@ -159,14 +168,14 @@ export default async function handler(req, res) {
       _cogs: cogsTotal,
       _cm1: cm1,
       _tauxCm1: tauxCm1,
-      _ebitdaCharges: ebitdaCharges,
-      _ebitdaProducts: ebitdaProducts,
+      _logistique: logistique,
+      _cm2: cm2,
+      _tauxCm2: tauxCm2,
       _ebitda: ebitda,
       _tauxEbitda: tauxEbitda,
       _dateStart: dateStart,
       _dateEnd: dateEnd,
-      _itemCount: allItems.length,
-      _debugAccounts: debugAccounts
+      _itemCount: allItems.length
     };
 
     if (kvUrl && kvToken) await cacheSet(cacheKey, result, ttl);
