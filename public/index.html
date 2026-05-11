@@ -575,15 +575,7 @@ function applySegment(caData) {
   const caB2BCard = document.getElementById('mCAB2B')?.closest('.metric-card');
   const pieCard = document.getElementById('b2cPieChart')?.closest('.metric-card');
 
-  // Réorganiser l'ordre des cartes selon le segment
-  const typeClientCard = document.getElementById('typeClientPieChart')?.closest('.metric-card');
-  const secondGrid = document.querySelector('[style*="grid-template-columns: 1fr 1fr"]');
-  if (typeClientCard && secondGrid) {
-    if (seg !== 'total') {
-      // En B2B/B2C : mettre typeClient après la grille CA/Panier
-      secondGrid.parentNode.insertBefore(typeClientCard.parentNode || typeClientCard, secondGrid.nextSibling);
-    }
-  }
+  // Réorganiser l'ordre des cartes selon le segment - pas de manipulation DOM
   if (mainCACard) mainCACard.style.display = seg === 'total' ? '' : 'none';
 
   // Cacher la barre budget principale en B2B et B2C
