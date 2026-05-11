@@ -148,7 +148,7 @@
       </div>
     </div>
     <div style="position:absolute;left:50%;transform:translateX(-50%);">
-      <img src="/logo.png" alt="Krème" style="height:36px;object-fit:contain;" onerror="this.style.display='none'" />
+      <img src="/logo.png" alt="Krème" style="height:52px;object-fit:contain;" onerror="this.style.display='none'" />
     </div>
     <div class="header-right">
       <span id="lastUpdate">Pas encore actualisé</span>
@@ -569,6 +569,15 @@ function applySegment(caData) {
 
   renderPieChart(caB2C, caB2B);
   currentTotalCA = ca;
+
+  // Cacher/montrer les cartes selon le segment
+  const mainCACard = document.getElementById('mCA')?.closest('.metric-card');
+  const avgB2CCard = document.getElementById('mAvgB2C')?.closest('.metric-card');
+  const avgB2BCard = document.getElementById('mAvgB2B')?.closest('.metric-card');
+  const caB2CCard = document.getElementById('mCAB2C')?.closest('.metric-card');
+  const caB2BCard = document.getElementById('mCAB2B')?.closest('.metric-card');
+  const pieCard = document.getElementById('b2cPieChart')?.closest('.metric-card');
+
   // Adapter le layout selon le segment
   const metricGrid = document.querySelector('.metric-grid');
   if (metricGrid) metricGrid.className = seg === 'total' ? 'metric-grid' : 'metric-grid metric-grid-segment';
@@ -583,13 +592,6 @@ function applySegment(caData) {
   } else {
     updateBudgetB2CB2BDisplay(caB2C, caB2B);
   }
-
-  // Cacher/montrer les cartes selon le segment
-  const avgB2CCard = document.getElementById('mAvgB2C')?.closest('.metric-card');
-  const avgB2BCard = document.getElementById('mAvgB2B')?.closest('.metric-card');
-  const caB2CCard = document.getElementById('mCAB2C')?.closest('.metric-card');
-  const caB2BCard = document.getElementById('mCAB2B')?.closest('.metric-card');
-  const pieCard = document.getElementById('b2cPieChart')?.closest('.metric-card');
 
   if (seg === 'b2b') {
     if (avgB2CCard) avgB2CCard.style.display = 'none';
