@@ -8,7 +8,7 @@
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #1a1a1a; }
-    .header { background: white; border-bottom: 1px solid #e5e5e5; padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; }
+    .header { position:relative; background: white; border-bottom: 1px solid #e5e5e5; padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; }
     .header h1 { font-size: 18px; font-weight: 500; }
     .header-right { display: flex; align-items: center; gap: 16px; }
     .header span { font-size: 13px; color: #888; }
@@ -31,7 +31,12 @@
     .dot.ok { background: #1D9E75; } .dot.err { background: #D85A30; } .dot.spin { background: #74A1D6; animation: pulse 1s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
     .error-box { background: #fff0f0; border: 1px solid #fcc; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #c00; margin-bottom: 16px; display: none; }
-    .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px; }
+    .metric-grid-segment {
+  grid-template-columns: 1fr 1fr !important;
+}
+.metric-grid-segment .metric-card:first-child {
+  display: none !important;
+} display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px; }
     .metric-card { background: white; border-radius: 12px; padding: 24px; border: 1px solid #e5e5e5; }
     .metric-card.b2c { border-left: 3px solid #74A1D6; }
     .metric-card.b2b { border-left: 3px solid #1D9E75; }
@@ -141,6 +146,9 @@
         <button id="navBusiness" onclick="switchView('business')" style="font-size:13px;padding:7px 16px;border-radius:7px;border:none;cursor:pointer;background:#1a1a1a;color:white;font-weight:500;">🛒 Business</button>
         <button id="navFinancier" onclick="switchView('financier')" style="font-size:13px;padding:7px 16px;border-radius:7px;border:none;cursor:pointer;background:transparent;color:#666;font-weight:500;">💰 Financier</button>
       </div>
+    </div>
+    <div style="position:absolute;left:50%;transform:translateX(-50%);">
+      <img src="/logo.png" alt="Krème" style="height:36px;object-fit:contain;" onerror="this.style.display='none'" />
     </div>
     <div class="header-right">
       <span id="lastUpdate">Pas encore actualisé</span>
@@ -561,8 +569,9 @@ function applySegment(caData) {
 
   renderPieChart(caB2C, caB2B);
   currentTotalCA = ca;
-  // Cacher la carte principale en B2B et B2C
-  const mainCACard = document.getElementById('mCA')?.closest('.metric-card');
+  // Adapter le layout selon le segment
+  const metricGrid = document.querySelector('.metric-grid');
+  if (metricGrid) metricGrid.className = seg === 'total' ? 'metric-grid' : 'metric-grid metric-grid-segment';
   if (mainCACard) mainCACard.style.display = seg === 'total' ? '' : 'none';
 
   // Cacher la barre budget principale en B2B et B2C
