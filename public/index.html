@@ -207,35 +207,6 @@
     <div class="error-box" id="errorBox"></div>
     <p class="period-label" id="periodLabel"></p>
 
-    <div class="metric-grid">
-      <div class="metric-card">
-        <p class="metric-label">Chiffre d'affaires HT (brut)</p>
-        <p class="metric-value" id="mCA">—</p>
-        <p class="metric-vs neutral" id="mCAVs"></p>
-        <div class="budget-bar-wrap" id="budgetBarWrap" style="display:none;">
-          <div class="budget-bar-label">
-            <span id="budgetBarLabel">vs Budget</span>
-            <span id="budgetBarPct"></span>
-          </div>
-          <div class="budget-bar-bg">
-            <div class="budget-bar-fill ok" id="budgetBarFill" style="width:0%"></div>
-          </div>
-        </div>
-        <p class="metric-sub">Total de la période</p>
-        <p class="metric-sub" id="mAvoirsKpi" style="margin-top:8px;"></p>
-      </div>
-
-      <div class="metric-card" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
-        <p class="metric-label" style="align-self:flex-start;">Répartition par type de client</p>
-        <div style="position:relative; width:180px; height:180px;">
-          <canvas id="typeClientPieChart"></canvas>
-        </div>
-        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; font-size:11px; justify-content:center;" id="typeClientLegend">
-          <span style="color:#aaa;">En attente de données...</span>
-        </div>
-      </div>
-    </div>
-
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:24px;">
       <div class="metric-card" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
         <p class="metric-label" style="align-self:flex-start;">Répartition CA B2C vs B2B</p>
@@ -291,6 +262,35 @@
           <p class="metric-label">🛒 Panier moyen B2B</p>
           <p class="metric-value" id="mAvgB2B">—</p>
           <p class="metric-vs neutral" id="mAvgB2BVs">⏳</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="metric-grid">
+      <div class="metric-card">
+        <p class="metric-label">Chiffre d'affaires HT (brut)</p>
+        <p class="metric-value" id="mCA">—</p>
+        <p class="metric-vs neutral" id="mCAVs"></p>
+        <div class="budget-bar-wrap" id="budgetBarWrap" style="display:none;">
+          <div class="budget-bar-label">
+            <span id="budgetBarLabel">vs Budget</span>
+            <span id="budgetBarPct"></span>
+          </div>
+          <div class="budget-bar-bg">
+            <div class="budget-bar-fill ok" id="budgetBarFill" style="width:0%"></div>
+          </div>
+        </div>
+        <p class="metric-sub">Total de la période</p>
+        <p class="metric-sub" id="mAvoirsKpi" style="margin-top:8px;"></p>
+      </div>
+
+      <div class="metric-card" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
+        <p class="metric-label" style="align-self:flex-start;">Répartition par type de client</p>
+        <div style="position:relative; width:180px; height:180px;">
+          <canvas id="typeClientPieChart"></canvas>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; font-size:11px; justify-content:center;" id="typeClientLegend">
+          <span style="color:#aaa;">En attente de données...</span>
         </div>
       </div>
     </div>
