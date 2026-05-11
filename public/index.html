@@ -622,12 +622,12 @@ function applySegment(caData) {
   }
 
   // Répartition type client
+  const typeClientCard2 = document.getElementById('typeClientPieChart')?.closest('.metric-card');
   if (seg === 'b2c') {
-    if (typeClientCard) typeClientCard.style.display = 'none';
+    if (typeClientCard2) typeClientCard2.style.display = 'none';
   } else {
-    if (typeClientCard) typeClientCard.style.display = '';
+    if (typeClientCard2) typeClientCard2.style.display = '';
     if (seg === 'b2b' && lastCaData._caByType) {
-      // Filtrer les Non catégorisé (= B2C) pour la vue B2B
       const caByTypeB2B = Object.fromEntries(
         Object.entries(lastCaData._caByType).filter(([k]) => k !== 'Non catégorisé')
       );
