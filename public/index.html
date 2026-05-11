@@ -1054,12 +1054,12 @@ function renderBudgetChart(labels, realDataKe, upToMonth) {
   const pctData = labels.map((_, i) => Math.round((realDataKe[i] / (activeBudget[i] || 1)) * 100));
   const barColors = pctData.map(p => p >= 100 ? '#1D9E75' : '#D85A30');
   budgetChartInstance = new Chart(ctx, {
-    type: 'bar', data: { labels, datasets: [{ label: '% de réalisation', data: pctData, backgroundColor: barColors, borderWidth: 0, borderRadius: 6 }] },
+    type: 'bar', data: { labels, datasets: [{ label: '% de réalisation', data: pctData, backgroundColor: barColors, borderWidth: 0, borderRadius: 6, budgetValues: [...activeBudget] }] },
     options: {
       responsive: true, maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: ctx => { const m = ctx.dataIndex; return [` Réalisation : ${ctx.parsed.y}%`, ` Réel : ${realDataKe[m].toLocaleString('fr-FR')} k€`, ` Budget : ${budget2026[m].toLocaleString('fr-FR')} k€`]; } } }
+        tooltip: { callbacks: { label: ctx => { const m = ctx.dataIndex; const bv = ctx.dataset.budgetValues[m]; return [` Réalisation : ${ctx.parsed.y}%`, ` Réel : ${realDataKe[m].toLocaleString('fr-FR')} k€`, ` Budget : ${bv.toLocaleString('fr-FR')} k€`]; } } }
       },
       scales: {
         y: { beginAtZero: true, max: Math.max(130, ...pctData) + 10, grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 }, callback: v => v + '%' } },
