@@ -32,10 +32,7 @@
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
     .error-box { background: #fff0f0; border: 1px solid #fcc; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #c00; margin-bottom: 16px; display: none; }
     .metric-grid-segment {
-  grid-template-columns: 1fr 1fr !important;
-}
-.metric-grid-segment .metric-card:first-child {
-  display: none !important;
+  display: none;
 } display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px; }
     .metric-card { background: white; border-radius: 12px; padding: 24px; border: 1px solid #e5e5e5; }
     .metric-card.b2c { border-left: 3px solid #74A1D6; }
@@ -578,9 +575,15 @@ function applySegment(caData) {
   const caB2BCard = document.getElementById('mCAB2B')?.closest('.metric-card');
   const pieCard = document.getElementById('b2cPieChart')?.closest('.metric-card');
 
-  // Adapter le layout selon le segment
-  const metricGrid = document.querySelector('.metric-grid');
-  if (metricGrid) metricGrid.className = seg === 'total' ? 'metric-grid' : 'metric-grid metric-grid-segment';
+  // Réorganiser l'ordre des cartes selon le segment
+  const typeClientCard = document.getElementById('typeClientPieChart')?.closest('.metric-card');
+  const secondGrid = document.querySelector('[style*="grid-template-columns: 1fr 1fr"]');
+  if (typeClientCard && secondGrid) {
+    if (seg !== 'total') {
+      // En B2B/B2C : mettre typeClient après la grille CA/Panier
+      secondGrid.parentNode.insertBefore(typeClientCard.parentNode || typeClientCard, secondGrid.nextSibling);
+    }
+  }
   if (mainCACard) mainCACard.style.display = seg === 'total' ? '' : 'none';
 
   // Cacher la barre budget principale en B2B et B2C
