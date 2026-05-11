@@ -632,7 +632,6 @@ function applySegment(caData) {
   }
 
   // Répartition type client
-  const typeClientCard = document.getElementById('typeClientPieChart')?.closest('.metric-card');
   if (seg === 'b2c') {
     if (typeClientCard) typeClientCard.style.display = 'none';
   } else {
