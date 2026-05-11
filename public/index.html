@@ -561,6 +561,10 @@ function applySegment(caData) {
 
   renderPieChart(caB2C, caB2B);
   currentTotalCA = ca;
+  // Cacher la carte principale en B2B et B2C
+  const mainCACard = document.getElementById('mCA')?.closest('.metric-card');
+  if (mainCACard) mainCACard.style.display = seg === 'total' ? '' : 'none';
+
   // Cacher la barre budget principale en B2B et B2C
   document.getElementById('budgetBarWrap').style.display = seg === 'total' ? '' : 'none';
   if (seg === 'b2b') {
