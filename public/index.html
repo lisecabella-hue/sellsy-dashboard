@@ -502,7 +502,14 @@ function setSegment(seg) {
       btn.style.color = s === seg ? 'white' : '#666';
     }
   });
-  if (lastCaData) applySegment(lastCaData);
+  if (lastCaData) {
+    applySegment(lastCaData);
+    const dates = getDates();
+    if (dates) {
+      const endDate = new Date(dates.dateEnd + 'T12:00:00');
+      loadMonthlyChart(endDate.getFullYear(), endDate.getMonth());
+    }
+  }
 }
 
 function applySegment(caData) {
@@ -1129,7 +1136,7 @@ async function loadData() {
 
     const t = new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     document.getElementById('lastUpdate').textContent = 'Mis à jour le ' + t;
-    setStatus('ok', 'Données à jour');
+    setStatus('spin', 'Chargement graphique...');
 
     const vsEl = document.getElementById('mCAVs');
     vsEl.textContent = '⏳ vs N-1...';
@@ -1165,7 +1172,8 @@ async function loadData() {
 
     const endDate = new Date(dateEnd + 'T12:00:00');
     updateBanners(new Date(dateStart + 'T12:00:00').getMonth());
-    loadMonthlyChart(endDate.getFullYear(), endDate.getMonth());
+    await loadMonthlyChart(endDate.getFullYear(), endDate.getMonth());
+    setStatus('ok', 'Données à jour');
 
   } catch(e) {
     console.error('ERREUR DETAIL:', e.stack || e.message, e);
