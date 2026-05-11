@@ -561,8 +561,8 @@ function applySegment(caData) {
 
   renderPieChart(caB2C, caB2B);
   currentTotalCA = ca;
-  const budgetArray = seg === 'b2b' ? budgetB2B2026 : seg === 'b2c' ? budgetB2C2026 : budget2026;
-  updateBudgetDisplay(ca, budgetArray);
+  // Cacher la barre budget principale en B2B et B2C
+  document.getElementById('budgetBarWrap').style.display = seg === 'total' ? '' : 'none';
   if (seg === 'b2b') {
     updateBudgetB2CB2BDisplay(0, caB2B);
   } else if (seg === 'b2c') {
