@@ -578,6 +578,7 @@ function applySegment(caData) {
 
   // Cacher la barre budget principale en B2B et B2C
   document.getElementById('budgetBarWrap').style.display = seg === 'total' ? '' : 'none';
+  if (seg === 'total') updateBudgetDisplay(ca, budget2026);
   if (seg === 'b2b') {
     updateBudgetB2CB2BDisplay(0, caB2B);
   } else if (seg === 'b2c') {
