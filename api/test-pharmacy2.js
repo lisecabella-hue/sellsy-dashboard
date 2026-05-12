@@ -17,8 +17,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    const currentYear = new Date().getFullYear();
-
     const companyTypeMap = await cacheGet('sellsy:companies:type_client:v2') || {};
     const pharmacyIds = Object.entries(companyTypeMap)
       .filter(([_, type]) => type === 'Pharmacie')
@@ -35,7 +33,6 @@ export default async function handler(req, res) {
     });
     const { access_token } = await tokenResp.json();
 
-    // Récupère 5 factures sans filtre field[] pour voir tous les champs disponibles
     const r = await fetch(
       `https://api.sellsy.com/v2/invoices/search?limit=5&offset=0`,
       {
@@ -46,7 +43,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           filters: {
-            date: { start: `${currentYear}-01-01`, end: `${currentYear}-12-31` }
+            date: { start: '2026-01-01', end: '2026-12-31' }
           }
         })
       }
@@ -57,9 +54,9 @@ export default async function handler(req, res) {
     res.json({
       nbPharmaciesConnues: pharmacyIds.length,
       nbFacturesTestees: items.length,
-      // Retourne la première facture complète pour voir tous les champs
       premiereFacture: items[0] || null,
-      tousLesChamps: items[0] ? Object.keys(items[0]) : []
+      tousLesChamps: items[0] ? Object.keys(items[0]) : [],
+      rawResponse: data
     });
 
   } catch (err) {
