@@ -19,13 +19,11 @@ export default async function handler(req, res) {
   try {
     const currentYear = new Date().getFullYear();
 
-    // Même dictionnaire que sellsy.js
     const companyTypeMap = await cacheGet('sellsy:companies:type_client:v2') || {};
     const pharmacyIds = Object.entries(companyTypeMap)
       .filter(([_, type]) => type === 'Pharmacie')
       .map(([id]) => id);
 
-    // Auth Sellsy
     const tokenResp = await fetch('https://login.sellsy.com/oauth2/access-tokens', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -37,9 +35,9 @@ export default async function handler(req, res) {
     });
     const { access_token } = await tokenResp.json();
 
-    // 20 premières factures de l'année en cours
+    // Récupère 5 factures sans filtre field[] pour voir tous les champs disponibles
     const r = await fetch(
-      `https://api.sellsy.com/v2/invoices/search?limit=20&offset=0&field[]=subject&field[]=amounts.total_excl_tax&field[]=related`,
+      `https://api.sellsy.com/v2/invoices/search?limit=5&offset=0`,
       {
         method: 'POST',
         headers: {
@@ -48,8 +46,7 @@ export default async function handler(req, res) {
         },
         body: JSON.stringify({
           filters: {
-            date: { start: `${currentYear}-01-01`, end: `${currentYear}-12-31` },
-            status: ['payinprogress', 'due', 'paid', 'late', 'cancelled']
+            date: { start: `${currentYear}-01-01`, end: `${currentYear}-12-31` }
           }
         })
       }
@@ -57,29 +54,12 @@ export default async function handler(req, res) {
     const data = await r.json();
     const items = data?.data || [];
 
-    const debug = items.map(inv => {
-      const companyId = String(inv.related?.[0]?.id || '');
-      const isPharmacy = pharmacyIds.includes(companyId);
-      const subject = inv.subject || '';
-      const s = subject.toLowerCase();
-      let cat = null;
-      if (s.includes('implant')) cat = 'Implantation';
-      else if (s.includes('preco')) cat = 'Précommandes';
-      else if (s.includes('reassort')) cat = 'Réassort';
-
-      return {
-        subject,
-        companyId,
-        isPharmacy,
-        categorieDetectee: cat || '(aucune)',
-        montant: inv.amounts?.total_excl_tax,
-      };
-    });
-
     res.json({
       nbPharmaciesConnues: pharmacyIds.length,
       nbFacturesTestees: items.length,
-      factures: debug,
+      // Retourne la première facture complète pour voir tous les champs
+      premiereFacture: items[0] || null,
+      tousLesChamps: items[0] ? Object.keys(items[0]) : []
     });
 
   } catch (err) {
