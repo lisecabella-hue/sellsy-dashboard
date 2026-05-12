@@ -29,16 +29,26 @@ export default async function handler(req, res) {
 
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+  function categorize(subject) {
+    const s = (subject || '').toLowerCase();
+    if (s.includes('sav implant')) return 'Implantation';
+    if (s.includes('sav preco')) return 'Précommandes';
+    if (s.includes('sav')) return 'Réassort';
+    if (s.includes('implant')) return 'Implantation';
+    if (s.includes('preco')) return 'Précommandes';
+    if (s.includes('reassort') || s.includes('ug')) return 'Réassort';
+    if (s.includes('dotation') || s.includes('marketing') || s.includes('seminaire') || s.includes('animation')) return 'Coffrets';
+    return null;
+  }
+
   try {
     const currentYear = new Date().getFullYear();
     const prevYear = currentYear - 1;
 
-    // Vérifie le cache
-    const cacheKey = `sellsy:pharmacy-breakdown:${currentYear}`;
+    const cacheKey = `sellsy:pharmacy-breakdown:v2:${currentYear}`;
     const cached = await cacheGet(cacheKey);
     if (cached) return res.status(200).json({ ...cached, _fromCache: true });
 
-    // Auth Sellsy
     const tokenResp = await fetch('https://login.sellsy.com/oauth2/access-tokens', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -50,19 +60,10 @@ export default async function handler(req, res) {
     });
     const { access_token } = await tokenResp.json();
 
-    // Même dictionnaire que sellsy.js
     const companyTypeMap = await cacheGet('sellsy:companies:type_client:v2') || {};
 
-    function categorize(subject) {
-      const s = (subject || '').toLowerCase();
-      if (s.includes('implant')) return 'Implantation';
-      if (s.includes('preco')) return 'Précommandes';
-      if (s.includes('reassort')) return 'Réassort';
-      return null;
-    }
-
     async function fetchAndAggregate(year) {
-      const totals = { Implantation: 0, Précommandes: 0, Réassort: 0 };
+      const totals = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffrets: 0, 'Non catégorisé': 0 };
       let offset = 0;
 
       while (true) {
@@ -84,15 +85,15 @@ export default async function handler(req, res) {
         );
         const data = await r.json();
         const items = data?.data || [];
-for (const inv of items) {
-  // Cherche dans tous les related, pas seulement [0]
-  const isPharmacy = (inv.related || []).some(
-    rel => companyTypeMap[String(rel.id)] === 'Pharmacie'
-  );
-  if (!isPharmacy) continue;
-  const cat = categorize(inv.subject);
-  if (cat) totals[cat] += parseFloat(inv.amounts?.total_excl_tax || 0);
-}
+
+        for (const inv of items) {
+          const isPharmacy = (inv.related || []).some(
+            rel => companyTypeMap[String(rel.id)] === 'Pharmacie'
+          );
+          if (!isPharmacy) continue;
+          const cat = categorize(inv.subject) || 'Non catégorisé';
+          totals[cat] += parseFloat(inv.amounts?.total_excl_tax || 0);
+        }
 
         const total = data?.pagination?.total || 0;
         offset += 100;
@@ -104,6 +105,8 @@ for (const inv of items) {
         Implantation: Math.round(totals.Implantation * 100) / 100,
         Précommandes: Math.round(totals.Précommandes * 100) / 100,
         Réassort: Math.round(totals.Réassort * 100) / 100,
+        Coffrets: Math.round(totals.Coffrets * 100) / 100,
+        'Non catégorisé': Math.round(totals['Non catégorisé'] * 100) / 100,
       };
     }
 
@@ -113,10 +116,7 @@ for (const inv of items) {
     ]);
 
     const result = { currentYear, prevYear, N, N1 };
-
-    // Cache 1h
     await cacheSet(cacheKey, result, 3600);
-
     return res.status(200).json(result);
 
   } catch (err) {
