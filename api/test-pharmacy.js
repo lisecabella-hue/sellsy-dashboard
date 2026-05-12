@@ -1,4 +1,3 @@
-const fetch = require('node-fetch');
 const { redisGet } = require('./cache');
 
 async function getSellsyToken() {
