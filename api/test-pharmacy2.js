@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     const companyTypeMap = await cacheGet('sellsy:companies:type_client:v2') || {};
     const pharmacyIds = Object.entries(companyTypeMap)
       .filter(([_, type]) => type === 'Pharmacie')
-      .map(([id]) => id);
+      .map(([id]) => String(id));
 
     const tokenResp = await fetch('https://login.sellsy.com/oauth2/access-tokens', {
       method: 'POST',
@@ -34,7 +34,7 @@ export default async function handler(req, res) {
     const { access_token } = await tokenResp.json();
 
     const r = await fetch(
-      `https://api.sellsy.com/v2/invoices/search?limit=5&offset=0`,
+      `https://api.sellsy.com/v2/invoices/search?limit=200&offset=0`,
       {
         method: 'POST',
         headers: {
@@ -51,12 +51,23 @@ export default async function handler(req, res) {
     const data = await r.json();
     const items = data?.data || [];
 
+    const debug = items
+      .filter(inv => {
+        const companyId = String(inv.related?.[0]?.id || '');
+        return pharmacyIds.includes(companyId);
+      })
+      .map(inv => ({
+        subject: inv.subject || '',
+        companyId: String(inv.related?.[0]?.id || ''),
+        companyName: inv.company_name || '',
+        montant: inv.amounts?.total_excl_tax,
+      }));
+
     res.json({
       nbPharmaciesConnues: pharmacyIds.length,
       nbFacturesTestees: items.length,
-      premiereFacture: items[0] || null,
-      tousLesChamps: items[0] ? Object.keys(items[0]) : [],
-      rawResponse: data
+      nbFacturesPharmacies: debug.length,
+      facturesPharmacies: debug,
     });
 
   } catch (err) {
