@@ -279,14 +279,19 @@
     </div>
 
     <!-- Répartition par type de client EN DESSOUS -->
-    <div class="metric-grid" id="typeClientRow" style="margin-bottom:24px;">
-      <div class="metric-card" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
-        <p class="metric-label" style="align-self:flex-start;">Répartition par type de client</p>
-        <div style="position:relative; width:180px; height:180px;">
-          <canvas id="typeClientPieChart"></canvas>
+    <div class="chart-card" id="typeClientRow" style="margin-bottom:24px;">
+      <div class="chart-header">
+        <div>
+          <p class="chart-title">Répartition CA par type de client</p>
+          <p class="chart-subtitle" id="typeClientSubtitle">Période sélectionnée</p>
         </div>
-        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; font-size:11px; justify-content:center;" id="typeClientLegend">
-          <span style="color:#aaa;">En attente de données...</span>
+      </div>
+      <div style="display:flex; align-items:center; justify-content:center; gap:48px; flex-wrap:wrap; padding:8px 0;">
+        <div style="position:relative; width:220px; height:220px; flex-shrink:0;">
+          <canvas id="typeClientPieChart" width="220" height="220"></canvas>
+        </div>
+        <div id="typeClientLegend" style="display:flex;flex-direction:column;gap:14px;min-width:220px;">
+          <span style="color:#aaa;font-size:13px;">En attente de données...</span>
         </div>
       </div>
     </div>
@@ -1079,35 +1084,117 @@ function renderPieChart(caB2C, caB2B) {
   });
 }
 
+const TYPE_CLIENT_COLORS = {
+  'Pharmacie':    '#1a1a1a',
+  'Monoprix':     '#1D9E75',
+  'Marketing':    '#74A1D6',
+  'Grand Compte': '#D85A30',
+  'Autre':        '#F5A623',
+  'Non catégorisé': '#bbb'
+};
+const TYPE_CLIENT_BUDGET_CATS = ['Pharmacie', 'Monoprix', 'Marketing', 'Grand Compte'];
+let budgetTypeClient = {};
+TYPE_CLIENT_BUDGET_CATS.forEach(cat => { budgetTypeClient[cat] = Array(12).fill(0); });
+
+function loadTypeClientBudget() {
+  try {
+    const saved = localStorage.getItem('budgetTypeClient');
+    if (saved) budgetTypeClient = JSON.parse(saved);
+  } catch {}
+}
+loadTypeClientBudget();
+
+function saveTypeClientBudget() {
+  localStorage.setItem('budgetTypeClient', JSON.stringify(budgetTypeClient));
+}
+
+function getTypeClientBudgetForPeriod(cat) {
+  const arr = budgetTypeClient[cat] || Array(12).fill(0);
+  const dates = getDates();
+  if (!dates) return 0;
+  const { dateStart, dateEnd } = dates;
+  const start = new Date(dateStart + 'T12:00:00');
+  const end = new Date(dateEnd + 'T12:00:00');
+  if (start.getFullYear() !== 2026 && end.getFullYear() !== 2026) return 0;
+  let total = 0;
+  if (currentMode === 'month' && start.getFullYear() === 2026) return arr[start.getMonth()];
+  if (currentMode === 'ytd' && end.getFullYear() === 2026) {
+    for (let m = 0; m <= end.getMonth(); m++) total += arr[m]; return total;
+  }
+  const days = Math.round((end - start) / 86400000) + 1;
+  for (let d = 0; d < days; d++) {
+    const day = new Date(start); day.setDate(start.getDate() + d);
+    if (day.getFullYear() === 2026) { const m = day.getMonth(); total += arr[m] / new Date(2026, m+1, 0).getDate(); }
+  }
+  return Math.round(total * 10) / 10;
+}
+
 function renderTypeClientPieChart(caByType) {
   const ctx = document.getElementById('typeClientPieChart').getContext('2d');
   if (window.typeClientPieInstance) window.typeClientPieInstance.destroy();
-  const COLORS = ['#1a1a1a', '#1D9E75', '#74A1D6', '#D85A30', '#F5A623', '#9B59B6', '#888'];
-  const labels = Object.keys(caByType);
-  const values = Object.values(caByType);
+
+  const labels = Object.keys(caByType).filter(k => (caByType[k] || 0) > 0);
+  const values = labels.map(k => caByType[k] || 0);
   const total = values.reduce((a, b) => a + b, 0);
-  const legendEl = document.getElementById('typeClientLegend');
-  legendEl.innerHTML = labels.map((l, i) => {
-    const pct = total > 0 ? Math.round((values[i] / total) * 100) : 0;
-    return `<span style="display:flex;align-items:center;gap:4px;">
-      <span style="width:9px;height:9px;border-radius:50%;background:${COLORS[i % COLORS.length]};display:inline-block;flex-shrink:0;"></span>
-      <span>${l} ${pct}%</span>
-    </span>`;
-  }).join('');
+  const colors = labels.map(l => TYPE_CLIENT_COLORS[l] || '#aaa');
+
   window.typeClientPieInstance = new Chart(ctx, {
     type: 'doughnut',
-    data: {
-      labels,
-      datasets: [{ data: values, backgroundColor: COLORS.slice(0, labels.length), borderWidth: 0, hoverOffset: 6 }]
-    },
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }] },
     options: {
-      responsive: true, maintainAspectRatio: true, cutout: '65%',
+      responsive: false, cutout: '58%',
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmt(ctx.raw)} (${Math.round((ctx.raw / total) * 100)}%)` } }
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmt(ctx.raw)} (${total > 0 ? Math.round((ctx.raw/total)*100) : 0}%)` } }
       }
-    }
+    },
+    plugins: [{
+      id: 'pctOnSliceTC',
+      afterDatasetsDraw(chart) {
+        const { ctx, data } = chart;
+        const meta = chart.getDatasetMeta(0);
+        meta.data.forEach((arc, i) => {
+          const val = data.datasets[0].data[i];
+          const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+          if (pct < 5) return;
+          const angle = (arc.startAngle + arc.endAngle) / 2;
+          const r = (arc.outerRadius + arc.innerRadius) / 2;
+          const x = arc.x + Math.cos(angle) * r;
+          const y = arc.y + Math.sin(angle) * r;
+          ctx.save();
+          ctx.fillStyle = 'white';
+          ctx.font = 'bold 12px -apple-system, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(pct + '%', x, y);
+          ctx.restore();
+        });
+      }
+    }]
   });
+
+  // Légende avec % d'atteinte budget
+  const legendEl = document.getElementById('typeClientLegend');
+  legendEl.innerHTML = labels.map(cat => {
+    const val = caByType[cat] || 0;
+    const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+    const budgetVal = getTypeClientBudgetForPeriod(cat);
+    const budgetPct = budgetVal > 0 ? Math.round(((val / 1000) / budgetVal) * 100) : null;
+    const budgetColor = budgetPct === null ? '#888' : budgetPct >= 100 ? '#1D9E75' : '#D85A30';
+    const budgetText = budgetPct !== null
+      ? `<span style="color:${budgetColor};font-weight:600;">${budgetPct}% du budget</span>`
+      : `<span style="color:#bbb;">Pas de budget</span>`;
+    return `<div style="display:flex;flex-direction:column;gap:3px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="width:12px;height:12px;border-radius:3px;background:${TYPE_CLIENT_COLORS[cat] || '#aaa'};display:inline-block;flex-shrink:0;"></span>
+        <span style="font-size:13px;font-weight:500;">${cat}</span>
+        <span style="font-size:12px;color:#888;">${pct}% — ${fmt(val)}</span>
+      </div>
+      <div style="font-size:11px;padding-left:20px;">${budgetText}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('typeClientSubtitle').textContent = 'Période sélectionnée';
 }
 
 function setVs(id, current, prev, prevYear) {
@@ -1492,6 +1579,22 @@ function openBudgetModalWithFin() {
       <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>${pharmCols}
     </div>${pharmInputs}`;
   grid.appendChild(pharmSection);
+
+  // Section budget type client
+  const tcSection = document.createElement('div');
+  tcSection.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
+  const tcCols = TYPE_CLIENT_BUDGET_CATS.map(c => `<span style="font-size:11px;color:${TYPE_CLIENT_COLORS[c]};font-weight:600;text-align:center;">${c} (k€)</span>`).join('');
+  const tcInputs = months.map((m, i) =>
+    `<div style="display:grid;grid-template-columns:80px ${TYPE_CLIENT_BUDGET_CATS.map(() => '1fr').join(' ')};gap:8px;align-items:center;margin-bottom:4px;">
+      <span style="font-size:12px;color:#444;">${m}</span>
+      ${TYPE_CLIENT_BUDGET_CATS.map(cat => `<input type="number" id="budgetTC_${cat}_${i}" value="${(budgetTypeClient[cat] || [])[i] || 0}" placeholder="0" style="padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center;" />`).join('')}
+    </div>`
+  ).join('');
+  tcSection.innerHTML = `<p style="font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px;">🏪 Budget par type de client (k€)</p>
+    <div style="display:grid;grid-template-columns:80px ${TYPE_CLIENT_BUDGET_CATS.map(() => '1fr').join(' ')};gap:8px;align-items:center;border-bottom:1px solid #e5e5e5;padding-bottom:8px;margin-bottom:4px;">
+      <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>${tcCols}
+    </div>${tcInputs}`;
+  grid.appendChild(tcSection);
 }
 
 function saveBudgetWithFin() {
@@ -1507,6 +1610,11 @@ function saveBudgetWithFin() {
     budgetPharmacy[cat] = months.map((_, i) => parseFloat(document.getElementById(`budgetPharmacy_${cat}_${i}`)?.value) || 0);
   });
   savePharmacyBudget();
+  // Sauvegarde budget type client
+  TYPE_CLIENT_BUDGET_CATS.forEach(cat => {
+    budgetTypeClient[cat] = months.map((_, i) => parseFloat(document.getElementById(`budgetTC_${cat}_${i}`)?.value) || 0);
+  });
+  saveTypeClientBudget();
 }
 
 window.addEventListener('DOMContentLoaded', () => {
