@@ -316,17 +316,12 @@
           <p class="chart-subtitle" id="pharmacyBreakdownSubtitle"></p>
         </div>
       </div>
-      <div style="display:flex; justify-content:center; gap:60px; flex-wrap:wrap; padding:16px 0;">
-        <div style="text-align:center;">
-          <p style="font-size:12px;color:#888;margin-bottom:8px;" id="pharmacyLabelN1"></p>
-          <canvas id="pharmacyDonutN1" width="200" height="200"></canvas>
+      <div style="display:flex; align-items:center; justify-content:center; gap:48px; flex-wrap:wrap; padding:16px 0;">
+        <div style="position:relative; width:220px; height:220px; flex-shrink:0;">
+          <canvas id="pharmacyDonutN" width="220" height="220"></canvas>
         </div>
-        <div style="text-align:center;">
-          <p style="font-size:12px;color:#888;margin-bottom:8px;" id="pharmacyLabelN"></p>
-          <canvas id="pharmacyDonutN" width="200" height="200"></canvas>
-        </div>
+        <div id="pharmacyLegend" style="display:flex;flex-direction:column;gap:14px;min-width:220px;"></div>
       </div>
-      <div id="pharmacyLegend" style="display:flex;justify-content:center;gap:20px;flex-wrap:wrap;margin-top:8px;font-size:12px;padding-bottom:8px;"></div>
     </div>
 
     <div class="chart-card" id="top30Card" style="display:none;">
@@ -489,38 +484,94 @@ let budgetChartInstance = null;
 let pieChartInstance = null;
 let currentTotalCA = 0;
 let pharmacyChartN = null;
-let pharmacyChartN1 = null;
 
 const PHARMACY_COLORS = {
   'Implantation': '#1a1a1a',
   'Précommandes': '#74A1D6',
   'Réassort': '#1D9E75',
   'Coffres': '#D85A30',
-  'Non catégorisé': '#ccc'
+  'Non catégorisé': '#bbb'
 };
+
+// Budget pharmacies par catégorie (mensuel)
+const PHARMACY_CATS = ['Implantation', 'Précommandes', 'Réassort', 'Coffres'];
+let budgetPharmacy = {};
+PHARMACY_CATS.forEach(cat => { budgetPharmacy[cat] = Array(12).fill(0); });
+
+function loadPharmacyBudget() {
+  try {
+    const saved = localStorage.getItem('budgetPharmacy');
+    if (saved) budgetPharmacy = JSON.parse(saved);
+  } catch {}
+}
+loadPharmacyBudget();
+
+function savePharmacyBudget() {
+  localStorage.setItem('budgetPharmacy', JSON.stringify(budgetPharmacy));
+}
+
+function getPharmacyBudgetForPeriod(cat, dateStart, dateEnd) {
+  const arr = budgetPharmacy[cat] || Array(12).fill(0);
+  const start = new Date(dateStart + 'T12:00:00');
+  const end = new Date(dateEnd + 'T12:00:00');
+  if (start.getFullYear() !== 2026 && end.getFullYear() !== 2026) return 0;
+  let total = 0;
+  if (currentMode === 'month' && start.getFullYear() === 2026) return arr[start.getMonth()];
+  if (currentMode === 'ytd' && end.getFullYear() === 2026) {
+    for (let m = 0; m <= end.getMonth(); m++) total += arr[m]; return total;
+  }
+  const days = Math.round((end - start) / 86400000) + 1;
+  for (let d = 0; d < days; d++) {
+    const day = new Date(start); day.setDate(start.getDate() + d);
+    if (day.getFullYear() === 2026) { const m = day.getMonth(); total += arr[m] / new Date(2026, m+1, 0).getDate(); }
+  }
+  return Math.round(total * 10) / 10;
+}
 
 function renderPharmacyDonut(canvasId, data, existingChart) {
   const ctx = document.getElementById(canvasId).getContext('2d');
   if (existingChart) existingChart.destroy();
-  const labels = Object.keys(data).filter(k => (data[k] || 0) > 0);
-  const values = labels.map(k => data[k]);
+  const labels = Object.keys(PHARMACY_COLORS).filter(k => (data[k] || 0) > 0);
+  const values = labels.map(k => data[k] || 0);
   const total = values.reduce((a, b) => a + b, 0);
   const colors = labels.map(l => PHARMACY_COLORS[l] || '#aaa');
-  return new Chart(ctx, {
+
+  const chart = new Chart(ctx, {
     type: 'doughnut',
-    data: {
-      labels,
-      datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }]
-    },
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }] },
     options: {
       responsive: false,
-      cutout: '60%',
+      cutout: '58%',
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmt(ctx.raw)} (${total > 0 ? Math.round((ctx.raw/total)*100) : 0}%)` } }
       }
-    }
+    },
+    plugins: [{
+      id: 'pctOnSlice',
+      afterDatasetsDraw(chart) {
+        const { ctx, data } = chart;
+        const meta = chart.getDatasetMeta(0);
+        meta.data.forEach((arc, i) => {
+          const val = data.datasets[0].data[i];
+          const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+          if (pct < 5) return;
+          const angle = (arc.startAngle + arc.endAngle) / 2;
+          const r = (arc.outerRadius + arc.innerRadius) / 2;
+          const x = arc.x + Math.cos(angle) * r;
+          const y = arc.y + Math.sin(angle) * r;
+          ctx.save();
+          ctx.fillStyle = 'white';
+          ctx.font = 'bold 12px -apple-system, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(pct + '%', x, y);
+          ctx.restore();
+        });
+      }
+    }]
   });
+  return chart;
 }
 
 async function loadPharmacyBreakdown(dateStart, dateEnd) {
@@ -532,24 +583,32 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
     const resp = await fetch(`/api/pharmacy-breakdown?dateStart=${dateStart}&dateEnd=${dateEnd}`);
     const data = await resp.json();
 
-    document.getElementById('pharmacyLabelN1').textContent = `N-1 : ${data.prevDateStart?.slice(0,7)} → ${data.prevDateEnd?.slice(0,7)}`;
-    document.getElementById('pharmacyLabelN').textContent = `N : ${data.dateStart?.slice(0,7)} → ${data.dateEnd?.slice(0,7)}`;
+    pharmacyChartN = renderPharmacyDonut('pharmacyDonutN', data.N || {}, pharmacyChartN);
 
-    pharmacyChartN1 = renderPharmacyDonut('pharmacyDonutN1', data.N1 || {}, pharmacyChartN1);
-    pharmacyChartN  = renderPharmacyDonut('pharmacyDonutN',  data.N  || {}, pharmacyChartN);
-
-    // Légende (seulement les catégories qui ont des valeurs)
-    const allKeys = Object.keys(PHARMACY_COLORS);
+    // Légende avec % d'atteinte budget
+    const total = Object.values(data.N || {}).reduce((a, b) => a + b, 0);
     const legend = document.getElementById('pharmacyLegend');
-    legend.innerHTML = allKeys.map(l =>
-      `<span style="display:flex;align-items:center;gap:5px;">
-        <span style="width:10px;height:10px;border-radius:2px;background:${PHARMACY_COLORS[l]};display:inline-block;"></span>
-        <span>${l}</span>
-      </span>`
-    ).join('');
+    legend.innerHTML = Object.keys(PHARMACY_COLORS).map(cat => {
+      const val = (data.N || {})[cat] || 0;
+      const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+      const budgetVal = getPharmacyBudgetForPeriod(cat, dateStart, dateEnd);
+      const budgetPct = budgetVal > 0 ? Math.round(((val / 1000) / budgetVal) * 100) : null;
+      const budgetColor = budgetPct === null ? '#888' : budgetPct >= 100 ? '#1D9E75' : '#D85A30';
+      const budgetText = budgetPct !== null
+        ? `<span style="color:${budgetColor};font-weight:600;">${budgetPct}% du budget</span>`
+        : `<span style="color:#bbb;">Pas de budget</span>`;
+      return `<div style="display:flex;flex-direction:column;gap:3px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="width:12px;height:12px;border-radius:3px;background:${PHARMACY_COLORS[cat]};display:inline-block;flex-shrink:0;"></span>
+          <span style="font-size:13px;font-weight:500;">${cat}</span>
+          <span style="font-size:12px;color:#888;">${pct}% — ${fmt(val)}</span>
+        </div>
+        <div style="font-size:11px;padding-left:20px;">${budgetText}</div>
+      </div>`;
+    }).join('');
 
     document.getElementById('pharmacyBreakdownSubtitle').textContent =
-      `Période sélectionnée vs N-1 — pharmacies uniquement${data._fromCache ? ' (cache)' : ''}`;
+      `Pharmacies — période sélectionnée${data._fromCache ? ' (cache)' : ''}`;
 
   } catch(e) {
     document.getElementById('pharmacyBreakdownSubtitle').textContent = 'Erreur de chargement';
@@ -1390,6 +1449,8 @@ loadFinBudgetLocal();
 function openBudgetModalWithFin() {
   openBudgetModal();
   const grid = document.getElementById('budgetGrid');
+
+  // Section financier
   const finSection = document.createElement('div');
   finSection.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
   finSection.innerHTML = '<p style="font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px;">💰 Budgets Financier (k€)</p>' +
@@ -1408,6 +1469,22 @@ function openBudgetModalWithFin() {
       '</div>'
     ).join('');
   grid.appendChild(finSection);
+
+  // Section budget pharmacies
+  const pharmSection = document.createElement('div');
+  pharmSection.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
+  const pharmCols = PHARMACY_CATS.map(c => `<span style="font-size:11px;color:${PHARMACY_COLORS[c]};font-weight:600;text-align:center;">${c} (k€)</span>`).join('');
+  const pharmInputs = months.map((m, i) =>
+    `<div style="display:grid;grid-template-columns:80px ${PHARMACY_CATS.map(() => '1fr').join(' ')};gap:8px;align-items:center;margin-bottom:4px;">
+      <span style="font-size:12px;color:#444;">${m}</span>
+      ${PHARMACY_CATS.map(cat => `<input type="number" id="budgetPharmacy_${cat}_${i}" value="${(budgetPharmacy[cat] || [])[i] || 0}" placeholder="0" style="padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center;" />`).join('')}
+    </div>`
+  ).join('');
+  pharmSection.innerHTML = `<p style="font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px;">💊 Budget Pharmacies par catégorie (k€)</p>
+    <div style="display:grid;grid-template-columns:80px ${PHARMACY_CATS.map(() => '1fr').join(' ')};gap:8px;align-items:center;border-bottom:1px solid #e5e5e5;padding-bottom:8px;margin-bottom:4px;">
+      <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>${pharmCols}
+    </div>${pharmInputs}`;
+  grid.appendChild(pharmSection);
 }
 
 function saveBudgetWithFin() {
@@ -1418,6 +1495,11 @@ function saveBudgetWithFin() {
   localStorage.setItem('budgetCM12026', JSON.stringify(budgetCM12026));
   localStorage.setItem('budgetCM22026', JSON.stringify(budgetCM22026));
   localStorage.setItem('budgetEBITDA2026', JSON.stringify(budgetEBITDA2026));
+  // Sauvegarde budget pharmacies
+  PHARMACY_CATS.forEach(cat => {
+    budgetPharmacy[cat] = months.map((_, i) => parseFloat(document.getElementById(`budgetPharmacy_${cat}_${i}`)?.value) || 0);
+  });
+  savePharmacyBudget();
 }
 
 window.addEventListener('DOMContentLoaded', () => {
