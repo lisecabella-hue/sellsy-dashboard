@@ -220,20 +220,15 @@
     </div>
 
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:24px;">
-      <div class="metric-card" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
-        <p class="metric-label" style="align-self:flex-start;">Répartition CA B2C vs B2B</p>
-        <div style="position:relative; width:220px; height:220px;">
-          <canvas id="b2cPieChart"></canvas>
+      <div class="chart-card" style="margin-bottom:0;">
+        <div class="chart-header" style="margin-bottom:12px;">
+          <p class="chart-title">Répartition CA B2C vs B2B</p>
         </div>
-        <div style="display:flex; gap:16px; margin-top:12px; font-size:12px;">
-          <span style="display:flex; align-items:center; gap:5px;">
-            <span style="width:10px;height:10px;border-radius:50%;background:#74A1D6;display:inline-block;"></span>
-            <span id="pieB2CLabel">B2C</span>
-          </span>
-          <span style="display:flex; align-items:center; gap:5px;">
-            <span style="width:10px;height:10px;border-radius:50%;background:#1D9E75;display:inline-block;"></span>
-            <span id="pieB2BLabel">B2B</span>
-          </span>
+        <div style="display:flex; align-items:center; justify-content:center; gap:24px; flex-wrap:wrap;">
+          <div style="position:relative; width:180px; height:180px; flex-shrink:0;">
+            <canvas id="b2cPieChart" width="180" height="180"></canvas>
+          </div>
+          <div id="b2cB2BLegend" style="display:flex;flex-direction:column;gap:14px;min-width:160px;"></div>
         </div>
       </div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
@@ -320,11 +315,25 @@
     <div class="chart-card" id="pharmacyBreakdownCard" style="display:none;">
       <div class="chart-header">
         <div>
-          <p class="chart-title">Répartition CA Pharmacies par objet</p>
+          <p class="chart-title">CA par type de commande — Pharmacies</p>
           <p class="chart-subtitle" id="pharmacyBreakdownSubtitle"></p>
         </div>
       </div>
-      <div style="display:flex; align-items:center; justify-content:center; gap:48px; flex-wrap:wrap; padding:16px 0;">
+      <!-- KPIs réassort -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+        <div style="background:#f9f9f9;border-radius:10px;padding:16px;border:1px solid #e5e5e5;">
+          <p style="font-size:12px;color:#888;margin-bottom:6px;">Taux de réassort</p>
+          <p style="font-size:24px;font-weight:500;" id="pharmacyTauxReassort">—</p>
+          <p style="font-size:11px;color:#888;margin-top:4px;">% factures Réassort / total factures pharmacies</p>
+        </div>
+        <div style="background:#f9f9f9;border-radius:10px;padding:16px;border:1px solid #e5e5e5;">
+          <p style="font-size:12px;color:#888;margin-bottom:6px;">Panier moyen Réassort</p>
+          <p style="font-size:24px;font-weight:500;" id="pharmacyPanierReassort">—</p>
+          <p style="font-size:11px;color:#888;margin-top:4px;">CA Réassort / nb factures Réassort</p>
+        </div>
+      </div>
+      <!-- Donut + légende -->
+      <div style="display:flex; align-items:center; justify-content:center; gap:48px; flex-wrap:wrap; padding:8px 0;">
         <div style="position:relative; width:220px; height:220px; flex-shrink:0;">
           <canvas id="pharmacyDonutN" width="220" height="220"></canvas>
         </div>
@@ -586,19 +595,31 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
   const card = document.getElementById('pharmacyBreakdownCard');
   card.style.display = 'block';
   document.getElementById('pharmacyBreakdownSubtitle').textContent = 'Chargement...';
+  document.getElementById('pharmacyTauxReassort').textContent = '...';
+  document.getElementById('pharmacyPanierReassort').textContent = '...';
 
   try {
     const resp = await fetch(`/api/pharmacy-breakdown?dateStart=${dateStart}&dateEnd=${dateEnd}`);
     const data = await resp.json();
 
-    pharmacyChartN = renderPharmacyDonut('pharmacyDonutN', data.N || {}, pharmacyChartN);
+    const N = data.N || {};
+    const montants = N.montants || N; // compatibilité ancienne/nouvelle structure
+
+    // KPIs réassort
+    document.getElementById('pharmacyTauxReassort').textContent =
+      N.tauxReassort !== undefined ? `${N.tauxReassort.toFixed(1)}%` : '—';
+    document.getElementById('pharmacyPanierReassort').textContent =
+      N.panierMoyenReassort !== undefined ? fmt(N.panierMoyenReassort) : '—';
+
+    pharmacyChartN = renderPharmacyDonut('pharmacyDonutN', montants, pharmacyChartN);
 
     // Légende avec % d'atteinte budget
-    const total = Object.values(data.N || {}).reduce((a, b) => a + b, 0);
+    const total = Object.values(montants).reduce((a, b) => a + b, 0);
     const legend = document.getElementById('pharmacyLegend');
     legend.innerHTML = Object.keys(PHARMACY_COLORS).map(cat => {
-      const val = (data.N || {})[cat] || 0;
+      const val = montants[cat] || 0;
       const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+      const nbFact = (N.counts || {})[cat] || 0;
       const budgetVal = getPharmacyBudgetForPeriod(cat, dateStart, dateEnd);
       const budgetPct = budgetVal > 0 ? Math.round(((val / 1000) / budgetVal) * 100) : null;
       const budgetColor = budgetPct === null ? '#888' : budgetPct >= 100 ? '#1D9E75' : '#D85A30';
@@ -609,7 +630,7 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="width:12px;height:12px;border-radius:3px;background:${PHARMACY_COLORS[cat]};display:inline-block;flex-shrink:0;"></span>
           <span style="font-size:13px;font-weight:500;">${cat}</span>
-          <span style="font-size:12px;color:#888;">${pct}% — ${fmt(val)}</span>
+          <span style="font-size:12px;color:#888;">${pct}% — ${fmt(val)}${nbFact > 0 ? ` (${nbFact} fact.)` : ''}</span>
         </div>
         <div style="font-size:11px;padding-left:20px;">${budgetText}</div>
       </div>`;
@@ -691,7 +712,7 @@ function applySegment(caData) {
   const avgB2BCard = document.getElementById('mAvgB2B')?.closest('.metric-card');
   const caB2CCard = document.getElementById('mCAB2C')?.closest('.metric-card');
   const caB2BCard = document.getElementById('mCAB2B')?.closest('.metric-card');
-  const pieCard = document.getElementById('b2cPieChart')?.closest('.metric-card');
+  const pieCard = document.getElementById('b2cPieChart')?.closest('.chart-card');
 
   if (mainCACard) mainCACard.style.display = seg === 'total' ? '' : 'none';
   document.getElementById('budgetBarWrap').style.display = seg === 'total' ? '' : 'none';
@@ -1066,22 +1087,107 @@ function renderPieChart(caB2C, caB2B) {
   const total = caB2C + caB2B;
   const pctB2C = total > 0 ? Math.round((caB2C / total) * 100) : 0;
   const pctB2B = total > 0 ? Math.round((caB2B / total) * 100) : 0;
-  document.getElementById('pieB2CLabel').textContent = `B2C ${pctB2C}% (${fmt(caB2C)})`;
-  document.getElementById('pieB2BLabel').textContent = `B2B ${pctB2B}% (${fmt(caB2B)})`;
+
   pieChartInstance = new Chart(ctx, {
     type: 'doughnut',
     data: {
       labels: ['B2C (Shopify)', 'B2B'],
-      datasets: [{ data: [caB2C, caB2B], backgroundColor: ['#74A1D6', '#1D9E75'], borderWidth: 0, hoverOffset: 6 }]
+      datasets: [{ data: [caB2C, caB2B], backgroundColor: ['#74A1D6', '#1D9E75'], borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }]
     },
     options: {
-      responsive: true, maintainAspectRatio: true, cutout: '65%',
+      responsive: false, cutout: '58%',
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmt(ctx.raw)} (${Math.round((ctx.raw/total)*100)}%)` } }
       }
-    }
+    },
+    plugins: [{
+      id: 'pctOnSliceB2',
+      afterDatasetsDraw(chart) {
+        const { ctx, data } = chart;
+        const meta = chart.getDatasetMeta(0);
+        const vals = data.datasets[0].data;
+        const tot = vals.reduce((a,b) => a+b, 0);
+        meta.data.forEach((arc, i) => {
+          const pct = tot > 0 ? Math.round((vals[i] / tot) * 100) : 0;
+          if (pct < 5) return;
+          const angle = (arc.startAngle + arc.endAngle) / 2;
+          const r = (arc.outerRadius + arc.innerRadius) / 2;
+          const x = arc.x + Math.cos(angle) * r;
+          const y = arc.y + Math.sin(angle) * r;
+          ctx.save();
+          ctx.fillStyle = 'white';
+          ctx.font = 'bold 12px -apple-system, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(pct + '%', x, y);
+          ctx.restore();
+        });
+      }
+    }]
   });
+
+  // Légende avec budget
+  const dates = getDates();
+  const budB2C = dates ? getBudgetB2CForPeriod(dates.dateStart, dates.dateEnd) : 0;
+  const budB2B = dates ? getBudgetB2BForPeriod(dates.dateStart, dates.dateEnd) : 0;
+
+  function legendItem(label, val, pct, color, budVal) {
+    const budPct = budVal > 0 ? Math.round(((val / 1000) / budVal) * 100) : null;
+    const budColor = budPct === null ? '#888' : budPct >= 100 ? '#1D9E75' : '#D85A30';
+    const budText = budPct !== null
+      ? `<span style="color:${budColor};font-weight:600;">${budPct}% du budget</span>`
+      : `<span style="color:#bbb;">Pas de budget</span>`;
+    return `<div style="display:flex;flex-direction:column;gap:3px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="width:12px;height:12px;border-radius:3px;background:${color};display:inline-block;flex-shrink:0;"></span>
+        <span style="font-size:13px;font-weight:500;">${label}</span>
+        <span style="font-size:12px;color:#888;">${pct}% — ${fmt(val)}</span>
+      </div>
+      <div style="font-size:11px;padding-left:20px;">${budText}</div>
+    </div>`;
+  }
+
+  const legendEl = document.getElementById('b2cB2BLegend');
+  if (legendEl) {
+    legendEl.innerHTML =
+      legendItem('B2C', caB2C, pctB2C, '#74A1D6', budB2C) +
+      legendItem('B2B', caB2B, pctB2B, '#1D9E75', budB2B);
+  }
+}
+
+function getBudgetB2CForPeriod(dateStart, dateEnd) {
+  const start = new Date(dateStart + 'T12:00:00');
+  const end = new Date(dateEnd + 'T12:00:00');
+  if (start.getFullYear() !== 2026 && end.getFullYear() !== 2026) return 0;
+  if (currentMode === 'month' && start.getFullYear() === 2026) return budgetB2C2026[start.getMonth()];
+  if (currentMode === 'ytd' && end.getFullYear() === 2026) {
+    let t = 0; for (let m = 0; m <= end.getMonth(); m++) t += budgetB2C2026[m]; return t;
+  }
+  let t = 0;
+  const days = Math.round((end - start) / 86400000) + 1;
+  for (let d = 0; d < days; d++) {
+    const day = new Date(start); day.setDate(start.getDate() + d);
+    if (day.getFullYear() === 2026) { const m = day.getMonth(); t += budgetB2C2026[m] / new Date(2026, m+1, 0).getDate(); }
+  }
+  return Math.round(t * 10) / 10;
+}
+
+function getBudgetB2BForPeriod(dateStart, dateEnd) {
+  const start = new Date(dateStart + 'T12:00:00');
+  const end = new Date(dateEnd + 'T12:00:00');
+  if (start.getFullYear() !== 2026 && end.getFullYear() !== 2026) return 0;
+  if (currentMode === 'month' && start.getFullYear() === 2026) return budgetB2B2026[start.getMonth()];
+  if (currentMode === 'ytd' && end.getFullYear() === 2026) {
+    let t = 0; for (let m = 0; m <= end.getMonth(); m++) t += budgetB2B2026[m]; return t;
+  }
+  let t = 0;
+  const days = Math.round((end - start) / 86400000) + 1;
+  for (let d = 0; d < days; d++) {
+    const day = new Date(start); day.setDate(start.getDate() + d);
+    if (day.getFullYear() === 2026) { const m = day.getMonth(); t += budgetB2B2026[m] / new Date(2026, m+1, 0).getDate(); }
+  }
+  return Math.round(t * 10) / 10;
 }
 
 const TYPE_CLIENT_COLORS = {
