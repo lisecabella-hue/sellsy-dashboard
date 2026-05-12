@@ -16,7 +16,7 @@ async function getSellsyToken() {
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-
+ 
   try {
     const token = await getSellsyToken();
     const currentYear = new Date().getFullYear();
