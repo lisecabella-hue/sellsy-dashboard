@@ -200,10 +200,10 @@ export default async function handler(req, res) {
     return { month, year, totalCA: result._totalCA, count: result._count, invoicesTotal: total };
   }
 
-  // Liste des mois à couvrir : jan-mai 2025 + jan-mai 2026
-  const targetMonths = [];
-  for (let m = 0; m <= 4; m++) targetMonths.push({ year: 2025, month: m });
-  for (let m = 0; m <= 4; m++) targetMonths.push({ year: 2026, month: m });
+// Liste des mois à couvrir : jan-mai 2025 + jan-avril 2026 (pas le mois en cours)
+const targetMonths = [];
+for (let m = 0; m <= 4; m++) targetMonths.push({ year: 2025, month: m });
+for (let m = 0; m <= 3; m++) targetMonths.push({ year: 2026, month: m });
 
   // Rotation : 3 mois par passage selon l'heure UTC
   const hourUTC = now.getUTCHours();
