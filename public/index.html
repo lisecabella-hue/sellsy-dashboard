@@ -217,16 +217,6 @@
         <p class="metric-sub">Total de la période</p>
         <p class="metric-sub" id="mAvoirsKpi" style="margin-top:8px;"></p>
       </div>
-
-      <div class="metric-card" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
-        <p class="metric-label" style="align-self:flex-start;">Répartition par type de client</p>
-        <div style="position:relative; width:180px; height:180px;">
-          <canvas id="typeClientPieChart"></canvas>
-        </div>
-        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; font-size:11px; justify-content:center;" id="typeClientLegend">
-          <span style="color:#aaa;">En attente de données...</span>
-        </div>
-      </div>
     </div>
 
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:24px;">
@@ -284,6 +274,19 @@
           <p class="metric-label">🛒 Panier moyen B2B</p>
           <p class="metric-value" id="mAvgB2B">—</p>
           <p class="metric-vs neutral" id="mAvgB2BVs">⏳</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Répartition par type de client EN DESSOUS -->
+    <div class="metric-grid" id="typeClientRow" style="margin-bottom:24px;">
+      <div class="metric-card" style="display:flex; flex-direction:column; align-items:center; justify-content:center;">
+        <p class="metric-label" style="align-self:flex-start;">Répartition par type de client</p>
+        <div style="position:relative; width:180px; height:180px;">
+          <canvas id="typeClientPieChart"></canvas>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; font-size:11px; justify-content:center;" id="typeClientLegend">
+          <span style="color:#aaa;">En attente de données...</span>
         </div>
       </div>
     </div>
@@ -693,6 +696,7 @@ function applySegment(caData) {
   else updateBudgetB2CB2BDisplay(caB2C, caB2B);
 
   const typeClientCard2 = document.getElementById('typeClientPieChart')?.closest('.metric-card');
+  const typeClientRow = document.getElementById('typeClientRow');
   const pharmacyCard = document.getElementById('pharmacyBreakdownCard');
 
   if (seg === 'b2b') {
@@ -701,6 +705,7 @@ function applySegment(caData) {
     if (pieCard) pieCard.style.display = 'none';
     if (avgB2BCard) avgB2BCard.style.display = '';
     if (caB2BCard) caB2BCard.style.display = '';
+    if (typeClientRow) typeClientRow.style.display = '';
     // Affiche le graphique pharmacies
     const dates = getDates();
     if (dates) loadPharmacyBreakdown(dates.dateStart, dates.dateEnd);
@@ -713,12 +718,14 @@ function applySegment(caData) {
       if (pieCard) pieCard.style.display = 'none';
       if (avgB2CCard) avgB2CCard.style.display = '';
       if (caB2CCard) caB2CCard.style.display = '';
+      if (typeClientRow) typeClientRow.style.display = 'none';
     } else {
       if (avgB2CCard) avgB2CCard.style.display = '';
       if (avgB2BCard) avgB2BCard.style.display = '';
       if (caB2CCard) caB2CCard.style.display = '';
       if (caB2BCard) caB2BCard.style.display = '';
       if (pieCard) pieCard.style.display = '';
+      if (typeClientRow) typeClientRow.style.display = '';
     }
   }
 
