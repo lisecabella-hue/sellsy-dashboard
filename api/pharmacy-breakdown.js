@@ -84,14 +84,15 @@ export default async function handler(req, res) {
         );
         const data = await r.json();
         const items = data?.data || [];
-
-        for (const inv of items) {
-          const companyId = inv.related?.[0]?.id;
-          if (!companyId) continue;
-          if (companyTypeMap[companyId] !== 'Pharmacie') continue;
-          const cat = categorize(inv.subject);
-          if (cat) totals[cat] += parseFloat(inv.amounts?.total_excl_tax || 0);
-        }
+for (const inv of items) {
+  // Cherche dans tous les related, pas seulement [0]
+  const isPharmacy = (inv.related || []).some(
+    rel => companyTypeMap[String(rel.id)] === 'Pharmacie'
+  );
+  if (!isPharmacy) continue;
+  const cat = categorize(inv.subject);
+  if (cat) totals[cat] += parseFloat(inv.amounts?.total_excl_tax || 0);
+}
 
         const total = data?.pagination?.total || 0;
         offset += 100;
