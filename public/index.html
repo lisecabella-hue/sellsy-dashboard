@@ -154,13 +154,6 @@
 
   <div class="container">
 
-    <div id="bannerPermanent" style="display:none;background:#1a1a1a;color:white;padding:12px 16px;font-size:13px;border-radius:10px;margin-bottom:12px;align-items:center;gap:8px;">
-      <span>📌</span><span id="bannerPermanentText"></span>
-    </div>
-    <div id="bannerMonth" style="display:none;background:#FFF8E1;border:1px solid #FFE082;padding:12px 16px;font-size:13px;color:#7B5E00;border-radius:10px;margin-bottom:16px;align-items:center;gap:8px;">
-      <span>⚠️</span><span id="bannerMonthText"></span>
-    </div>
-
     <div id="businessView">
     <div class="controls-bar">
       <div class="period-btns">
@@ -206,8 +199,6 @@
 
     <div class="error-box" id="errorBox"></div>
     <p class="period-label" id="periodLabel"></p>
-
-    <!-- ✅ INVERSION : CA HT (brut) en premier, puis le camembert B2C vs B2B -->
 
     <div class="metric-grid">
       <div class="metric-card">
@@ -317,6 +308,27 @@
       <div class="chart-container" style="height:320px;"><canvas id="budgetChart"></canvas></div>
     </div>
 
+    <!-- GRAPHIQUE PHARMACIES PAR OBJET (visible uniquement en B2B) -->
+    <div class="chart-card" id="pharmacyBreakdownCard" style="display:none;">
+      <div class="chart-header">
+        <div>
+          <p class="chart-title">Répartition CA Pharmacies par objet</p>
+          <p class="chart-subtitle" id="pharmacyBreakdownSubtitle"></p>
+        </div>
+      </div>
+      <div style="display:flex; justify-content:center; gap:60px; flex-wrap:wrap; padding:16px 0;">
+        <div style="text-align:center;">
+          <p style="font-size:12px;color:#888;margin-bottom:8px;" id="pharmacyLabelN1"></p>
+          <canvas id="pharmacyDonutN1" width="200" height="200"></canvas>
+        </div>
+        <div style="text-align:center;">
+          <p style="font-size:12px;color:#888;margin-bottom:8px;" id="pharmacyLabelN"></p>
+          <canvas id="pharmacyDonutN" width="200" height="200"></canvas>
+        </div>
+      </div>
+      <div id="pharmacyLegend" style="display:flex;justify-content:center;gap:20px;flex-wrap:wrap;margin-top:8px;font-size:12px;padding-bottom:8px;"></div>
+    </div>
+
     <div class="chart-card" id="top30Card" style="display:none;">
       <div class="chart-header">
         <div>
@@ -336,7 +348,7 @@
         </thead>
         <tbody id="top30Body"></tbody>
       </table>
-    </div><!-- end top30Card -->
+    </div>
 
     </div><!-- end businessView -->
 
@@ -382,61 +394,40 @@
       <p class="period-label" id="finPeriodLabel"></p>
 
       <div class="metric-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
-
         <div class="metric-card" style="border-left:3px solid #1a1a1a;">
           <p class="metric-label">CA Comptable</p>
           <p class="metric-value" id="finCA">—</p>
           <p class="metric-sub">Pennylane</p>
         </div>
-
         <div class="metric-card" style="border-left:3px solid #74A1D6;">
           <p class="metric-label">CM1</p>
           <p class="metric-value" id="finCM1">—</p>
           <p class="metric-sub" id="finTauxCM1"></p>
           <div class="budget-bar-wrap" id="finBudgetCM1Wrap" style="display:none;">
-            <div class="budget-bar-label">
-              <span id="finBudgetCM1Label">vs Budget CM1</span>
-              <span id="finBudgetCM1Pct"></span>
-            </div>
-            <div class="budget-bar-bg">
-              <div class="budget-bar-fill ok" id="finBudgetCM1Fill" style="width:0%"></div>
-            </div>
+            <div class="budget-bar-label"><span id="finBudgetCM1Label">vs Budget CM1</span><span id="finBudgetCM1Pct"></span></div>
+            <div class="budget-bar-bg"><div class="budget-bar-fill ok" id="finBudgetCM1Fill" style="width:0%"></div></div>
           </div>
         </div>
-
         <div class="metric-card" style="border-left:3px solid #1D9E75;">
           <p class="metric-label">CM2</p>
           <p class="metric-value" id="finCM2">—</p>
           <p class="metric-sub" id="finTauxCM2"></p>
           <div class="budget-bar-wrap" id="finBudgetCM2Wrap" style="display:none;">
-            <div class="budget-bar-label">
-              <span id="finBudgetCM2Label">vs Budget CM2</span>
-              <span id="finBudgetCM2Pct"></span>
-            </div>
-            <div class="budget-bar-bg">
-              <div class="budget-bar-fill ok" id="finBudgetCM2Fill" style="width:0%"></div>
-            </div>
+            <div class="budget-bar-label"><span id="finBudgetCM2Label">vs Budget CM2</span><span id="finBudgetCM2Pct"></span></div>
+            <div class="budget-bar-bg"><div class="budget-bar-fill ok" id="finBudgetCM2Fill" style="width:0%"></div></div>
           </div>
         </div>
-
         <div class="metric-card" style="border-left:3px solid #D85A30;">
           <p class="metric-label">EBITDA</p>
           <p class="metric-value" id="finEBITDA">—</p>
           <p class="metric-sub" id="finTauxEBITDA"></p>
           <div class="budget-bar-wrap" id="finBudgetEBITDAWrap" style="display:none;">
-            <div class="budget-bar-label">
-              <span id="finBudgetEBITDALabel">vs Budget EBITDA</span>
-              <span id="finBudgetEBITDAPct"></span>
-            </div>
-            <div class="budget-bar-bg">
-              <div class="budget-bar-fill ok" id="finBudgetEBITDAFill" style="width:0%"></div>
-            </div>
+            <div class="budget-bar-label"><span id="finBudgetEBITDALabel">vs Budget EBITDA</span><span id="finBudgetEBITDAPct"></span></div>
+            <div class="budget-bar-bg"><div class="budget-bar-fill ok" id="finBudgetEBITDAFill" style="width:0%"></div></div>
           </div>
         </div>
-
       </div>
 
-      <!-- Graphique évolution mensuelle -->
       <div class="chart-card" id="finChartCard" style="display:none;margin-top:24px;">
         <div class="chart-header">
           <div>
@@ -447,7 +438,6 @@
         <div class="chart-container" style="height:300px;"><canvas id="finLineChart"></canvas></div>
       </div>
 
-      <!-- Graphique taux de réalisation -->
       <div class="chart-card" id="finBudgetChartCard" style="display:none;margin-top:24px;">
         <div class="chart-header">
           <div>
@@ -460,6 +450,7 @@
 
     </div><!-- end financierView -->
 
+    </div><!-- end container -->
     </div><!-- end app -->
 
 <script>
@@ -497,6 +488,74 @@ let caChartInstance = null;
 let budgetChartInstance = null;
 let pieChartInstance = null;
 let currentTotalCA = 0;
+let pharmacyChartN = null;
+let pharmacyChartN1 = null;
+
+const PHARMACY_COLORS = {
+  'Implantation': '#1a1a1a',
+  'Précommandes': '#74A1D6',
+  'Réassort': '#1D9E75',
+  'Coffres': '#D85A30',
+  'Non catégorisé': '#ccc'
+};
+
+function renderPharmacyDonut(canvasId, data, existingChart) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  if (existingChart) existingChart.destroy();
+  const labels = Object.keys(data).filter(k => (data[k] || 0) > 0);
+  const values = labels.map(k => data[k]);
+  const total = values.reduce((a, b) => a + b, 0);
+  const colors = labels.map(l => PHARMACY_COLORS[l] || '#aaa');
+  return new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data: values, backgroundColor: colors, borderWidth: 0, hoverOffset: 6 }]
+    },
+    options: {
+      responsive: false,
+      cutout: '60%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmt(ctx.raw)} (${total > 0 ? Math.round((ctx.raw/total)*100) : 0}%)` } }
+      }
+    }
+  });
+}
+
+async function loadPharmacyBreakdown(dateStart, dateEnd) {
+  const card = document.getElementById('pharmacyBreakdownCard');
+  card.style.display = 'block';
+  document.getElementById('pharmacyBreakdownSubtitle').textContent = 'Chargement...';
+
+  try {
+    const resp = await fetch(`/api/pharmacy-breakdown?dateStart=${dateStart}&dateEnd=${dateEnd}`);
+    const data = await resp.json();
+
+    document.getElementById('pharmacyLabelN1').textContent = `N-1 : ${data.prevDateStart?.slice(0,7)} → ${data.prevDateEnd?.slice(0,7)}`;
+    document.getElementById('pharmacyLabelN').textContent = `N : ${data.dateStart?.slice(0,7)} → ${data.dateEnd?.slice(0,7)}`;
+
+    pharmacyChartN1 = renderPharmacyDonut('pharmacyDonutN1', data.N1 || {}, pharmacyChartN1);
+    pharmacyChartN  = renderPharmacyDonut('pharmacyDonutN',  data.N  || {}, pharmacyChartN);
+
+    // Légende (seulement les catégories qui ont des valeurs)
+    const allKeys = Object.keys(PHARMACY_COLORS);
+    const legend = document.getElementById('pharmacyLegend');
+    legend.innerHTML = allKeys.map(l =>
+      `<span style="display:flex;align-items:center;gap:5px;">
+        <span style="width:10px;height:10px;border-radius:2px;background:${PHARMACY_COLORS[l]};display:inline-block;"></span>
+        <span>${l}</span>
+      </span>`
+    ).join('');
+
+    document.getElementById('pharmacyBreakdownSubtitle').textContent =
+      `Période sélectionnée vs N-1 — pharmacies uniquement${data._fromCache ? ' (cache)' : ''}`;
+
+  } catch(e) {
+    document.getElementById('pharmacyBreakdownSubtitle').textContent = 'Erreur de chargement';
+    card.style.display = 'none';
+  }
+}
 
 function setSegment(seg) {
   currentSegment = seg;
@@ -519,7 +578,7 @@ function setSegment(seg) {
 
 function applySegment(caData) {
   const seg = currentSegment;
-  let ca, caB2C, caB2B, panierB2C, panierB2B, countB2C, countB2B;
+  let ca, caB2C, caB2B, panierB2C, panierB2B;
 
   if (seg === 'total') {
     ca = caData._totalCA || 0;
@@ -527,24 +586,18 @@ function applySegment(caData) {
     caB2B = caData._totalCAB2B || 0;
     panierB2C = caData._panierMoyenB2C || 0;
     panierB2B = caData._panierMoyenB2B || 0;
-    countB2C = caData._countB2C || 0;
-    countB2B = caData._countB2B || 0;
   } else if (seg === 'b2b') {
     ca = caData._totalCAB2B || 0;
     caB2C = 0;
     caB2B = caData._totalCAB2B || 0;
     panierB2C = 0;
     panierB2B = caData._panierMoyenB2B || 0;
-    countB2C = 0;
-    countB2B = caData._countB2B || 0;
   } else {
     ca = caData._totalCAB2C || 0;
     caB2C = caData._totalCAB2C || 0;
     caB2B = 0;
     panierB2C = caData._panierMoyenB2C || 0;
     panierB2B = 0;
-    countB2C = caData._countB2C || 0;
-    countB2B = 0;
   }
 
   document.getElementById('mCA').textContent = fmt(ca);
@@ -553,7 +606,6 @@ function applySegment(caData) {
   document.getElementById('mAvgB2C').textContent = fmt(panierB2C);
   document.getElementById('mAvgB2B').textContent = fmt(panierB2B);
 
-  // Avoirs
   const tauxAvoirs = caData._tauxAvoirs || 0;
   const totalAvoirs = caData._totalAvoirs || 0;
   const avoirsEl = document.getElementById('mAvoirsKpi');
@@ -567,7 +619,6 @@ function applySegment(caData) {
   renderPieChart(caB2C, caB2B);
   currentTotalCA = ca;
 
-  // Cacher/montrer les cartes selon le segment
   const mainCACard = document.getElementById('mCA')?.closest('.metric-card');
   const avgB2CCard = document.getElementById('mAvgB2C')?.closest('.metric-card');
   const avgB2BCard = document.getElementById('mAvgB2B')?.closest('.metric-card');
@@ -576,16 +627,14 @@ function applySegment(caData) {
   const pieCard = document.getElementById('b2cPieChart')?.closest('.metric-card');
 
   if (mainCACard) mainCACard.style.display = seg === 'total' ? '' : 'none';
-
   document.getElementById('budgetBarWrap').style.display = seg === 'total' ? '' : 'none';
   if (seg === 'total') updateBudgetDisplay(ca, budget2026);
-  if (seg === 'b2b') {
-    updateBudgetB2CB2BDisplay(0, caB2B);
-  } else if (seg === 'b2c') {
-    updateBudgetB2CB2BDisplay(caB2C, 0);
-  } else {
-    updateBudgetB2CB2BDisplay(caB2C, caB2B);
-  }
+  if (seg === 'b2b') updateBudgetB2CB2BDisplay(0, caB2B);
+  else if (seg === 'b2c') updateBudgetB2CB2BDisplay(caB2C, 0);
+  else updateBudgetB2CB2BDisplay(caB2C, caB2B);
+
+  const typeClientCard2 = document.getElementById('typeClientPieChart')?.closest('.metric-card');
+  const pharmacyCard = document.getElementById('pharmacyBreakdownCard');
 
   if (seg === 'b2b') {
     if (avgB2CCard) avgB2CCard.style.display = 'none';
@@ -593,18 +642,40 @@ function applySegment(caData) {
     if (pieCard) pieCard.style.display = 'none';
     if (avgB2BCard) avgB2BCard.style.display = '';
     if (caB2BCard) caB2BCard.style.display = '';
-  } else if (seg === 'b2c') {
-    if (avgB2BCard) avgB2BCard.style.display = 'none';
-    if (caB2BCard) caB2BCard.style.display = 'none';
-    if (pieCard) pieCard.style.display = 'none';
-    if (avgB2CCard) avgB2CCard.style.display = '';
-    if (caB2CCard) caB2CCard.style.display = '';
+    // Affiche le graphique pharmacies
+    const dates = getDates();
+    if (dates) loadPharmacyBreakdown(dates.dateStart, dates.dateEnd);
   } else {
-    if (avgB2CCard) avgB2CCard.style.display = '';
-    if (avgB2BCard) avgB2BCard.style.display = '';
-    if (caB2CCard) caB2CCard.style.display = '';
-    if (caB2BCard) caB2BCard.style.display = '';
-    if (pieCard) pieCard.style.display = '';
+    // Cache le graphique pharmacies
+    if (pharmacyCard) pharmacyCard.style.display = 'none';
+    if (seg === 'b2c') {
+      if (avgB2BCard) avgB2BCard.style.display = 'none';
+      if (caB2BCard) caB2BCard.style.display = 'none';
+      if (pieCard) pieCard.style.display = 'none';
+      if (avgB2CCard) avgB2CCard.style.display = '';
+      if (caB2CCard) caB2CCard.style.display = '';
+    } else {
+      if (avgB2CCard) avgB2CCard.style.display = '';
+      if (avgB2BCard) avgB2BCard.style.display = '';
+      if (caB2CCard) caB2CCard.style.display = '';
+      if (caB2BCard) caB2BCard.style.display = '';
+      if (pieCard) pieCard.style.display = '';
+    }
+  }
+
+  // Répartition type client
+  if (seg === 'b2c') {
+    if (typeClientCard2) typeClientCard2.style.display = 'none';
+  } else {
+    if (typeClientCard2) typeClientCard2.style.display = '';
+    if (seg === 'b2b' && lastCaData._caByType) {
+      const caByTypeB2B = Object.fromEntries(
+        Object.entries(lastCaData._caByType).filter(([k]) => k !== 'Non catégorisé')
+      );
+      renderTypeClientPieChart(caByTypeB2B);
+    } else if (lastCaData._caByType && Object.keys(lastCaData._caByType).length > 0) {
+      renderTypeClientPieChart(lastCaData._caByType);
+    }
   }
 
   // Top 30
@@ -620,22 +691,6 @@ function applySegment(caData) {
     else document.getElementById('top30Card').style.display = 'none';
   } else {
     document.getElementById('top30Card').style.display = 'none';
-  }
-
-  // Répartition type client
-  const typeClientCard2 = document.getElementById('typeClientPieChart')?.closest('.metric-card');
-  if (seg === 'b2c') {
-    if (typeClientCard2) typeClientCard2.style.display = 'none';
-  } else {
-    if (typeClientCard2) typeClientCard2.style.display = '';
-    if (seg === 'b2b' && lastCaData._caByType) {
-      const caByTypeB2B = Object.fromEntries(
-        Object.entries(lastCaData._caByType).filter(([k]) => k !== 'Non catégorisé')
-      );
-      renderTypeClientPieChart(caByTypeB2B);
-    } else if (lastCaData._caByType && Object.keys(lastCaData._caByType).length > 0) {
-      renderTypeClientPieChart(lastCaData._caByType);
-    }
   }
 }
 
@@ -661,7 +716,6 @@ function loadBudgetLocal() {
 }
 loadBudgetLocal();
 
-// Notes
 let notesPermanent = '';
 let notesMonths = Array(12).fill('');
 
@@ -676,15 +730,12 @@ loadNotes();
 
 function openNotesModal() {
   document.getElementById('notesPermanentInput').value = notesPermanent;
-  
-  // Mois finalisés
   const finGrid = document.getElementById('finalizedMonthsGrid');
   finGrid.innerHTML = months.map((m, i) =>
     '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;padding:6px 8px;border:1px solid ' + (finalizedMonths[i] ? '#1D9E75' : '#ddd') + ';border-radius:6px;background:' + (finalizedMonths[i] ? '#f0faf6' : 'white') + ';">' +
     '<input type="checkbox" id="finalized_' + i + '" ' + (finalizedMonths[i] ? 'checked' : '') + ' style="accent-color:#1D9E75;" />' +
     m + '</label>'
   ).join('');
-
   const grid = document.getElementById('notesMonthsGrid');
   grid.innerHTML = months.map((m, i) => `
     <div style="display:grid;grid-template-columns:80px 1fr;gap:8px;align-items:center;">
@@ -731,6 +782,7 @@ function updateBanners(monthIndex) {
     month.style.display = 'none';
   }
 }
+
 function openBudgetModal() {
   const grid = document.getElementById('budgetGrid');
   grid.innerHTML = `
@@ -1127,6 +1179,7 @@ async function loadData() {
   currentTotalCA = 0;
   document.getElementById('top30Body').innerHTML = '';
   document.getElementById('top30Card').style.display = 'none';
+  document.getElementById('pharmacyBreakdownCard').style.display = 'none';
 
   try {
     const caResp = await fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=total`);
@@ -1184,12 +1237,12 @@ async function loadData() {
     setStatus('ok', 'Données à jour');
 
   } catch(e) {
-    console.error('ERREUR DETAIL:', e.stack || e.message, e);
     setStatus('err', 'Erreur');
     document.getElementById('errorBox').style.display = 'block';
-    document.getElementById('errorBox').textContent = 'Erreur : ' + e.message + ' — ' + (e.stack || '').split('\n')[1];
+    document.getElementById('errorBox').textContent = 'Erreur : ' + e.message;
   }
 }
+
 let finLineChartInstance = null;
 let finBarChartInstance = null;
 
@@ -1225,7 +1278,6 @@ async function loadFinancierCharts(year, upToMonth) {
     }
   }
 
-  // Graphique courbes
   const ctx1 = document.getElementById('finLineChart').getContext('2d');
   if (finLineChartInstance) finLineChartInstance.destroy();
   const datasets = [
@@ -1250,21 +1302,13 @@ async function loadFinancierCharts(year, upToMonth) {
   });
   document.getElementById('finChartCard').style.display = 'block';
 
-  // Graphique barres taux de réalisation
   if (year === 2026 && budEBITDAData.some(v => v > 0)) {
     const ctx2 = document.getElementById('finBarChart').getContext('2d');
     if (finBarChartInstance) finBarChartInstance.destroy();
-
     const pctEBITDA = labels.map((_, i) => budEBITDAData[i] > 0 ? Math.round((ebitdaData[i] / budEBITDAData[i]) * 100) : null);
-
     finBarChartInstance = new Chart(ctx2, {
       type: 'bar',
-      data: {
-        labels,
-        datasets: [
-          { label: '% EBITDA vs Budget', data: pctEBITDA, backgroundColor: pctEBITDA.map(p => p >= 100 ? '#1D9E75' : '#D85A30'), borderRadius: 4 },
-        ]
-      },
+      data: { labels, datasets: [{ label: '% EBITDA vs Budget', data: pctEBITDA, backgroundColor: pctEBITDA.map(p => p >= 100 ? '#1D9E75' : '#D85A30'), borderRadius: 4 }] },
       options: {
         responsive: true, maintainAspectRatio: false,
         plugins: {
@@ -1283,7 +1327,6 @@ async function loadFinancierCharts(year, upToMonth) {
   }
 }
 
-// ============ MOIS FINALISÉS PENNYLANE ============
 let finalizedMonths = Array(12).fill(false);
 
 function loadFinalizedMonths() {
@@ -1314,7 +1357,6 @@ function loadFinancierChecked() {
   loadFinancier();
 }
 
-// ============ VUE SWITCHER ============
 let currentView = 'business';
 
 function switchView(view) {
@@ -1327,7 +1369,6 @@ function switchView(view) {
   document.getElementById('navFinancier').style.color = view === 'financier' ? 'white' : '#666';
 }
 
-// ============ VUE FINANCIER ============
 let finCurrentMode = 'month';
 
 const DEFAULT_BUDGET_CM1 = [0,0,0,0,0,0,0,0,0,0,0,0];
