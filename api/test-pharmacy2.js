@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   try {
     const currentYear = new Date().getFullYear();
 
-    // Même clé que sellsy.js
+    // Même dictionnaire que sellsy.js
     const companyTypeMap = await cacheGet('sellsy:companies:type_client:v2') || {};
     const pharmacyIds = Object.entries(companyTypeMap)
       .filter(([_, type]) => type === 'Pharmacie')
@@ -39,11 +39,20 @@ export default async function handler(req, res) {
 
     // 20 premières factures de l'année en cours
     const r = await fetch(
-      `https://api.sellsy.com/v2/invoices/search?limit=20&offset=0` +
-      `&field[]=subject&field[]=amounts.total_excl_tax&field[]=related` +
-      `&filters[status][]=sent&filters[status][]=viewed&filters[status][]=partial&filters[status][]=paid` +
-      `&filters[created][after]=${currentYear}-01-01&filters[created][before]=${currentYear}-12-31`,
-      { headers: { Authorization: `Bearer ${access_token}` } }
+      `https://api.sellsy.com/v2/invoices/search?limit=20&offset=0&field[]=subject&field[]=amounts.total_excl_tax&field[]=related`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          filters: {
+            date: { start: `${currentYear}-01-01`, end: `${currentYear}-12-31` },
+            status: ['payinprogress', 'due', 'paid', 'late', 'cancelled']
+          }
+        })
+      }
     );
     const data = await r.json();
     const items = data?.data || [];
