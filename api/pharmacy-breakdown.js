@@ -37,7 +37,7 @@ export default async function handler(req, res) {
     if (s.includes('implant')) return 'Implantation';
     if (s.includes('preco')) return 'Précommandes';
     if (s.includes('reassort') || s.includes('ug')) return 'Réassort';
-    if (s.includes('dotation') || s.includes('marketing') || s.includes('seminaire') || s.includes('animation')) return 'Coffrets';
+    if (s.includes('dotation') || s.includes('marketing') || s.includes('seminaire') || s.includes('animation')) return 'Coffres';
     return null;
   }
 
@@ -81,7 +81,7 @@ export default async function handler(req, res) {
     const companyTypeMap = await cacheGet('sellsy:companies:type_client:v2') || {};
 
     async function fetchAndAggregate(start, end) {
-      const totals = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffrets: 0, 'Non catégorisé': 0 };
+      const totals = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0, 'Non catégorisé': 0 };
       let offset = 0;
 
       while (true) {
@@ -123,7 +123,7 @@ export default async function handler(req, res) {
         Implantation: Math.round(totals.Implantation * 100) / 100,
         Précommandes: Math.round(totals.Précommandes * 100) / 100,
         Réassort: Math.round(totals.Réassort * 100) / 100,
-        Coffrets: Math.round(totals.Coffrets * 100) / 100,
+        Coffres: Math.round(totals.Coffrets * 100) / 100,
         'Non catégorisé': Math.round(totals['Non catégorisé'] * 100) / 100,
       };
     }
