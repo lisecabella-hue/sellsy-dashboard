@@ -43,9 +43,9 @@ export default async function handler(req, res) {
 
   function getCacheTTL(dateStart, dateEnd) {
     const now = new Date();
+    const endDate = new Date(dateEnd);
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;
-    const endDate = new Date(dateEnd);
     const endYear = endDate.getFullYear();
     const endMonth = endDate.getMonth() + 1;
     if (endYear === currentYear && endMonth === currentMonth) return 3600;
@@ -62,7 +62,7 @@ export default async function handler(req, res) {
     const prevDateStart = dateStart.replace(String(currentYear), String(prevYear));
     const prevDateEnd = dateEnd.replace(String(currentYear), String(prevYear));
 
-    const cacheKey = `sellsy:pharmacy-breakdown:v2:${dateStart}:${dateEnd}`;
+    const cacheKey = `sellsy:pharmacy-breakdown:v3:${dateStart}:${dateEnd}`;
     const ttl = getCacheTTL(dateStart, dateEnd);
     const cached = await cacheGet(cacheKey);
     if (cached) return res.status(200).json({ ...cached, _fromCache: true });
@@ -82,17 +82,16 @@ export default async function handler(req, res) {
 
     async function fetchAndAggregate(start, end) {
       const totals = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0, 'Non catégorisé': 0 };
+      const counts = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0, 'Non catégorisé': 0 };
       let offset = 0;
+      let totalPharmacyInvoices = 0;
 
       while (true) {
         const r = await fetch(
           `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}`,
           {
             method: 'POST',
-            headers: {
-              Authorization: `Bearer ${access_token}`,
-              'Content-Type': 'application/json'
-            },
+            headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
               filters: {
                 date: { start, end },
@@ -109,8 +108,11 @@ export default async function handler(req, res) {
             rel => companyTypeMap[String(rel.id)] === 'Pharmacie'
           );
           if (!isPharmacy) continue;
+          totalPharmacyInvoices++;
           const cat = categorize(inv.subject) || 'Non catégorisé';
-          totals[cat] += parseFloat(inv.amounts?.total_excl_tax || 0);
+          const amount = parseFloat(inv.amounts?.total_excl_tax || 0);
+          totals[cat] += amount;
+          counts[cat]++;
         }
 
         const total = data?.pagination?.total || 0;
@@ -119,12 +121,30 @@ export default async function handler(req, res) {
         await sleep(300);
       }
 
+      // Calcul panier moyen par catégorie
+      const panierMoyen = {};
+      for (const cat of Object.keys(totals)) {
+        panierMoyen[cat] = counts[cat] > 0 ? Math.round((totals[cat] / counts[cat]) * 100) / 100 : 0;
+      }
+
       return {
-        Implantation: Math.round(totals.Implantation * 100) / 100,
-        Précommandes: Math.round(totals.Précommandes * 100) / 100,
-        Réassort: Math.round(totals.Réassort * 100) / 100,
-        Coffres: Math.round(totals.Coffrets * 100) / 100,
-        'Non catégorisé': Math.round(totals['Non catégorisé'] * 100) / 100,
+        montants: {
+          Implantation: Math.round(totals.Implantation * 100) / 100,
+          Précommandes: Math.round(totals.Précommandes * 100) / 100,
+          Réassort: Math.round(totals.Réassort * 100) / 100,
+          Coffres: Math.round(totals.Coffres * 100) / 100,
+          'Non catégorisé': Math.round(totals['Non catégorisé'] * 100) / 100,
+        },
+        counts,
+        panierMoyen,
+        totalPharmacyInvoices,
+        // KPIs réassort
+        tauxReassort: totalPharmacyInvoices > 0
+          ? Math.round((counts['Réassort'] / totalPharmacyInvoices) * 10000) / 100
+          : 0,
+        panierMoyenReassort: counts['Réassort'] > 0
+          ? Math.round((totals['Réassort'] / counts['Réassort']) * 100) / 100
+          : 0,
       };
     }
 
