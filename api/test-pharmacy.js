@@ -1,4 +1,9 @@
-const { redisGet } = require('./cache');
+const { Redis } = require('@upstash/redis');
+
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
 async function getSellsyToken() {
   const res = await fetch('https://login.sellsy.com/oauth2/access-tokens', {
@@ -16,13 +21,13 @@ async function getSellsyToken() {
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
- 
+
   try {
     const token = await getSellsyToken();
     const currentYear = new Date().getFullYear();
 
-    // Charge le dictionnaire pharmacies depuis le cache
-    const companyTypeMap = await redisGet('sellsy:companies:type_client:v1') || {};
+    // Charge le dictionnaire pharmacies directement depuis Redis
+    const companyTypeMap = await redis.get('sellsy:companies:type_client:v1') || {};
     const pharmacyIds = Object.entries(companyTypeMap)
       .filter(([_, type]) => type === 'Pharmacie')
       .map(([id]) => id);
@@ -38,7 +43,6 @@ module.exports = async (req, res) => {
     const data = await r.json();
     const items = data?.data || [];
 
-    // Pour chaque facture, indique si elle est pharmacie + la catégorie détectée
     const debug = items.map(inv => {
       const companyId = String(inv.related?.[0]?.id || '');
       const isPharmacy = pharmacyIds.includes(companyId);
