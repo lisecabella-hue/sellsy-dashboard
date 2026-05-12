@@ -41,11 +41,29 @@ export default async function handler(req, res) {
     return null;
   }
 
-  try {
-    const currentYear = new Date().getFullYear();
-    const prevYear = currentYear - 1;
+  function getCacheTTL(dateStart, dateEnd) {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    const endDate = new Date(dateEnd);
+    const endYear = endDate.getFullYear();
+    const endMonth = endDate.getMonth() + 1;
+    if (endYear === currentYear && endMonth === currentMonth) return 3600;
+    if (endDate < now) return 60 * 60 * 24 * 30;
+    return 3600;
+  }
 
-    const cacheKey = `sellsy:pharmacy-breakdown:v2:${currentYear}`;
+  try {
+    const { dateStart, dateEnd } = req.query;
+    if (!dateStart || !dateEnd) return res.status(400).json({ error: 'dateStart and dateEnd required' });
+
+    const currentYear = new Date(dateStart).getFullYear();
+    const prevYear = currentYear - 1;
+    const prevDateStart = dateStart.replace(String(currentYear), String(prevYear));
+    const prevDateEnd = dateEnd.replace(String(currentYear), String(prevYear));
+
+    const cacheKey = `sellsy:pharmacy-breakdown:v2:${dateStart}:${dateEnd}`;
+    const ttl = getCacheTTL(dateStart, dateEnd);
     const cached = await cacheGet(cacheKey);
     if (cached) return res.status(200).json({ ...cached, _fromCache: true });
 
@@ -62,7 +80,7 @@ export default async function handler(req, res) {
 
     const companyTypeMap = await cacheGet('sellsy:companies:type_client:v2') || {};
 
-    async function fetchAndAggregate(year) {
+    async function fetchAndAggregate(start, end) {
       const totals = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffrets: 0, 'Non catégorisé': 0 };
       let offset = 0;
 
@@ -77,7 +95,7 @@ export default async function handler(req, res) {
             },
             body: JSON.stringify({
               filters: {
-                date: { start: `${year}-01-01`, end: `${year}-12-31` },
+                date: { start, end },
                 status: ['payinprogress', 'due', 'paid', 'late', 'cancelled']
               }
             })
@@ -111,12 +129,12 @@ export default async function handler(req, res) {
     }
 
     const [N, N1] = await Promise.all([
-      fetchAndAggregate(currentYear),
-      fetchAndAggregate(prevYear),
+      fetchAndAggregate(dateStart, dateEnd),
+      fetchAndAggregate(prevDateStart, prevDateEnd),
     ]);
 
-    const result = { currentYear, prevYear, N, N1 };
-    await cacheSet(cacheKey, result, 3600);
+    const result = { currentYear, prevYear, N, N1, dateStart, dateEnd, prevDateStart, prevDateEnd };
+    await cacheSet(cacheKey, result, ttl);
     return res.status(200).json(result);
 
   } catch (err) {
