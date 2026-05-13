@@ -200,16 +200,17 @@ export default async function handler(req, res) {
     return { month, year, totalCA: result._totalCA, count: result._count, invoicesTotal: total };
   }
 
-// Liste des mois à couvrir : jan-mai 2025 + jan-avril 2026 (pas le mois en cours)
-const targetMonths = [];
-for (let m = 0; m <= 4; m++) targetMonths.push({ year: 2025, month: m });
-for (let m = 0; m <= 3; m++) targetMonths.push({ year: 2026, month: m });
+  // Liste des mois à couvrir : jan-mai 2025 + jan-avr 2026
+  const targetMonths = [];
+  for (let m = 0; m <= 4; m++) targetMonths.push({ year: 2025, month: m });
+  for (let m = 0; m <= 3; m++) targetMonths.push({ year: 2026, month: m });
 
-  // Rotation : 3 mois par passage selon l'heure UTC
+  // 1 mois par passage selon l'heure UTC
+  // 1h→jan2025, 2h→fév2025, 3h→mar2025, 4h→avr2025, 5h→mai2025
+  // 6h→jan2026, 7h→fév2026, 8h→mar2026, 9h→avr2026
   const hourUTC = now.getUTCHours();
-  // 1h → index 0-2, 3h → index 3-5, 5h → index 6-8
-  const slotIndex = hourUTC <= 1 ? 0 : hourUTC <= 3 ? 3 : 6;
-  const monthsToRefresh = targetMonths.slice(slotIndex, slotIndex + 3);
+  const slotIndex = hourUTC - 1; // 1h=0, 2h=1, ... 9h=8
+  const monthsToRefresh = targetMonths.slice(slotIndex, slotIndex + 1);
 
   const results = [];
   for (const { year, month } of monthsToRefresh) {
