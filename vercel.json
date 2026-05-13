@@ -9,6 +9,11 @@
     { "src": "/(.*)", "dest": "/public/$1" },
     { "src": "/", "dest": "/public/index.html" }
   ],
+  "functions": {
+    "api/cron.js": {
+      "maxDuration": 900
+    }
+  },
   "crons": [
     {
       "path": "/api/cron",
