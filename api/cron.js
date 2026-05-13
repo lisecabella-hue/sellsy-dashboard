@@ -1,4 +1,4 @@
-export const maxDuration = 60;
+export const maxDuration = 900;
 
 export default async function handler(req, res) {
   const clientId = process.env.SELLSY_CLIENT_ID;
