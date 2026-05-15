@@ -80,6 +80,8 @@ export default async function handler(req, res) {
     const { access_token } = await tokenResp.json();
 
     const companyTypeMap = await cacheGet('sellsy:companies:type_client:v2') || {};
+    console.log('companyTypeMap size:', Object.keys(companyTypeMap).length);
+    console.log('sample:', JSON.stringify(Object.entries(companyTypeMap).slice(0, 3)));
 
     async function fetchAndAggregate(start, end) {
       const totals = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0, 'Non catégorisé': 0 };
