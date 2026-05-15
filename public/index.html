@@ -603,9 +603,8 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
     const data = await resp.json();
 
     const N = data.N || {};
-    const montants = N.montants || N; // compatibilité ancienne/nouvelle structure
+    const montants = N.montants || N;
 
-    // KPIs réassort
     document.getElementById('pharmacyTauxReassort').textContent =
       N.tauxReassort !== undefined ? `${N.tauxReassort.toFixed(1)}%` : '—';
     document.getElementById('pharmacyPanierReassort').textContent =
@@ -613,7 +612,6 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
 
     pharmacyChartN = renderPharmacyDonut('pharmacyDonutN', montants, pharmacyChartN);
 
-    // Légende avec % d'atteinte budget
     const total = Object.values(montants).reduce((a, b) => a + b, 0);
     const legend = document.getElementById('pharmacyLegend');
     legend.innerHTML = Object.keys(PHARMACY_COLORS).map(cat => {
@@ -732,11 +730,9 @@ function applySegment(caData) {
     if (avgB2BCard) avgB2BCard.style.display = '';
     if (caB2BCard) caB2BCard.style.display = '';
     if (typeClientRow) typeClientRow.style.display = '';
-    // Affiche le graphique pharmacies
     const dates = getDates();
     if (dates) loadPharmacyBreakdown(dates.dateStart, dates.dateEnd);
   } else {
-    // Cache le graphique pharmacies
     if (pharmacyCard) pharmacyCard.style.display = 'none';
     if (seg === 'b2c') {
       if (avgB2BCard) avgB2BCard.style.display = 'none';
@@ -755,14 +751,14 @@ function applySegment(caData) {
     }
   }
 
-  // Répartition type client
   if (seg === 'b2c') {
     if (typeClientCard2) typeClientCard2.style.display = 'none';
   } else {
     if (typeClientCard2) typeClientCard2.style.display = '';
     if (seg === 'b2b' && lastCaData._caByType) {
+      // En B2B, on exclut la catégorie B2C (anciennement "Non catégorisé")
       const caByTypeB2B = Object.fromEntries(
-        Object.entries(lastCaData._caByType).filter(([k]) => k !== 'Non catégorisé')
+        Object.entries(lastCaData._caByType).filter(([k]) => k !== 'B2C')
       );
       renderTypeClientPieChart(caByTypeB2B);
     } else if (lastCaData._caByType && Object.keys(lastCaData._caByType).length > 0) {
@@ -770,7 +766,6 @@ function applySegment(caData) {
     }
   }
 
-  // Top 30
   if (seg === 'b2c') {
     document.getElementById('top30Title').textContent = '🏆 Top 30 clients B2C';
     document.getElementById('top30PctHeader').textContent = '% du CA B2C';
@@ -1127,7 +1122,6 @@ function renderPieChart(caB2C, caB2B) {
     }]
   });
 
-  // Légende avec budget
   const dates = getDates();
   const budB2C = dates ? getBudgetB2CForPeriod(dates.dateStart, dates.dateEnd) : 0;
   const budB2B = dates ? getBudgetB2BForPeriod(dates.dateStart, dates.dateEnd) : 0;
@@ -1196,7 +1190,7 @@ const TYPE_CLIENT_COLORS = {
   'Marketing':    '#74A1D6',
   'Grand Compte': '#D85A30',
   'Autre':        '#F5A623',
-  'Non catégorisé': '#bbb'
+  'B2C':          '#bbb'
 };
 const TYPE_CLIENT_BUDGET_CATS = ['Pharmacie', 'Monoprix', 'Marketing', 'Grand Compte'];
 let budgetTypeClient = {};
@@ -1279,7 +1273,6 @@ function renderTypeClientPieChart(caByType) {
     }]
   });
 
-  // Légende avec % d'atteinte budget
   const legendEl = document.getElementById('typeClientLegend');
   legendEl.innerHTML = labels.map(cat => {
     const val = caByType[cat] || 0;
@@ -1650,7 +1643,6 @@ function openBudgetModalWithFin() {
   openBudgetModal();
   const grid = document.getElementById('budgetGrid');
 
-  // Section financier
   const finSection = document.createElement('div');
   finSection.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
   finSection.innerHTML = '<p style="font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px;">💰 Budgets Financier (k€)</p>' +
@@ -1670,7 +1662,6 @@ function openBudgetModalWithFin() {
     ).join('');
   grid.appendChild(finSection);
 
-  // Section budget pharmacies
   const pharmSection = document.createElement('div');
   pharmSection.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
   const pharmCols = PHARMACY_CATS.map(c => `<span style="font-size:11px;color:${PHARMACY_COLORS[c]};font-weight:600;text-align:center;">${c} (k€)</span>`).join('');
@@ -1686,7 +1677,6 @@ function openBudgetModalWithFin() {
     </div>${pharmInputs}`;
   grid.appendChild(pharmSection);
 
-  // Section budget type client
   const tcSection = document.createElement('div');
   tcSection.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
   const tcCols = TYPE_CLIENT_BUDGET_CATS.map(c => `<span style="font-size:11px;color:${TYPE_CLIENT_COLORS[c]};font-weight:600;text-align:center;">${c} (k€)</span>`).join('');
@@ -1711,12 +1701,10 @@ function saveBudgetWithFin() {
   localStorage.setItem('budgetCM12026', JSON.stringify(budgetCM12026));
   localStorage.setItem('budgetCM22026', JSON.stringify(budgetCM22026));
   localStorage.setItem('budgetEBITDA2026', JSON.stringify(budgetEBITDA2026));
-  // Sauvegarde budget pharmacies
   PHARMACY_CATS.forEach(cat => {
     budgetPharmacy[cat] = months.map((_, i) => parseFloat(document.getElementById(`budgetPharmacy_${cat}_${i}`)?.value) || 0);
   });
   savePharmacyBudget();
-  // Sauvegarde budget type client
   TYPE_CLIENT_BUDGET_CATS.forEach(cat => {
     budgetTypeClient[cat] = months.map((_, i) => parseFloat(document.getElementById(`budgetTC_${cat}_${i}`)?.value) || 0);
   });
