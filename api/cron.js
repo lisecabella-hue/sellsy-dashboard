@@ -129,10 +129,18 @@ export default async function handler(req, res) {
     const invoicesB2C = filteredInvoices.filter(inv => inv.rate_category_id === B2C_CATEGORY_ID);
     const invoicesB2B = filteredInvoices.filter(inv => inv.rate_category_id !== B2C_CATEGORY_ID);
 
+    function classifyClient(inv) {
+      if (inv.rate_category_id === B2C_CATEGORY_ID) return 'B2C';
+      const companyId = inv.related?.[0]?.id;
+      if (companyId && companyTypeMap[companyId]) return companyTypeMap[companyId];
+      const name = (inv.company_name || '').toLowerCase();
+      if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement')) return 'Pharmacie';
+      return 'Autre';
+    }
+
     const caByType = {};
     for (const inv of filteredInvoices) {
-      const companyId = inv.related?.[0]?.id;
-      const typeClient = (companyId && companyTypeMap[companyId]) || 'B2C';
+      const typeClient = classifyClient(inv);
       const amount = parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0);
       if (!caByType[typeClient]) caByType[typeClient] = 0;
       caByType[typeClient] += amount;
