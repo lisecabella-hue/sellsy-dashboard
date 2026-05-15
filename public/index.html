@@ -222,7 +222,7 @@
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:24px;">
       <div class="chart-card" style="margin-bottom:0;">
         <div class="chart-header" style="margin-bottom:12px;">
-          <p class="chart-title">Répartition CA B2C vs B2B</p>
+          <p class="chart-title" id="pieChartTitle">Répartition CA B2C vs B2B</p>
         </div>
         <div style="display:flex; align-items:center; justify-content:center; gap:24px; flex-wrap:wrap;">
           <div style="position:relative; width:180px; height:180px; flex-shrink:0;">
@@ -738,6 +738,14 @@ function applySegment(caData) {
   renderPieChart(caB2C, caB2B);
   currentTotalCA = ca;
 
+  // Titre du graphique selon le segment
+  const pieTitle = document.getElementById('pieChartTitle');
+  if (pieTitle) {
+    if (seg === 'b2b') pieTitle.textContent = 'Répartition CA B2B par type de client';
+    else if (seg === 'b2c') pieTitle.textContent = 'Répartition CA B2C par canal';
+    else pieTitle.textContent = 'Répartition CA par type de client';
+  }
+
   const mainCACard = document.getElementById('mCA')?.closest('.metric-card');
   const avgB2CCard = document.getElementById('mAvgB2C')?.closest('.metric-card');
   const avgB2BCard = document.getElementById('mAvgB2B')?.closest('.metric-card');
@@ -786,12 +794,23 @@ function applySegment(caData) {
 
   if (seg === 'b2c') {
     if (typeClientCard2) typeClientCard2.style.display = 'none';
+    if (typeClientRow) typeClientRow.style.display = '';
+    // En B2C : B2C + Outlet uniquement
+    if (lastCaData._caByType) {
+      const B2C_CATS = ['B2C', 'Outlet'];
+      const caByTypeB2C = Object.fromEntries(
+        Object.entries(lastCaData._caByType).filter(([k]) => B2C_CATS.includes(k))
+      );
+      document.getElementById('typeClientSubtitle').textContent = 'Période sélectionnée';
+      renderTypeClientPieChart(caByTypeB2C);
+    }
   } else {
     if (typeClientCard2) typeClientCard2.style.display = '';
     if (seg === 'b2b' && lastCaData._caByType) {
-      // En B2B, on exclut la catégorie B2C (anciennement "Non catégorisé")
+      // En B2B : Pharmacie, Grand Compte, Monoprix uniquement
+      const B2B_CATS = ['Pharmacie', 'Grand Compte', 'Monoprix'];
       const caByTypeB2B = Object.fromEntries(
-        Object.entries(lastCaData._caByType).filter(([k]) => k !== 'B2C')
+        Object.entries(lastCaData._caByType).filter(([k]) => B2B_CATS.includes(k))
       );
       renderTypeClientPieChart(caByTypeB2B);
     } else if (lastCaData._caByType && Object.keys(lastCaData._caByType).length > 0) {
@@ -1112,21 +1131,33 @@ function getDates() {
 function renderPieChart(caB2C, caB2B) {
   const ctx = document.getElementById('b2cPieChart').getContext('2d');
   if (pieChartInstance) pieChartInstance.destroy();
-  const total = caB2C + caB2B;
-  const pctB2C = total > 0 ? Math.round((caB2C / total) * 100) : 0;
-  const pctB2B = total > 0 ? Math.round((caB2B / total) * 100) : 0;
+
+  const seg = currentSegment;
+  const caByType = (lastCaData && lastCaData._caByType) || {};
+
+  // Définir les catégories à afficher selon le segment
+  const B2B_CATS = ['Pharmacie', 'Grand Compte', 'Monoprix'];
+  const B2C_CATS = ['B2C', 'Outlet'];
+  const ALL_ORDER = ['Pharmacie', 'Grand Compte', 'Monoprix', 'B2C', 'Outlet', 'Marketing', 'Autre'];
+
+  let catsToShow;
+  if (seg === 'b2b') catsToShow = B2B_CATS;
+  else if (seg === 'b2c') catsToShow = B2C_CATS;
+  else catsToShow = ALL_ORDER;
+
+  const labels = catsToShow.filter(k => (caByType[k] || 0) > 0);
+  const values = labels.map(k => caByType[k] || 0);
+  const total = values.reduce((a, b) => a + b, 0);
+  const colors = labels.map(l => TYPE_CLIENT_COLORS[l] || '#aaa');
 
   pieChartInstance = new Chart(ctx, {
     type: 'doughnut',
-    data: {
-      labels: ['B2C (Shopify)', 'B2B'],
-      datasets: [{ data: [caB2C, caB2B], backgroundColor: ['#74A1D6', '#1D9E75'], borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }]
-    },
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }] },
     options: {
       responsive: false, cutout: '58%',
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmt(ctx.raw)} (${Math.round((ctx.raw/total)*100)}%)` } }
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmt(ctx.raw)} (${total > 0 ? Math.round((ctx.raw/total)*100) : 0}%)` } }
       }
     },
     plugins: [{
@@ -1155,31 +1186,39 @@ function renderPieChart(caB2C, caB2B) {
     }]
   });
 
+  // Légende avec budget B2C/B2B pour vue Total, sinon sans budget
   const dates = getDates();
   const budB2C = dates ? getBudgetB2CForPeriod(dates.dateStart, dates.dateEnd) : 0;
   const budB2B = dates ? getBudgetB2BForPeriod(dates.dateStart, dates.dateEnd) : 0;
 
-  function legendItem(label, val, pct, color, budVal) {
-    const budPct = budVal > 0 ? Math.round(((val / 1000) / budVal) * 100) : null;
-    const budColor = budPct === null ? '#888' : budPct >= 100 ? '#1D9E75' : '#D85A30';
-    const budText = budPct !== null
-      ? `<span style="color:${budColor};font-weight:600;">${budPct}% du budget</span>`
-      : `<span style="color:#bbb;">Pas de budget</span>`;
+  function legendItem(label, val, color) {
+    const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+    // Budget uniquement pour B2C global et B2B global en vue Total
+    let budText = '';
+    if (seg === 'total' && label === 'B2C' && budB2C > 0) {
+      const budPct = Math.round(((val / 1000) / budB2C) * 100);
+      const budColor = budPct >= 100 ? '#1D9E75' : '#D85A30';
+      budText = `<div style="font-size:11px;padding-left:20px;"><span style="color:${budColor};font-weight:600;">${budPct}% du budget</span></div>`;
+    } else if (seg === 'b2c' && label === 'B2C' && budB2C > 0) {
+      const budPct = Math.round(((val / 1000) / budB2C) * 100);
+      const budColor = budPct >= 100 ? '#1D9E75' : '#D85A30';
+      budText = `<div style="font-size:11px;padding-left:20px;"><span style="color:${budColor};font-weight:600;">${budPct}% du budget B2C</span></div>`;
+    } else if (seg === 'b2b' && budB2B > 0 && ['Pharmacie','Grand Compte','Monoprix'].includes(label)) {
+      budText = `<div style="font-size:11px;padding-left:20px;"><span style="color:#bbb;">Pas de budget</span></div>`;
+    }
     return `<div style="display:flex;flex-direction:column;gap:3px;">
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="width:12px;height:12px;border-radius:3px;background:${color};display:inline-block;flex-shrink:0;"></span>
         <span style="font-size:13px;font-weight:500;">${label}</span>
         <span style="font-size:12px;color:#888;">${pct}% — ${fmt(val)}</span>
       </div>
-      <div style="font-size:11px;padding-left:20px;">${budText}</div>
+      ${budText}
     </div>`;
   }
 
   const legendEl = document.getElementById('b2cB2BLegend');
   if (legendEl) {
-    legendEl.innerHTML =
-      legendItem('B2C', caB2C, pctB2C, '#74A1D6', budB2C) +
-      legendItem('B2B', caB2B, pctB2B, '#1D9E75', budB2B);
+    legendEl.innerHTML = labels.map(l => legendItem(l, caByType[l] || 0, TYPE_CLIENT_COLORS[l] || '#aaa')).join('');
   }
 }
 
@@ -1222,6 +1261,7 @@ const TYPE_CLIENT_COLORS = {
   'Monoprix':     '#1D9E75',
   'Marketing':    '#74A1D6',
   'Grand Compte': '#D85A30',
+  'Outlet':       '#9B59B6',
   'Autre':        '#F5A623',
   'B2C':          '#bbb'
 };
