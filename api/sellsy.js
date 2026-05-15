@@ -341,15 +341,22 @@ export default async function handler(req, res) {
       caByType[key] = Math.round(caByType[key] * 100) / 100;
     }
 
+    // B2C = B2C + Outlet, B2B = Pharmacie + Grand Compte + Monoprix
+    const B2C_TYPES = ['B2C', 'Outlet'];
+    const B2B_TYPES = ['Pharmacie', 'Grand Compte', 'Monoprix'];
+
+    const invoicesB2CNew = filteredInvoices.filter(inv => B2C_TYPES.includes(classifyClient(inv)));
+    const invoicesB2BNew = filteredInvoices.filter(inv => B2B_TYPES.includes(classifyClient(inv)));
+
     const totalCA = filteredInvoices.reduce((acc, inv) =>
       acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
-    const totalCAB2C = invoicesB2C.reduce((acc, inv) =>
+    const totalCAB2C = invoicesB2CNew.reduce((acc, inv) =>
       acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
-    const totalCAB2B = invoicesB2B.reduce((acc, inv) =>
+    const totalCAB2B = invoicesB2BNew.reduce((acc, inv) =>
       acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
 
     const b2bByClient = {};
-    for (const inv of invoicesB2B) {
+    for (const inv of invoicesB2BNew) {
       const name = inv.company_name || 'Inconnu';
       const amount = parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0);
       if (!b2bByClient[name]) b2bByClient[name] = { ca: 0, nbFactures: 0 };
@@ -362,7 +369,7 @@ export default async function handler(req, res) {
       .slice(0, 30);
 
     const b2cByClient = {};
-    for (const inv of invoicesB2C) {
+    for (const inv of invoicesB2CNew) {
       const name = inv.company_name || 'Inconnu';
       const amount = parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0);
       if (!b2cByClient[name]) b2cByClient[name] = { ca: 0, nbFactures: 0 };
@@ -381,7 +388,7 @@ export default async function handler(req, res) {
     const fetchCreditPage = async (offset) => {
       for (let attempt = 0; attempt < 3; attempt++) {
         const resp = await fetch(
-          `https://api.sellsy.com/v2/credit-notes/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=rate_category_id&field[]=related`,
+          `https://api.sellsy.com/v2/credit-notes/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=rate_category_id&field[]=company_name&field[]=related`,
           {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
@@ -408,8 +415,8 @@ export default async function handler(req, res) {
       }
     }
 
-    const creditsB2C = allCredits.filter(c => c.rate_category_id === B2C_CATEGORY_ID);
-    const creditsB2B = allCredits.filter(c => c.rate_category_id !== B2C_CATEGORY_ID);
+    const creditsB2C = allCredits.filter(c => B2C_TYPES.includes(classifyClient(c)));
+    const creditsB2B = allCredits.filter(c => B2B_TYPES.includes(classifyClient(c)));
 
     const totalAvoirsCA = allCredits.reduce((acc, c) =>
       acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
@@ -417,15 +424,6 @@ export default async function handler(req, res) {
       acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
     const totalAvoirsB2B = creditsB2B.reduce((acc, c) =>
       acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
-
-    const avoirsByType = {};
-    for (const credit of allCredits) {
-      const companyId = credit.related?.[0]?.id;
-      const typeClient = (companyId && companyTypeMap[companyId]) || 'B2C';
-      const amount = parseFloat((credit.amounts && credit.amounts.total_excl_tax) || 0);
-      if (!avoirsByType[typeClient]) avoirsByType[typeClient] = 0;
-      avoirsByType[typeClient] += amount;
-    }
 
     const result = {
       _totalCA: Math.round(totalCA * 100) / 100,
@@ -436,10 +434,10 @@ export default async function handler(req, res) {
       _totalCAB2B: Math.round(totalCAB2B * 100) / 100,
       _totalCAB2CNet: Math.round((totalCAB2C - totalAvoirsB2C) * 100) / 100,
       _totalCAB2BNet: Math.round((totalCAB2B - totalAvoirsB2B) * 100) / 100,
-      _countB2C: invoicesB2C.length,
-      _countB2B: invoicesB2B.length,
-      _panierMoyenB2C: invoicesB2C.length > 0 ? Math.round((totalCAB2C / invoicesB2C.length) * 100) / 100 : 0,
-      _panierMoyenB2B: invoicesB2B.length > 0 ? Math.round((totalCAB2B / invoicesB2B.length) * 100) / 100 : 0,
+      _countB2C: invoicesB2CNew.length,
+      _countB2B: invoicesB2BNew.length,
+      _panierMoyenB2C: invoicesB2CNew.length > 0 ? Math.round((totalCAB2C / invoicesB2CNew.length) * 100) / 100 : 0,
+      _panierMoyenB2B: invoicesB2BNew.length > 0 ? Math.round((totalCAB2B / invoicesB2BNew.length) * 100) / 100 : 0,
       _count: allInvoices.length,
       _countAvoirs: allCredits.length,
       _caByType: caByType,
