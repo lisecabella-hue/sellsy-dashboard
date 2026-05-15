@@ -208,7 +208,7 @@ export default async function handler(req, res) {
           if (!isPharmacy) continue;
 
           totalPharmacyInvoices++;
-          const cat = categorize(inv.subject) || 'Non catégorisé';
+          const cat = categorize(inv.subject);
           const amount = parseFloat(inv.amounts?.total_excl_tax || 0);
           totals[cat] += amount;
           counts[cat]++;
@@ -261,10 +261,8 @@ export default async function handler(req, res) {
       };
     }
 
-    const [N, N1] = await Promise.all([
-      fetchAndAggregate(dateStart, dateEnd),
-      fetchAndAggregate(prevDateStart, prevDateEnd),
-    ]);
+    const N = await fetchAndAggregate(dateStart, dateEnd);
+    const N1 = await fetchAndAggregate(prevDateStart, prevDateEnd);
 
     const result = { currentYear, prevYear, N, N1, dateStart, dateEnd, prevDateStart, prevDateEnd };
     await cacheSet(cacheKey, result, ttl);
