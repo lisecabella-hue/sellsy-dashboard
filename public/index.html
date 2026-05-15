@@ -545,7 +545,7 @@ function getPharmacyBudgetForPeriod(cat, dateStart, dateEnd) {
   return Math.round(total * 10) / 10;
 }
 
-function renderPharmacyDonut(canvasId, data, existingChart) {
+function renderPharmacyDonut(canvasId, data, existingChart, totalInvoices) {
   const ctx = document.getElementById(canvasId).getContext('2d');
   if (existingChart) existingChart.destroy();
   const labels = Object.keys(PHARMACY_COLORS).filter(k => (data[k] || 0) > 0);
@@ -558,35 +558,57 @@ function renderPharmacyDonut(canvasId, data, existingChart) {
     data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }] },
     options: {
       responsive: false,
-      cutout: '58%',
+      cutout: '62%',
       plugins: {
         legend: { display: false },
         tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmt(ctx.raw)} (${total > 0 ? Math.round((ctx.raw/total)*100) : 0}%)` } }
       }
     },
-    plugins: [{
-      id: 'pctOnSlice',
-      afterDatasetsDraw(chart) {
-        const { ctx, data } = chart;
-        const meta = chart.getDatasetMeta(0);
-        meta.data.forEach((arc, i) => {
-          const val = data.datasets[0].data[i];
-          const pct = total > 0 ? Math.round((val / total) * 100) : 0;
-          if (pct < 5) return;
-          const angle = (arc.startAngle + arc.endAngle) / 2;
-          const r = (arc.outerRadius + arc.innerRadius) / 2;
-          const x = arc.x + Math.cos(angle) * r;
-          const y = arc.y + Math.sin(angle) * r;
+    plugins: [
+      {
+        id: 'centerText',
+        afterDatasetsDraw(chart) {
+          const { ctx, chartArea: { left, top, right, bottom } } = chart;
+          const cx = (left + right) / 2;
+          const cy = (top + bottom) / 2;
           ctx.save();
-          ctx.fillStyle = 'white';
-          ctx.font = 'bold 12px -apple-system, sans-serif';
+          // Montant total
+          ctx.font = 'bold 14px -apple-system, sans-serif';
+          ctx.fillStyle = '#1a1a1a';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(pct + '%', x, y);
+          ctx.fillText(fmt(total), cx, cy - 10);
+          // Nb factures
+          ctx.font = '11px -apple-system, sans-serif';
+          ctx.fillStyle = '#888';
+          ctx.fillText(`${totalInvoices || 0} factures`, cx, cy + 10);
           ctx.restore();
-        });
+        }
+      },
+      {
+        id: 'pctOnSlice',
+        afterDatasetsDraw(chart) {
+          const { ctx, data } = chart;
+          const meta = chart.getDatasetMeta(0);
+          meta.data.forEach((arc, i) => {
+            const val = data.datasets[0].data[i];
+            const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+            if (pct < 5) return;
+            const angle = (arc.startAngle + arc.endAngle) / 2;
+            const r = (arc.outerRadius + arc.innerRadius) / 2;
+            const x = arc.x + Math.cos(angle) * r;
+            const y = arc.y + Math.sin(angle) * r;
+            ctx.save();
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 12px -apple-system, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(pct + '%', x, y);
+            ctx.restore();
+          });
+        }
       }
-    }]
+    ]
   });
   return chart;
 }
@@ -610,7 +632,7 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
     document.getElementById('pharmacyPanierReassort').textContent =
       N.panierMoyenReassort !== undefined ? fmt(N.panierMoyenReassort) : '—';
 
-    pharmacyChartN = renderPharmacyDonut('pharmacyDonutN', montants, pharmacyChartN);
+    pharmacyChartN = renderPharmacyDonut('pharmacyDonutN', montants, pharmacyChartN, N.totalPharmacyInvoices);
 
     const total = Object.values(montants).reduce((a, b) => a + b, 0);
     const legend = document.getElementById('pharmacyLegend');
