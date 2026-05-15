@@ -131,11 +131,11 @@ export default async function handler(req, res) {
 
     function classifyClient(inv) {
       if (inv.rate_category_id === B2C_CATEGORY_ID) return 'B2C';
+      const name = (inv.company_name || '').toLowerCase();
+      if (name.includes('blissim') || name.includes('bradery')) return 'Outlet';
       const companyId = inv.related?.[0]?.id;
       if (companyId && companyTypeMap[companyId]) return companyTypeMap[companyId];
-      const name = (inv.company_name || '').toLowerCase();
       if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement')) return 'Pharmacie';
-      if (name.includes('blissim') || name.includes('bradery')) return 'Outlet';
       return 'Autre';
     }
 
