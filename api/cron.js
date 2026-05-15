@@ -1,4 +1,4 @@
-export const maxDuration = 900;
+export const maxDuration = 300;
 
 export default async function handler(req, res) {
   const clientId = process.env.SELLSY_CLIENT_ID;
@@ -83,6 +83,15 @@ export default async function handler(req, res) {
       if (hasMoreCompanies) await sleep(300);
     }
     await cacheSet(companyCacheKey, companyTypeMap, 86400);
+  }
+
+  async function isCached(year, month) {
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const dateStart = `${year}-${pad(month + 1)}-01`;
+    const dateEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
+    const cacheKey = `sellsy:${CACHE_VERSION}:total:${dateStart}:${dateEnd}`;
+    const cached = await cacheGet(cacheKey);
+    return !!cached;
   }
 
   async function fetchMonthCA(year, month) {
@@ -190,42 +199,62 @@ export default async function handler(req, res) {
       pagination: { total: total || allInvoices.length }
     };
 
-    if (result._count === 0 && (total === null || total > 0)) {
-      return { month, year, totalCA: 0, count: 0, invoicesTotal: total, skipped: true, reason: 'empty_result' };
-    }
-
     const isCurrentMonth = year === currentYear && month === currentMonth;
     const ttl = isCurrentMonth ? 3600 : 60 * 60 * 24 * 35;
     await cacheSet(cacheKey, result, ttl);
-    return { month, year, totalCA: result._totalCA, count: result._count, invoicesTotal: total };
+    return { month, year, totalCA: result._totalCA, count: result._count };
   }
 
-  // Liste des mois à couvrir : jan-mai 2025 + jan-avr 2026
-  const targetMonths = [];
-  for (let m = 0; m <= 4; m++) targetMonths.push({ year: 2025, month: m });
-  for (let m = 0; m <= 3; m++) targetMonths.push({ year: 2026, month: m });
+  // Construire la liste de tous les mois à couvrir (jan 2025 → mois courant)
+  const allMonths = [];
+  for (let y = 2025; y <= currentYear; y++) {
+    const maxMonth = y === currentYear ? currentMonth : 11;
+    for (let m = 0; m <= maxMonth; m++) {
+      allMonths.push({ year: y, month: m });
+    }
+  }
 
-  // 1 mois par passage selon l'heure UTC
-  // 1h→jan2025, 2h→fév2025, 3h→mar2025, 4h→avr2025, 5h→mai2025
-  // 6h→jan2026, 7h→fév2026, 8h→mar2026, 9h→avr2026
-  const hourUTC = now.getUTCHours();
-  const slotIndex = hourUTC - 1; // 1h=0, 2h=1, ... 9h=8
-  const monthsToRefresh = targetMonths.slice(slotIndex, slotIndex + 1);
+  // Identifier les mois manquants (non en cache) + toujours inclure le mois courant
+  const START_TIME = Date.now();
+  const MAX_DURATION_MS = 240000; // 4 minutes max, garde 1 min de marge
+
+  const missingMonths = [];
+  for (const { year, month } of allMonths) {
+    const isCurrentM = year === currentYear && month === currentMonth;
+    if (isCurrentM) {
+      missingMonths.push({ year, month, reason: 'current' });
+    } else {
+      const cached = await isCached(year, month);
+      if (!cached) missingMonths.push({ year, month, reason: 'missing' });
+    }
+  }
 
   const results = [];
-  for (const { year, month } of monthsToRefresh) {
+  const skipped = [];
+
+  for (const { year, month, reason } of missingMonths) {
+    // Vérifier si on approche du timeout
+    if (Date.now() - START_TIME > MAX_DURATION_MS) {
+      skipped.push({ year, month, reason: 'timeout_protection' });
+      continue;
+    }
+
     try {
       const result = await fetchMonthCA(year, month);
-      results.push(result);
-    } catch(e) {
-      results.push({ year, month, error: e.message });
+      results.push({ ...result, reason });
+    } catch (e) {
+      results.push({ year, month, error: e.message, reason });
     }
   }
 
   return res.status(200).json({
     success: true,
-    refreshed: results.length,
-    slot: slotIndex,
+    totalMonths: allMonths.length,
+    alreadyCached: allMonths.length - missingMonths.length,
+    refreshed: results.filter(r => !r.error).length,
+    errors: results.filter(r => r.error).length,
+    skippedDueToTimeout: skipped.length,
+    remainingForNextRun: skipped.map(s => `${s.year}-${pad(s.month + 1)}`),
     details: results
   });
 }
