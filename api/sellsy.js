@@ -316,9 +316,11 @@ export default async function handler(req, res) {
     function classifyClient(inv) {
       // 1. Si rate_category B2C → toujours B2C
       if (inv.rate_category_id === B2C_CATEGORY_ID) return 'B2C';
-      // 2. Règles sur le nom en priorité (Outlet)
+      // 2. Règles sur le nom en priorité
       const name = (inv.company_name || '').toLowerCase();
       if (name.includes('blissim') || name.includes('bradery')) return 'Outlet';
+      if (name.includes('printemps') || name.includes('samaritaine')) return 'Grand Compte';
+      if (name.includes('figaro') || name.includes('media ')) return 'Marketing';
       // 3. Si type client renseigné dans le map → on l'utilise
       const companyId = inv.related?.[0]?.id;
       if (companyId && companyTypeMap[companyId]) return companyTypeMap[companyId];
