@@ -144,6 +144,7 @@ export default async function handler(req, res) {
         }
 
         const total = data?.pagination?.total || 0;
+        console.log(`Page offset=${offset}, total=${total}, items=${items.length}, pharmacyFound=${totalPharmacyInvoices}`);
         offset += 100;
         if (offset >= total) break;
         await sleep(300);
