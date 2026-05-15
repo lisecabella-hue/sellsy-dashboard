@@ -322,6 +322,7 @@ export default async function handler(req, res) {
       // 3. Fallback sur le nom du client
       const name = (inv.company_name || '').toLowerCase();
       if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement')) return 'Pharmacie';
+      if (name.includes('blissim') || name.includes('bradery')) return 'Outlet';
       // 4. Sinon Autre
       return 'Autre';
     }
