@@ -14,6 +14,10 @@ export default async function handler(req, res) {
   const { dateStart, dateEnd, mode } = req.query;
   if (!dateStart || !dateEnd) return res.status(400).json({ error: 'dateStart and dateEnd required' });
 
+  const CACHE_VERSION = 'v8';
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const pad = n => String(n).padStart(2, '0');
+
   async function cacheGet(key) {
     try {
       const r = await fetch(`${kvUrl}/get/${encodeURIComponent(key)}`, {
@@ -55,16 +59,151 @@ export default async function handler(req, res) {
     3957580: 'Grand Compte'
   };
 
-  const CACHE_VERSION = 'v8';
   const cacheKey = `sellsy:${CACHE_VERSION}:${mode}:${dateStart}:${dateEnd}`;
   const ttl = getCacheTTL(dateStart, dateEnd);
 
+  // Vérifier le cache direct d'abord
   if (ttl > 0 && kvUrl && kvToken) {
     const cached = await cacheGet(cacheKey);
     if (cached) return res.status(200).json({ ...cached, _fromCache: true });
   }
 
-  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  // ─── AGRÉGATION DEPUIS LE CACHE DES MOIS INDIVIDUELS ───────────────────────
+  // Si la période couvre plusieurs mois entiers déjà en cache, on agrège directement
+  // sans appeler Sellsy. Valable pour mode=total uniquement.
+  if (mode === 'total' && kvUrl && kvToken) {
+    const start = new Date(dateStart);
+    const end = new Date(dateEnd);
+
+    // Décomposer la période en mois
+    const months = [];
+    let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+    while (cursor <= end) {
+      months.push({ year: cursor.getFullYear(), month: cursor.getMonth() });
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+
+    // Vérifier que chaque mois correspond exactement à un mois complet en cache
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
+
+    let cachedMonths = [];
+    let allFoundInCache = true;
+
+    for (const { year, month } of months) {
+      const lastDay = new Date(year, month + 1, 0).getDate();
+      const mStart = `${year}-${pad(month + 1)}-01`;
+      const mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
+
+      // Vérifier que ce mois est bien inclus dans la période demandée
+      const periodStart = dateStart;
+      const periodEnd = dateEnd;
+
+      // Le mois doit être un mois complet DANS la période demandée
+      if (mStart < periodStart || mEnd > periodEnd) {
+        // Mois partiel (ex: début ou fin de période en milieu de mois) → pas d'agrégation
+        allFoundInCache = false;
+        break;
+      }
+
+      const monthCacheKey = `sellsy:${CACHE_VERSION}:total:${mStart}:${mEnd}`;
+      const monthData = await cacheGet(monthCacheKey);
+
+      if (!monthData) {
+        allFoundInCache = false;
+        break;
+      }
+
+      // Le mois courant ne doit pas être trop vieux (TTL 1h)
+      cachedMonths.push(monthData);
+    }
+
+    if (allFoundInCache && cachedMonths.length > 0 && cachedMonths.length === months.length) {
+      // Agréger tous les mois
+      const aggregated = {
+        _totalCA: 0,
+        _totalCABrut: 0,
+        _totalAvoirs: 0,
+        _totalCAB2C: 0,
+        _totalCAB2B: 0,
+        _totalCAB2CNet: 0,
+        _totalCAB2BNet: 0,
+        _countB2C: 0,
+        _countB2B: 0,
+        _count: 0,
+        _countAvoirs: 0,
+        _caByType: {},
+        _top30B2B: {},
+        pagination: { total: 0 }
+      };
+
+      // Agrégation des top30B2B par client
+      const b2bByClient = {};
+
+      for (const m of cachedMonths) {
+        aggregated._totalCA += m._totalCA || 0;
+        aggregated._totalCABrut += m._totalCABrut || 0;
+        aggregated._totalAvoirs += m._totalAvoirs || 0;
+        aggregated._totalCAB2C += m._totalCAB2C || 0;
+        aggregated._totalCAB2B += m._totalCAB2B || 0;
+        aggregated._totalCAB2CNet += m._totalCAB2CNet || 0;
+        aggregated._totalCAB2BNet += m._totalCAB2BNet || 0;
+        aggregated._countB2C += m._countB2C || 0;
+        aggregated._countB2B += m._countB2B || 0;
+        aggregated._count += m._count || 0;
+        aggregated._countAvoirs += m._countAvoirs || 0;
+        aggregated.pagination.total += m.pagination?.total || 0;
+
+        // Agréger caByType
+        for (const [type, amount] of Object.entries(m._caByType || {})) {
+          aggregated._caByType[type] = (aggregated._caByType[type] || 0) + amount;
+        }
+
+        // Agréger top30B2B
+        for (const client of (m._top30B2B || [])) {
+          if (!b2bByClient[client.name]) b2bByClient[client.name] = { ca: 0, nbFactures: 0 };
+          b2bByClient[client.name].ca += client.ca;
+          b2bByClient[client.name].nbFactures += client.nbFactures;
+        }
+      }
+
+      // Arrondir caByType
+      for (const key of Object.keys(aggregated._caByType)) {
+        aggregated._caByType[key] = Math.round(aggregated._caByType[key] * 100) / 100;
+      }
+
+      // Recalculer top30B2B agrégé
+      aggregated._top30B2B = Object.entries(b2bByClient)
+        .map(([name, data]) => ({ name, ca: Math.round(data.ca * 100) / 100, nbFactures: data.nbFactures }))
+        .sort((a, b) => b.ca - a.ca)
+        .slice(0, 30);
+
+      // Arrondir les totaux
+      aggregated._totalCA = Math.round(aggregated._totalCA * 100) / 100;
+      aggregated._totalCABrut = Math.round(aggregated._totalCABrut * 100) / 100;
+      aggregated._totalAvoirs = Math.round(aggregated._totalAvoirs * 100) / 100;
+      aggregated._totalCAB2C = Math.round(aggregated._totalCAB2C * 100) / 100;
+      aggregated._totalCAB2B = Math.round(aggregated._totalCAB2B * 100) / 100;
+      aggregated._totalCAB2CNet = Math.round(aggregated._totalCAB2CNet * 100) / 100;
+      aggregated._totalCAB2BNet = Math.round(aggregated._totalCAB2BNet * 100) / 100;
+      aggregated._tauxAvoirs = aggregated._totalCA > 0
+        ? Math.round((aggregated._totalAvoirs / aggregated._totalCA) * 10000) / 100
+        : 0;
+      aggregated._panierMoyenB2C = aggregated._countB2C > 0
+        ? Math.round((aggregated._totalCAB2C / aggregated._countB2C) * 100) / 100
+        : 0;
+      aggregated._panierMoyenB2B = aggregated._countB2B > 0
+        ? Math.round((aggregated._totalCAB2B / aggregated._countB2B) * 100) / 100
+        : 0;
+
+      // Mettre en cache le résultat agrégé
+      if (ttl > 0) await cacheSet(cacheKey, aggregated, ttl);
+
+      return res.status(200).json({ ...aggregated, _fromCache: true, _aggregatedFromMonths: cachedMonths.length });
+    }
+  }
+  // ─── FIN AGRÉGATION ─────────────────────────────────────────────────────────
 
   try {
     const tokenResp = await fetch('https://login.sellsy.com/oauth2/access-tokens', {
@@ -266,7 +405,6 @@ export default async function handler(req, res) {
     const totalAvoirsB2B = creditsB2B.reduce((acc, c) =>
       acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
 
-    // Déduire les avoirs par type de client
     const avoirsByType = {};
     for (const credit of allCredits) {
       const companyId = credit.related?.[0]?.id;
