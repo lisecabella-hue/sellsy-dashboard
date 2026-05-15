@@ -75,19 +75,26 @@ export default async function handler(req, res) {
     const start = new Date(dateStart);
     const end = new Date(dateEnd);
 
+    // Vérifier que la période demandée commence le 1er d'un mois et finit le dernier jour d'un mois
+    const startDay = start.getUTCDate();
+    const endDay = end.getUTCDate();
+    const lastDayOfEndMonth = new Date(end.getUTCFullYear(), end.getUTCMonth() + 1, 0).getUTCDate();
+    const isPeriodAlignedOnMonths = startDay === 1 && endDay === lastDayOfEndMonth;
+
+    // Si la période n'est pas alignée sur des mois complets, on skip l'agrégation
+    if (!isPeriodAlignedOnMonths) {
+      // Pas d'agrégation possible, on tombe sur l'appel Sellsy direct
+    } else {
+
     // Décomposer la période en mois
     const months = [];
-    let cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+    let cursor = new Date(start.getUTCFullYear(), start.getUTCMonth(), 1);
     while (cursor <= end) {
       months.push({ year: cursor.getFullYear(), month: cursor.getMonth() });
       cursor.setMonth(cursor.getMonth() + 1);
     }
 
-    // Vérifier que chaque mois correspond exactement à un mois complet en cache
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-
+    // Vérifier que chaque mois est en cache
     let cachedMonths = [];
     let allFoundInCache = true;
 
@@ -95,17 +102,6 @@ export default async function handler(req, res) {
       const lastDay = new Date(year, month + 1, 0).getDate();
       const mStart = `${year}-${pad(month + 1)}-01`;
       const mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
-
-      // Vérifier que ce mois est bien inclus dans la période demandée
-      const periodStart = dateStart;
-      const periodEnd = dateEnd;
-
-      // Le mois doit être un mois complet DANS la période demandée
-      if (mStart < periodStart || mEnd > periodEnd) {
-        // Mois partiel (ex: début ou fin de période en milieu de mois) → pas d'agrégation
-        allFoundInCache = false;
-        break;
-      }
 
       const monthCacheKey = `sellsy:${CACHE_VERSION}:total:${mStart}:${mEnd}`;
       const monthData = await cacheGet(monthCacheKey);
@@ -202,6 +198,7 @@ export default async function handler(req, res) {
 
       return res.status(200).json({ ...aggregated, _fromCache: true, _aggregatedFromMonths: cachedMonths.length });
     }
+    } // fin else isPeriodAlignedOnMonths
   }
   // ─── FIN AGRÉGATION ─────────────────────────────────────────────────────────
 
