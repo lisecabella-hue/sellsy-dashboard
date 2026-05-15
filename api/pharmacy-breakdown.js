@@ -34,7 +34,7 @@ export default async function handler(req, res) {
     if (s.includes('sav implant')) return 'Implantation';
     if (s.includes('sav preco')) return 'Précommandes';
     if (s.includes('sav')) return 'Réassort';
-    if (s.includes('suite implant')) return 'Réassort';      // ← seul ajout
+    if (s.includes('suite implant')) return 'Réassort';
     if (s.includes('implant')) return 'Implantation';
     if (s.includes('preco')) return 'Précommandes';
     if (s.includes('reassort') || s.includes('ug')) return 'Réassort';
@@ -63,7 +63,7 @@ export default async function handler(req, res) {
     const prevDateStart = dateStart.replace(String(currentYear), String(prevYear));
     const prevDateEnd = dateEnd.replace(String(currentYear), String(prevYear));
 
-    const cacheKey = `sellsy:pharmacy-breakdown:v6:${dateStart}:${dateEnd}`;
+    const cacheKey = `sellsy:pharmacy-breakdown:v7:${dateStart}:${dateEnd}`;
     const ttl = getCacheTTL(dateStart, dateEnd);
     const cached = await cacheGet(cacheKey);
     if (cached) return res.status(200).json({ ...cached, _fromCache: true });
@@ -84,6 +84,12 @@ export default async function handler(req, res) {
     async function fetchAndAggregate(start, end) {
       const totals = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0, 'Non catégorisé': 0 };
       const counts = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0, 'Non catégorisé': 0 };
+
+      // Sets d'IDs Sellsy uniques par catégorie
+      const pharmacyIds = new Set();           // toutes les pharmacies de la période
+      const reassortPharmacyIds = new Set();   // pharmacies ayant au moins 1 facture Réassort
+      const implantationPharmacyIds = new Set(); // pharmacies ayant au moins 1 facture Implantation
+
       let offset = 0;
       let totalPharmacyInvoices = 0;
 
@@ -105,15 +111,24 @@ export default async function handler(req, res) {
         const items = data?.data || [];
 
         for (const inv of items) {
+          const relatedId = inv.related?.[0]?.id;
           const isPharmacy = (inv.related || []).some(
             rel => companyTypeMap[String(rel.id)] === 'Pharmacie'
           );
           if (!isPharmacy) continue;
+
           totalPharmacyInvoices++;
           const cat = categorize(inv.subject) || 'Non catégorisé';
           const amount = parseFloat(inv.amounts?.total_excl_tax || 0);
           totals[cat] += amount;
           counts[cat]++;
+
+          // Tracking des IDs uniques
+          if (relatedId) {
+            pharmacyIds.add(String(relatedId));
+            if (cat === 'Réassort') reassortPharmacyIds.add(String(relatedId));
+            if (cat === 'Implantation') implantationPharmacyIds.add(String(relatedId));
+          }
         }
 
         const total = data?.pagination?.total || 0;
@@ -127,6 +142,10 @@ export default async function handler(req, res) {
         panierMoyen[cat] = counts[cat] > 0 ? Math.round((totals[cat] / counts[cat]) * 100) / 100 : 0;
       }
 
+      const nbPharmaTotal = pharmacyIds.size;
+      const nbPharmaReassort = reassortPharmacyIds.size;
+      const nbPharmaImplantation = implantationPharmacyIds.size;
+
       return {
         montants: {
           Implantation: Math.round(totals.Implantation * 100) / 100,
@@ -138,8 +157,13 @@ export default async function handler(req, res) {
         counts,
         panierMoyen,
         totalPharmacyInvoices,
-        tauxReassort: totalPharmacyInvoices > 0
-          ? Math.round((counts['Réassort'] / totalPharmacyInvoices) * 10000) / 100
+
+        // Nouveaux indicateurs basés sur les IDs uniques
+        nbPharmaTotal,
+        nbPharmaReassort,
+        nbPharmaImplantation,
+        tauxReassort: nbPharmaTotal > 0
+          ? Math.round((nbPharmaReassort / nbPharmaTotal) * 10000) / 100
           : 0,
         panierMoyenReassort: counts['Réassort'] > 0
           ? Math.round((totals['Réassort'] / counts['Réassort']) * 100) / 100
