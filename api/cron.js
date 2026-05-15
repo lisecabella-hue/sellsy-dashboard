@@ -135,6 +135,7 @@ export default async function handler(req, res) {
       if (companyId && companyTypeMap[companyId]) return companyTypeMap[companyId];
       const name = (inv.company_name || '').toLowerCase();
       if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement')) return 'Pharmacie';
+      if (name.includes('blissim') || name.includes('bradery')) return 'Outlet';
       return 'Autre';
     }
 
