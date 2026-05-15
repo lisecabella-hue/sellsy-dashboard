@@ -137,7 +137,7 @@ export default async function handler(req, res) {
       if (name.includes('figaro') || name.includes('media ')) return 'Marketing';
       const companyId = inv.related?.[0]?.id;
       if (companyId && companyTypeMap[companyId]) return companyTypeMap[companyId];
-      if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement')) return 'Pharmacie';
+      if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m')) return 'Pharmacie';
       return 'Autre';
     }
 
