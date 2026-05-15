@@ -325,7 +325,7 @@ export default async function handler(req, res) {
       const companyId = inv.related?.[0]?.id;
       if (companyId && companyTypeMap[companyId]) return companyTypeMap[companyId];
       // 4. Fallback sur le nom du client
-      if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement')) return 'Pharmacie';
+      if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m')) return 'Pharmacie';
       // 5. Sinon Autre
       return 'Autre';
     }
