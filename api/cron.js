@@ -73,7 +73,7 @@ export default async function handler(req, res) {
         const customFields = company._embed?.custom_fields || [];
         const typeField = customFields.find(f => f.id === 135940);
         if (typeField && typeField.value) {
-          const label = TYPE_CLIENT_MAP[typeField.value] || 'Non catégorisé';
+          const label = TYPE_CLIENT_MAP[typeField.value] || 'B2C';
           companyTypeMap[company.id] = label;
         }
       }
@@ -132,7 +132,7 @@ export default async function handler(req, res) {
     const caByType = {};
     for (const inv of filteredInvoices) {
       const companyId = inv.related?.[0]?.id;
-      const typeClient = (companyId && companyTypeMap[companyId]) || 'Non catégorisé';
+      const typeClient = (companyId && companyTypeMap[companyId]) || 'B2C';
       const amount = parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0);
       if (!caByType[typeClient]) caByType[typeClient] = 0;
       caByType[typeClient] += amount;
