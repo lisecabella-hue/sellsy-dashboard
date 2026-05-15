@@ -97,7 +97,7 @@ export default async function handler(req, res) {
 
       while (true) {
         const r = await fetch(
-          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}`,
+          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=subject&field[]=company_name&field[]=related`,
           {
             method: 'POST',
             headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
@@ -114,9 +114,19 @@ export default async function handler(req, res) {
 
         for (const inv of items) {
           const relatedId = inv.related?.[0]?.id;
-          const isPharmacy = (inv.related || []).some(
-            rel => companyTypeMap[String(rel.id)] === 'Pharmacie'
-          );
+          const companyId = relatedId ? String(relatedId) : null;
+          const name = (inv.company_name || '').toLowerCase();
+
+          // Même logique de classification que sellsy.js
+          let clientType;
+          if (name.includes('blissim') || name.includes('bradery')) clientType = 'Outlet';
+          else if (name.includes('printemps') || name.includes('samaritaine')) clientType = 'Grand Compte';
+          else if (name.includes('figaro') || name.includes('media ')) clientType = 'Marketing';
+          else if (companyId && companyTypeMap[companyId]) clientType = companyTypeMap[companyId];
+          else if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m')) clientType = 'Pharmacie';
+          else clientType = 'Autre';
+
+          const isPharmacy = clientType === 'Pharmacie';
           if (!isPharmacy) continue;
 
           totalPharmacyInvoices++;
