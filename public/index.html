@@ -794,16 +794,7 @@ function applySegment(caData) {
 
   if (seg === 'b2c') {
     if (typeClientCard2) typeClientCard2.style.display = 'none';
-    if (typeClientRow) typeClientRow.style.display = '';
-    // En B2C : B2C + Outlet uniquement
-    if (lastCaData._caByType) {
-      const B2C_CATS = ['B2C', 'Outlet'];
-      const caByTypeB2C = Object.fromEntries(
-        Object.entries(lastCaData._caByType).filter(([k]) => B2C_CATS.includes(k))
-      );
-      document.getElementById('typeClientSubtitle').textContent = 'Période sélectionnée';
-      renderTypeClientPieChart(caByTypeB2C);
-    }
+    if (typeClientRow) typeClientRow.style.display = 'none';
   } else {
     if (typeClientCard2) typeClientCard2.style.display = '';
     if (seg === 'b2b' && lastCaData._caByType) {
