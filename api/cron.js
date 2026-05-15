@@ -133,6 +133,8 @@ export default async function handler(req, res) {
       if (inv.rate_category_id === B2C_CATEGORY_ID) return 'B2C';
       const name = (inv.company_name || '').toLowerCase();
       if (name.includes('blissim') || name.includes('bradery')) return 'Outlet';
+      if (name.includes('printemps') || name.includes('samaritaine')) return 'Grand Compte';
+      if (name.includes('figaro') || name.includes('media ')) return 'Marketing';
       const companyId = inv.related?.[0]?.id;
       if (companyId && companyTypeMap[companyId]) return companyTypeMap[companyId];
       if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement')) return 'Pharmacie';
