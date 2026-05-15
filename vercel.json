@@ -1,20 +1,14 @@
 {
   "version": 2,
-  "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/:path*" },
-    { "source": "/(.*)", "destination": "/public/index.html" }
+  "builds": [
+    { "src": "api/*.js", "use": "@vercel/node" },
+    { "src": "public/**", "use": "@vercel/static" }
   ],
-  "functions": {
-    "api/cron.js": {
-      "maxDuration": 300
-    },
-    "api/sellsy.js": {
-      "maxDuration": 60
-    },
-    "api/pharmacy-breakdown.js": {
-      "maxDuration": 60
-    }
-  },
+  "routes": [
+    { "src": "/api/(.*)", "dest": "/api/$1.js" },
+    { "src": "/(.*)", "dest": "/public/$1" },
+    { "src": "/", "dest": "/public/index.html" }
+  ],
   "crons": [
     {
       "path": "/api/cron",
