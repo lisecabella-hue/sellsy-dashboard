@@ -39,7 +39,7 @@ export default async function handler(req, res) {
     if (s.includes('preco')) return 'Précommandes';
     if (s.includes('reassort') || s.includes('ug')) return 'Réassort';
     if (s.includes('dotation') || s.includes('marketing') || s.includes('seminaire') || s.includes('animation')) return 'Coffres';
-    return null;
+    return 'Précommandes'; // fallback : tout ce qui n'est pas catégorisé = Précommandes
   }
 
   function getCacheTTL(dateStart, dateEnd) {
@@ -63,7 +63,7 @@ export default async function handler(req, res) {
     const prevDateStart = dateStart.replace(String(currentYear), String(prevYear));
     const prevDateEnd = dateEnd.replace(String(currentYear), String(prevYear));
 
-    const cacheKey = `sellsy:pharmacy-breakdown:v7:${dateStart}:${dateEnd}`;
+    const cacheKey = `sellsy:pharmacy-breakdown:v8:${dateStart}:${dateEnd}`;
     const ttl = getCacheTTL(dateStart, dateEnd);
     const cached = await cacheGet(cacheKey);
     if (cached) return res.status(200).json({ ...cached, _fromCache: true });
@@ -84,8 +84,8 @@ export default async function handler(req, res) {
     console.log('sample:', JSON.stringify(Object.entries(companyTypeMap).slice(0, 3)));
 
     async function fetchAndAggregate(start, end) {
-      const totals = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0, 'Non catégorisé': 0 };
-      const counts = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0, 'Non catégorisé': 0 };
+      const totals = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 };
+      const counts = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 };
 
       // Sets d'IDs Sellsy uniques par catégorie
       const pharmacyIds = new Set();           // toutes les pharmacies de la période
@@ -164,7 +164,6 @@ export default async function handler(req, res) {
           Précommandes: Math.round(totals.Précommandes * 100) / 100,
           Réassort: Math.round(totals.Réassort * 100) / 100,
           Coffres: Math.round(totals.Coffres * 100) / 100,
-          'Non catégorisé': Math.round(totals['Non catégorisé'] * 100) / 100,
         },
         counts,
         panierMoyen,
