@@ -313,10 +313,22 @@ export default async function handler(req, res) {
     const invoicesB2C = filteredInvoices.filter(inv => inv.rate_category_id === B2C_CATEGORY_ID);
     const invoicesB2B = filteredInvoices.filter(inv => inv.rate_category_id !== B2C_CATEGORY_ID);
 
+    function classifyClient(inv) {
+      // 1. Si rate_category B2C → toujours B2C
+      if (inv.rate_category_id === B2C_CATEGORY_ID) return 'B2C';
+      // 2. Si type client renseigné dans le map → on l'utilise
+      const companyId = inv.related?.[0]?.id;
+      if (companyId && companyTypeMap[companyId]) return companyTypeMap[companyId];
+      // 3. Fallback sur le nom du client
+      const name = (inv.company_name || '').toLowerCase();
+      if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement')) return 'Pharmacie';
+      // 4. Sinon Autre
+      return 'Autre';
+    }
+
     const caByType = {};
     for (const inv of filteredInvoices) {
-      const companyId = inv.related?.[0]?.id;
-      const typeClient = (companyId && companyTypeMap[companyId]) || 'B2C';
+      const typeClient = classifyClient(inv);
       const amount = parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0);
       if (!caByType[typeClient]) caByType[typeClient] = 0;
       caByType[typeClient] += amount;
