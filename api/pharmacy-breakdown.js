@@ -1,4 +1,4 @@
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -67,6 +67,84 @@ export default async function handler(req, res) {
     const ttl = getCacheTTL(dateStart, dateEnd);
     const cached = await cacheGet(cacheKey);
     if (cached) return res.status(200).json({ ...cached, _fromCache: true });
+
+    // ─── AGRÉGATION DEPUIS LE CACHE DES MOIS INDIVIDUELS ───────────────────────
+    const pad = n => String(n).padStart(2, '0');
+    const start = new Date(dateStart);
+    const end = new Date(dateEnd);
+    const startDay = start.getUTCDate();
+    const endDay = end.getUTCDate();
+    const lastDayOfEndMonth = new Date(end.getUTCFullYear(), end.getUTCMonth() + 1, 0).getUTCDate();
+    const isPeriodAlignedOnMonths = startDay === 1 && endDay === lastDayOfEndMonth;
+
+    if (isPeriodAlignedOnMonths) {
+      const months = [];
+      let cursor = new Date(start.getUTCFullYear(), start.getUTCMonth(), 1);
+      while (cursor <= end) {
+        months.push({ year: cursor.getFullYear(), month: cursor.getMonth() });
+        cursor.setMonth(cursor.getMonth() + 1);
+      }
+
+      let allFoundInCache = true;
+      const cachedMonths = [];
+
+      for (const { year, month } of months) {
+        const lastDay = new Date(year, month + 1, 0).getDate();
+        const mStart = `${year}-${pad(month + 1)}-01`;
+        const mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
+        const monthData = await cacheGet(`sellsy:pharmacy-breakdown:v8:${mStart}:${mEnd}`);
+        if (!monthData) { allFoundInCache = false; break; }
+        cachedMonths.push(monthData);
+      }
+
+      if (allFoundInCache && cachedMonths.length > 0) {
+        // Agréger les mois
+        const aggregated = {
+          currentYear, prevYear,
+          N: { montants: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, counts: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, panierMoyen: {}, totalPharmacyInvoices: 0, nbPharmaTotal: 0, nbPharmaReassort: 0, nbPharmaImplantation: 0 },
+          N1: { montants: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, counts: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, panierMoyen: {}, totalPharmacyInvoices: 0, nbPharmaTotal: 0, nbPharmaReassort: 0, nbPharmaImplantation: 0 },
+          dateStart, dateEnd, prevDateStart, prevDateEnd
+        };
+
+        const pharmaIdsN = new Set();
+        const pharmaIdsN1 = new Set();
+        const reassortIdsN = new Set();
+        const reassortIdsN1 = new Set();
+        const implantIdsN = new Set();
+        const implantIdsN1 = new Set();
+
+        for (const m of cachedMonths) {
+          for (const period of ['N', 'N1']) {
+            const src = m[period];
+            const dst = aggregated[period];
+            if (!src) continue;
+            for (const cat of ['Implantation', 'Précommandes', 'Réassort', 'Coffres']) {
+              dst.montants[cat] = Math.round(((dst.montants[cat] || 0) + (src.montants?.[cat] || 0)) * 100) / 100;
+              dst.counts[cat] = (dst.counts[cat] || 0) + (src.counts?.[cat] || 0);
+            }
+            dst.totalPharmacyInvoices += src.totalPharmacyInvoices || 0;
+          }
+        }
+
+        // Recalculer panierMoyen
+        for (const period of ['N', 'N1']) {
+          const dst = aggregated[period];
+          for (const cat of ['Implantation', 'Précommandes', 'Réassort', 'Coffres']) {
+            dst.panierMoyen[cat] = dst.counts[cat] > 0 ? Math.round((dst.montants[cat] / dst.counts[cat]) * 100) / 100 : 0;
+          }
+          // nbPharma : somme simple (approximation — les IDs uniques cross-mois ne sont pas disponibles en cache)
+          dst.nbPharmaTotal = cachedMonths.reduce((acc, m) => acc + (m[period]?.nbPharmaTotal || 0), 0);
+          dst.nbPharmaReassort = cachedMonths.reduce((acc, m) => acc + (m[period]?.nbPharmaReassort || 0), 0);
+          dst.nbPharmaImplantation = cachedMonths.reduce((acc, m) => acc + (m[period]?.nbPharmaImplantation || 0), 0);
+          dst.tauxReassort = dst.nbPharmaTotal > 0 ? Math.round((dst.nbPharmaReassort / dst.nbPharmaTotal) * 10000) / 100 : 0;
+          dst.panierMoyenReassort = dst.counts['Réassort'] > 0 ? Math.round((dst.montants['Réassort'] / dst.counts['Réassort']) * 100) / 100 : 0;
+        }
+
+        if (ttl > 0) await cacheSet(cacheKey, aggregated, ttl);
+        return res.status(200).json({ ...aggregated, _fromCache: true, _aggregatedFromMonths: cachedMonths.length });
+      }
+    }
+    // ─── FIN AGRÉGATION ─────────────────────────────────────────────────────────
 
     const tokenResp = await fetch('https://login.sellsy.com/oauth2/access-tokens', {
       method: 'POST',
