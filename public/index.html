@@ -1283,23 +1283,30 @@ function displayLabel(label) {
 }
 
 const TYPE_CLIENT_BUDGET_CATS = ['Pharmacie', 'Monoprix', 'Marketing', 'Grand Compte'];
+const TYPE_CLIENT_BUDGET_CATS2 = ['Site', 'Outlet', 'Autre'];
 let budgetTypeClient = {};
 TYPE_CLIENT_BUDGET_CATS.forEach(cat => { budgetTypeClient[cat] = Array(12).fill(0); });
+let budgetTypeClient2 = {};
+TYPE_CLIENT_BUDGET_CATS2.forEach(cat => { budgetTypeClient2[cat] = Array(12).fill(0); });
 
 function loadTypeClientBudget() {
   try {
     const saved = localStorage.getItem('budgetTypeClient');
     if (saved) budgetTypeClient = JSON.parse(saved);
+    const saved2 = localStorage.getItem('budgetTypeClient2');
+    if (saved2) budgetTypeClient2 = JSON.parse(saved2);
   } catch {}
 }
 loadTypeClientBudget();
 
 function saveTypeClientBudget() {
   localStorage.setItem('budgetTypeClient', JSON.stringify(budgetTypeClient));
+  localStorage.setItem('budgetTypeClient2', JSON.stringify(budgetTypeClient2));
 }
 
 function getTypeClientBudgetForPeriod(cat) {
-  const arr = budgetTypeClient[cat] || Array(12).fill(0);
+  const map = TYPE_CLIENT_BUDGET_CATS2.includes(cat) ? budgetTypeClient2 : budgetTypeClient;
+  const arr = map[cat] || Array(12).fill(0);
   const dates = getDates();
   if (!dates) return 0;
   const { dateStart, dateEnd } = dates;
@@ -1776,11 +1783,26 @@ function openBudgetModalWithFin() {
       ${TYPE_CLIENT_BUDGET_CATS.map(cat => `<input type="number" id="budgetTC_${cat}_${i}" value="${(budgetTypeClient[cat] || [])[i] || 0}" placeholder="0" style="padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center;" />`).join('')}
     </div>`
   ).join('');
-  tcSection.innerHTML = `<p style="font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px;">🏪 Budget par type de client (k€)</p>
+  tcSection.innerHTML = `<p style="font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px;">🏪 Budget par type de client B2B (k€)</p>
     <div style="display:grid;grid-template-columns:80px ${TYPE_CLIENT_BUDGET_CATS.map(() => '1fr').join(' ')};gap:8px;align-items:center;border-bottom:1px solid #e5e5e5;padding-bottom:8px;margin-bottom:4px;">
       <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>${tcCols}
     </div>${tcInputs}`;
   grid.appendChild(tcSection);
+
+  const tc2Section = document.createElement('div');
+  tc2Section.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
+  const tc2Cols = TYPE_CLIENT_BUDGET_CATS2.map(c => `<span style="font-size:11px;color:${TYPE_CLIENT_COLORS[c] || '#888'};font-weight:600;text-align:center;">${c === 'B2C' ? 'Site' : c} (k€)</span>`).join('');
+  const tc2Inputs = months.map((m, i) =>
+    `<div style="display:grid;grid-template-columns:80px ${TYPE_CLIENT_BUDGET_CATS2.map(() => '1fr').join(' ')};gap:8px;align-items:center;margin-bottom:4px;">
+      <span style="font-size:12px;color:#444;">${m}</span>
+      ${TYPE_CLIENT_BUDGET_CATS2.map(cat => `<input type="number" id="budgetTC2_${cat}_${i}" value="${(budgetTypeClient2[cat] || [])[i] || 0}" placeholder="0" style="padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center;" />`).join('')}
+    </div>`
+  ).join('');
+  tc2Section.innerHTML = `<p style="font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px;">🌐 Budget Site / Outlet / Autre (k€)</p>
+    <div style="display:grid;grid-template-columns:80px ${TYPE_CLIENT_BUDGET_CATS2.map(() => '1fr').join(' ')};gap:8px;align-items:center;border-bottom:1px solid #e5e5e5;padding-bottom:8px;margin-bottom:4px;">
+      <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>${tc2Cols}
+    </div>${tc2Inputs}`;
+  grid.appendChild(tc2Section);
 }
 
 function saveBudgetWithFin() {
@@ -1797,6 +1819,9 @@ function saveBudgetWithFin() {
   savePharmacyBudget();
   TYPE_CLIENT_BUDGET_CATS.forEach(cat => {
     budgetTypeClient[cat] = months.map((_, i) => parseFloat(document.getElementById(`budgetTC_${cat}_${i}`)?.value) || 0);
+  });
+  TYPE_CLIENT_BUDGET_CATS2.forEach(cat => {
+    budgetTypeClient2[cat] = months.map((_, i) => parseFloat(document.getElementById(`budgetTC2_${cat}_${i}`)?.value) || 0);
   });
   saveTypeClientBudget();
 }
