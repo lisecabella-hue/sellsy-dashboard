@@ -1,3 +1,4 @@
+
 export const maxDuration = 300;
 
 export default async function handler(req, res) {
@@ -73,7 +74,7 @@ export default async function handler(req, res) {
         const customFields = company._embed?.custom_fields || [];
         const typeField = customFields.find(f => f.id === 135940);
         if (typeField && typeField.value) {
-          const label = TYPE_CLIENT_MAP[typeField.value] || 'B2C';
+          const label = TYPE_CLIENT_MAP[typeField.value] || 'Site';
           companyTypeMap[company.id] = label;
         }
       }
@@ -112,7 +113,7 @@ export default async function handler(req, res) {
     let total = null;
     do {
       const resp = await fetch(
-        `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit&field[]=rate_category_id&field[]=company_name&field[]=related`,
+        `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit&field[]=rate_category_id&field[]=company_name&field[]=related&field[]=subject`,
         { method: 'POST', headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' }, body }
       );
       if (resp.status === 429) { await sleep(3000); continue; }
@@ -130,6 +131,8 @@ export default async function handler(req, res) {
     const invoicesB2B = filteredInvoices.filter(inv => inv.rate_category_id !== B2C_CATEGORY_ID);
 
     function classifyClient(inv) {
+      const subject = (inv.subject || '').toLowerCase();
+      if (/\d{6}/.test(subject) || subject.includes('dotation')) return 'Autre';
       if (inv.rate_category_id === B2C_CATEGORY_ID) return 'B2C';
       const name = (inv.company_name || '').toLowerCase();
       if (name.includes('blissim') || name.includes('bradery')) return 'Outlet';
@@ -137,7 +140,7 @@ export default async function handler(req, res) {
       if (name.includes('figaro') || name.includes('media ')) return 'Marketing';
       const companyId = inv.related?.[0]?.id;
       if (companyId && companyTypeMap[companyId]) return companyTypeMap[companyId];
-      if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m')) return 'Pharmacie';
+      if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco')) return 'Pharmacie';
       return 'Autre';
     }
 
