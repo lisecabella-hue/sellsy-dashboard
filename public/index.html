@@ -1305,8 +1305,10 @@ function saveTypeClientBudget() {
 }
 
 function getTypeClientBudgetForPeriod(cat) {
-  const map = TYPE_CLIENT_BUDGET_CATS2.includes(cat) ? budgetTypeClient2 : budgetTypeClient;
-  const arr = map[cat] || Array(12).fill(0);
+  // B2C dans les données = Site dans le budget
+  const budgetCat = cat === 'B2C' ? 'Site' : cat;
+  const map = TYPE_CLIENT_BUDGET_CATS2.includes(budgetCat) ? budgetTypeClient2 : budgetTypeClient;
+  const arr = map[budgetCat] || Array(12).fill(0);
   const dates = getDates();
   if (!dates) return 0;
   const { dateStart, dateEnd } = dates;
