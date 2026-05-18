@@ -63,7 +63,7 @@ export default async function handler(req, res) {
     const prevDateStart = dateStart.replace(String(currentYear), String(prevYear));
     const prevDateEnd = dateEnd.replace(String(currentYear), String(prevYear));
 
-    const cacheKey = `sellsy:pharmacy-breakdown:v8:${dateStart}:${dateEnd}`;
+    const cacheKey = `sellsy:pharmacy-breakdown:v9:${dateStart}:${dateEnd}`;
     const ttl = getCacheTTL(dateStart, dateEnd);
     const cached = await cacheGet(cacheKey);
     if (cached) return res.status(200).json({ ...cached, _fromCache: true });
@@ -92,7 +92,7 @@ export default async function handler(req, res) {
         const lastDay = new Date(year, month + 1, 0).getDate();
         const mStart = `${year}-${pad(month + 1)}-01`;
         const mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
-        const monthData = await cacheGet(`sellsy:pharmacy-breakdown:v8:${mStart}:${mEnd}`);
+        const monthData = await cacheGet(`sellsy:pharmacy-breakdown:v9:${mStart}:${mEnd}`);
         if (!monthData) { allFoundInCache = false; break; }
         cachedMonths.push(monthData);
       }
@@ -175,7 +175,7 @@ export default async function handler(req, res) {
 
       while (true) {
         const r = await fetch(
-          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=subject&field[]=company_name&field[]=related`,
+          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=subject&field[]=company_name&field[]=related&field[]=rate_category_id`,
           {
             method: 'POST',
             headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
@@ -194,6 +194,9 @@ export default async function handler(req, res) {
           const relatedId = inv.related?.[0]?.id;
           const companyId = relatedId ? String(relatedId) : null;
           const name = (inv.company_name || '').toLowerCase();
+
+          // Exclure les factures B2C (Shopify)
+          if (inv.rate_category_id === 215340) continue;
 
           // Même logique de classification que sellsy.js
           let clientType;
