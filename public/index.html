@@ -412,6 +412,25 @@
         🔒 Ce mois n'est pas encore finalisé dans Pennylane.
       </div>
 
+      <!-- Solde de trésorerie -->
+      <div class="chart-card" style="margin-bottom:24px;">
+        <div class="chart-header" style="margin-bottom:16px;">
+          <div>
+            <p class="chart-title">💰 Solde de trésorerie</p>
+            <p class="chart-subtitle">Solde cumulé des comptes bancaires au date choisie</p>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <label style="font-size:13px;color:#888;">Au</label>
+            <input type="date" id="tresorerieDate" style="font-size:13px;padding:8px 12px;border-radius:8px;border:1px solid #ddd;background:white;" />
+            <button onclick="loadTresorerie()" class="btn btn-primary" style="font-size:13px;padding:8px 16px;">↻ Voir</button>
+          </div>
+          <div id="tresorerieResult" style="font-size:28px;font-weight:500;color:#1a1a1a;">—</div>
+          <div id="tresorerieDetail" style="font-size:12px;color:#888;"></div>
+        </div>
+      </div>
+
       <div class="error-box" id="finErrorBox"></div>
       <p class="period-label" id="finPeriodLabel"></p>
 
@@ -1848,6 +1867,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('finSelYtdMonth')) document.getElementById('finSelYtdMonth').value = now.getMonth();
   if (document.getElementById('finDateFrom')) document.getElementById('finDateFrom').value = todayStr;
   if (document.getElementById('finDateTo')) document.getElementById('finDateTo').value = todayStr;
+  if (document.getElementById('tresorerieDate')) document.getElementById('tresorerieDate').value = todayStr;
 });
 
 function setFinPeriod(mode) {
@@ -1891,6 +1911,28 @@ function showFinBudgetBar(wrapperId, labelId, pctId, fillId, value, budgetVal, l
   const fill = document.getElementById(fillId);
   fill.style.width = Math.min(pct, 100) + '%';
   fill.className = `budget-bar-fill ${pct >= 100 ? 'over' : 'ok'}`;
+}
+
+async function loadTresorerie() {
+  const date = document.getElementById('tresorerieDate').value;
+  if (!date) { alert('Veuillez choisir une date'); return; }
+  const resultEl = document.getElementById('tresorerieResult');
+  const detailEl = document.getElementById('tresorerieDetail');
+  resultEl.textContent = '...';
+  detailEl.textContent = '';
+  try {
+    const resp = await fetch(`/api/pennylane?dateStart=${date}&dateEnd=${date}&mode=tresorerie`);
+    const data = await resp.json();
+    const solde = data._soldeTresorerie || 0;
+    resultEl.textContent = fmt(solde);
+    resultEl.style.color = solde >= 0 ? '#1a1a1a' : '#D85A30';
+    if (data._detailComptes && data._detailComptes.length > 0) {
+      detailEl.textContent = data._detailComptes.map(c => `${c.label} : ${fmt(c.solde)}`).join(' · ');
+    }
+  } catch(e) {
+    resultEl.textContent = 'Erreur';
+    detailEl.textContent = e.message;
+  }
 }
 
 async function loadFinancier() {
