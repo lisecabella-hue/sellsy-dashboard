@@ -236,7 +236,7 @@ export default async function handler(req, res) {
           const customFields = company._embed?.custom_fields || [];
           const typeField = customFields.find(f => f.id === 135940);
           if (typeField && typeField.value) {
-            const label = TYPE_CLIENT_MAP[typeField.value] || 'B2C';
+            const label = TYPE_CLIENT_MAP[typeField.value] || 'Site';
             companyTypeMap[company.id] = label;
           }
         }
@@ -271,7 +271,7 @@ export default async function handler(req, res) {
     const fetchPage = async (offset, retries = 3) => {
       for (let attempt = 0; attempt < retries; attempt++) {
         const resp = await fetch(
-          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit&field[]=rate_category_id&field[]=company_name&field[]=related`,
+          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit&field[]=rate_category_id&field[]=company_name&field[]=related&field[]=subject`,
           {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
@@ -314,7 +314,10 @@ export default async function handler(req, res) {
     const invoicesB2B = filteredInvoices.filter(inv => inv.rate_category_id !== B2C_CATEGORY_ID);
 
     function classifyClient(inv) {
-      // 1. Si rate_category B2C → toujours B2C
+      // 0. Si l'objet contient 6 chiffres consécutifs ou "dotation" → Autre
+      const subject = (inv.subject || '').toLowerCase();
+      if (/\d{6}/.test(subject) || subject.includes('dotation')) return 'Autre';
+      // 1. Si rate_category B2C → toujours Site
       if (inv.rate_category_id === B2C_CATEGORY_ID) return 'B2C';
       // 2. Règles sur le nom en priorité
       const name = (inv.company_name || '').toLowerCase();
@@ -325,7 +328,7 @@ export default async function handler(req, res) {
       const companyId = inv.related?.[0]?.id;
       if (companyId && companyTypeMap[companyId]) return companyTypeMap[companyId];
       // 4. Fallback sur le nom du client
-      if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m')) return 'Pharmacie';
+      if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco')) return 'Pharmacie';
       // 5. Sinon Autre
       return 'Autre';
     }
@@ -342,7 +345,7 @@ export default async function handler(req, res) {
     }
 
     // B2C = B2C + Outlet, B2B = Pharmacie + Grand Compte + Monoprix
-    const B2C_TYPES = ['B2C', 'Outlet'];
+    const B2C_TYPES = ['Site', 'Outlet'];
     const B2B_TYPES = ['Pharmacie', 'Grand Compte', 'Monoprix'];
 
     const invoicesB2CNew = filteredInvoices.filter(inv => B2C_TYPES.includes(classifyClient(inv)));
