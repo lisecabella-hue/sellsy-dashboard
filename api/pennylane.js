@@ -12,11 +12,11 @@ export default async function handler(req, res) {
 
   if (!token) return res.status(500).json({ error: 'PENNYLANE_TOKEN not set' });
 
-  const { dateStart, dateEnd } = req.query;
+  const { dateStart, dateEnd, mode } = req.query;
   if (!dateStart || !dateEnd) return res.status(400).json({ error: 'dateStart and dateEnd required' });
 
   const CACHE_VERSION = 'pl_v2';
-  const cacheKey = `pennylane:${CACHE_VERSION}:${dateStart}:${dateEnd}`;
+  const cacheKey = `pennylane:${CACHE_VERSION}:${mode || 'default'}:${dateStart}:${dateEnd}`;
 
   async function cacheGet(key) {
     try {
@@ -46,13 +46,13 @@ export default async function handler(req, res) {
     if (cached) return res.status(200).json({ ...cached, _fromCache: true });
   }
 
+  // Comptes trésorerie (solde cumulé)
+  const TRESORERIE_ACCOUNTS = ['512', '530', '514', '515', '516', '517', '518', '519'];
+
   // Comptes CA
   const CA_ACCOUNTS = ['7011110000','7011130000','7011140000','7011210000','7011220000','7011230000','7011240000','7091111000','7091113000','7091114000','7091121000','7091122000','7091123000'];
-  // Comptes déduction CA (RRR)
   const CA_DEDUCTION_ACCOUNTS = ['6091100000'];
-  // Comptes COGS (pour CM1)
   const COGS_ACCOUNTS = ['6010100000','6010200000','6022410000','6022420000','6031000000'];
-  // Tous les comptes de charges EBITDA
   const EBITDA_CHARGE_ACCOUNTS = [
     '6010100000','6010200000','6022410000','6022420000','6022430000','6022510000','6031000000',
     '6040020001','6061500000','6063000000','6064000000','6091100000',
@@ -71,19 +71,23 @@ export default async function handler(req, res) {
     '6451000000','6452000000','6453000000','6455000000','6458100000','6458200000',
     '6475000000','6480000000','6490000000','6560000000','6580000000','6582000000','6712000000'
   ];
-  // Comptes produits supplémentaires pour EBITDA
   const EBITDA_PRODUCT_ACCOUNTS = ['7085210000','7085220000','7085230000','7085240000','7580000000',
     '7011110000','7011130000','7011140000','7011210000','7011220000','7011230000','7011240000',
     '7091111000','7091113000','7091114000','7091121000','7091122000','7091123000'
   ];
 
   try {
+    // Pour le mode trésorerie, on prend depuis le 01/01 de l'année jusqu'à la date choisie
+    const fetchStart = mode === 'tresorerie'
+      ? `${new Date(dateEnd).getFullYear()}-01-01`
+      : dateStart;
+
     let allItems = [];
     let hasMore = true;
     let cursor = null;
 
     while (hasMore) {
-      let url = `https://app.pennylane.com/api/external/v2/trial_balance?period_start=${dateStart}&period_end=${dateEnd}&use_2026_api_changes=true&limit=100`;
+      let url = `https://app.pennylane.com/api/external/v2/trial_balance?period_start=${fetchStart}&period_end=${dateEnd}&use_2026_api_changes=true&limit=100`;
       if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
 
       const resp = await fetch(url, {
@@ -101,6 +105,36 @@ export default async function handler(req, res) {
       cursor = data.next_cursor || null;
     }
 
+    // Mode trésorerie — retourner uniquement le solde des comptes 5xx
+    if (mode === 'tresorerie') {
+      let soldeTresorerie = 0;
+      const detailComptes = [];
+
+      for (const item of allItems) {
+        const num = (item.formatted_number || item.number || '').toString().trim();
+        const credits = parseFloat(item.credits || 0);
+        const debits = parseFloat(item.debits || 0);
+        const solde = credits - debits;
+
+        if (TRESORERIE_ACCOUNTS.some(a => num.startsWith(a))) {
+          soldeTresorerie += solde;
+          if (Math.abs(solde) > 0) {
+            detailComptes.push({
+              numero: num,
+              label: item.label,
+              solde: Math.round(solde * 100) / 100
+            });
+          }
+        }
+      }
+
+      soldeTresorerie = Math.round(soldeTresorerie * 100) / 100;
+      const result = { _soldeTresorerie: soldeTresorerie, _dateEnd: dateEnd, _detailComptes: detailComptes };
+      if (kvUrl && kvToken) await cacheSet(cacheKey, result, ttl);
+      return res.status(200).json(result);
+    }
+
+    // Mode normal (P&L)
     let caComptable = 0;
     let cogsTotal = 0;
     let logistique = 0;
@@ -112,30 +146,12 @@ export default async function handler(req, res) {
       const credits = parseFloat(item.credits || 0);
       const debits = parseFloat(item.debits || 0);
 
-      // CA
-      if (CA_ACCOUNTS.some(a => num.startsWith(a))) {
-        caComptable += (credits - debits);
-      }
-      // Déduction CA
-      if (CA_DEDUCTION_ACCOUNTS.some(a => num.startsWith(a))) {
-        caComptable -= (debits - credits);
-      }
-      // COGS
-      if (COGS_ACCOUNTS.some(a => num.startsWith(a))) {
-        cogsTotal += (debits - credits);
-      }
-      // Logistique (CM2)
-      if (num.startsWith('6040020001')) {
-        logistique += (debits - credits);
-      }
-      // Charges EBITDA (comptes 6xx)
-      if (EBITDA_CHARGE_ACCOUNTS.some(a => num.startsWith(a))) {
-        ebitdaCharges += (debits - credits);
-      }
-      // Produits EBITDA (comptes 7xx)
-      if (EBITDA_PRODUCT_ACCOUNTS.some(a => num.startsWith(a))) {
-        ebitdaProducts += (credits - debits);
-      }
+      if (CA_ACCOUNTS.some(a => num.startsWith(a))) caComptable += (credits - debits);
+      if (CA_DEDUCTION_ACCOUNTS.some(a => num.startsWith(a))) caComptable -= (debits - credits);
+      if (COGS_ACCOUNTS.some(a => num.startsWith(a))) cogsTotal += (debits - credits);
+      if (num.startsWith('6040020001')) logistique += (debits - credits);
+      if (EBITDA_CHARGE_ACCOUNTS.some(a => num.startsWith(a))) ebitdaCharges += (debits - credits);
+      if (EBITDA_PRODUCT_ACCOUNTS.some(a => num.startsWith(a))) ebitdaProducts += (credits - debits);
     }
 
     caComptable = Math.round(caComptable * 100) / 100;
@@ -146,22 +162,10 @@ export default async function handler(req, res) {
 
     const cm1 = Math.round((caComptable - cogsTotal) * 100) / 100;
     const tauxCm1 = caComptable > 0 ? Math.round((cm1 / caComptable) * 10000) / 100 : 0;
-
     const cm2 = Math.round((cm1 - logistique) * 100) / 100;
     const tauxCm2 = caComptable > 0 ? Math.round((cm2 / caComptable) * 10000) / 100 : 0;
-
-    // EBITDA = produits - charges (tous comptes confondus)
     const ebitda = Math.round((ebitdaProducts - ebitdaCharges) * 100) / 100;
     const tauxEbitda = caComptable > 0 ? Math.round((ebitda / caComptable) * 10000) / 100 : 0;
-
-    const debugAccounts = allItems
-      .filter(item => {
-        const n = (item.number || '').toString().trim();
-        const fn = (item.formatted_number || '').toString().trim();
-        return n.startsWith('70') || n.startsWith('60') || fn.startsWith('70') || fn.startsWith('60');
-      })
-      .slice(0, 20)
-      .map(item => ({ number: item.number, formatted_number: item.formatted_number, label: item.label, credits: item.credits, debits: item.debits }));
 
     const result = {
       _caComptable: caComptable,
