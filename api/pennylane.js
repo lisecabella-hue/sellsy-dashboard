@@ -77,17 +77,58 @@ export default async function handler(req, res) {
   ];
 
   try {
-    // Pour le mode trésorerie, on prend depuis le 01/01 de l'année jusqu'à la date choisie
-    const fetchStart = mode === 'tresorerie'
-      ? `${new Date(dateEnd).getFullYear()}-01-01`
-      : dateStart;
+    // Mode trésorerie — appel direct des comptes bancaires (pas besoin de trial_balance)
+    if (mode === 'tresorerie') {
+      let allAccounts = [];
+      let hasMoreAccounts = true;
+      let accountCursor = null;
 
+      while (hasMoreAccounts) {
+        let url = `https://app.pennylane.com/api/external/v2/bank_accounts?limit=100`;
+        if (accountCursor) url += `&cursor=${encodeURIComponent(accountCursor)}`;
+
+        const resp = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${token}`, 'accept': 'application/json' }
+        });
+
+        if (!resp.ok) {
+          const err = await resp.text();
+          return res.status(resp.status).json({ error: err });
+        }
+
+        const data = await resp.json();
+        allAccounts = allAccounts.concat(data.items || []);
+        hasMoreAccounts = data.has_more || false;
+        accountCursor = data.next_cursor || null;
+      }
+
+      let soldeTresorerie = 0;
+      const detailComptes = [];
+
+      for (const account of allAccounts) {
+        const solde = parseFloat(account.balance || 0);
+        soldeTresorerie += solde;
+        if (account.name) {
+          detailComptes.push({
+            label: account.name,
+            solde: Math.round(solde * 100) / 100
+          });
+        }
+      }
+
+      soldeTresorerie = Math.round(soldeTresorerie * 100) / 100;
+      const result = { _soldeTresorerie: soldeTresorerie, _detailComptes: detailComptes };
+      // Pas de cache pour la trésorerie — solde en temps réel
+      return res.status(200).json(result);
+    }
+
+    // Mode normal (P&L) — appel trial_balance
     let allItems = [];
     let hasMore = true;
     let cursor = null;
 
     while (hasMore) {
-      let url = `https://app.pennylane.com/api/external/v2/trial_balance?period_start=${fetchStart}&period_end=${dateEnd}&use_2026_api_changes=true&limit=100`;
+      let url = `https://app.pennylane.com/api/external/v2/trial_balance?period_start=${dateStart}&period_end=${dateEnd}&use_2026_api_changes=true&limit=100`;
       if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
 
       const resp = await fetch(url, {
@@ -103,35 +144,6 @@ export default async function handler(req, res) {
       allItems = allItems.concat(data.items || []);
       hasMore = data.has_more || false;
       cursor = data.next_cursor || null;
-    }
-
-    // Mode trésorerie — retourner uniquement le solde des comptes 5xx
-    if (mode === 'tresorerie') {
-      let soldeTresorerie = 0;
-      const detailComptes = [];
-
-      for (const item of allItems) {
-        const num = (item.formatted_number || item.number || '').toString().trim();
-        const credits = parseFloat(item.credits || 0);
-        const debits = parseFloat(item.debits || 0);
-        const solde = credits - debits;
-
-        if (TRESORERIE_ACCOUNTS.some(a => num.startsWith(a))) {
-          soldeTresorerie += solde;
-          if (Math.abs(solde) > 0) {
-            detailComptes.push({
-              numero: num,
-              label: item.label,
-              solde: Math.round(solde * 100) / 100
-            });
-          }
-        }
-      }
-
-      soldeTresorerie = Math.round(soldeTresorerie * 100) / 100;
-      const result = { _soldeTresorerie: soldeTresorerie, _dateEnd: dateEnd, _detailComptes: detailComptes };
-      if (kvUrl && kvToken) await cacheSet(cacheKey, result, ttl);
-      return res.status(200).json(result);
     }
 
     // Mode normal (P&L)
