@@ -197,12 +197,14 @@ export default async function handler(req, res) {
 
           // Exactement la même logique que sellsy.js classifyClient
           let clientType;
-          if (inv.rate_category_id === 215340) clientType = 'B2C';
+          const subject = (inv.subject || '').toLowerCase();
+          if (/\d{6}/.test(subject) || subject.includes('dotation')) clientType = 'Autre';
+          else if (inv.rate_category_id === 215340) clientType = 'B2C';
           else if (name.includes('blissim') || name.includes('bradery')) clientType = 'Outlet';
           else if (name.includes('printemps') || name.includes('samaritaine')) clientType = 'Grand Compte';
           else if (name.includes('figaro') || name.includes('media ')) clientType = 'Marketing';
           else if (companyId && companyTypeMap[companyId]) clientType = companyTypeMap[companyId];
-          else if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m')) clientType = 'Pharmacie';
+          else if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco')) clientType = 'Pharmacie';
           else clientType = 'Autre';
 
           const isPharmacy = clientType === 'Pharmacie';
