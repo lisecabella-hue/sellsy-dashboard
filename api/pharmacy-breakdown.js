@@ -63,7 +63,7 @@ export default async function handler(req, res) {
     const prevDateStart = dateStart.replace(String(currentYear), String(prevYear));
     const prevDateEnd = dateEnd.replace(String(currentYear), String(prevYear));
 
-    const cacheKey = `sellsy:pharmacy-breakdown:v11:${dateStart}:${dateEnd}`;
+    const cacheKey = `sellsy:pharmacy-breakdown:v12:${dateStart}:${dateEnd}`;
     const ttl = getCacheTTL(dateStart, dateEnd);
     const cached = await cacheGet(cacheKey);
     if (cached) return res.status(200).json({ ...cached, _fromCache: true });
@@ -92,7 +92,7 @@ export default async function handler(req, res) {
         const lastDay = new Date(year, month + 1, 0).getDate();
         const mStart = `${year}-${pad(month + 1)}-01`;
         const mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
-        const monthData = await cacheGet(`sellsy:pharmacy-breakdown:v11:${mStart}:${mEnd}`);
+        const monthData = await cacheGet(`sellsy:pharmacy-breakdown:v12:${mStart}:${mEnd}`);
         if (!monthData) { allFoundInCache = false; break; }
         cachedMonths.push(monthData);
       }
@@ -224,9 +224,14 @@ export default async function handler(req, res) {
 
         const total = data?.pagination?.total || 0;
         console.log(`Page offset=${offset}, total=${total}, items=${items.length}, pharmacyFound=${totalPharmacyInvoices}`);
+        // Gérer le rate limiting
+        if (r.status === 429 || items.length === 0 && total > 0) {
+          await sleep(3000);
+          continue;
+        }
         offset += 100;
         if (offset >= total) break;
-        await sleep(300);
+        await sleep(500);
       }
 
       const panierMoyen = {};
@@ -263,10 +268,13 @@ export default async function handler(req, res) {
     }
 
     const N = await fetchAndAggregate(dateStart, dateEnd);
-    const N1 = await fetchAndAggregate(prevDateStart, prevDateEnd);
+    const N1 = { montants: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, counts: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, panierMoyen: {}, totalPharmacyInvoices: 0, nbPharmaTotal: 0, nbPharmaReassort: 0, nbPharmaImplantation: 0, tauxReassort: 0, panierMoyenReassort: 0 };
 
     const result = { currentYear, prevYear, N, N1, dateStart, dateEnd, prevDateStart, prevDateEnd };
-    await cacheSet(cacheKey, result, ttl);
+    // Ne sauvegarder en cache que si on a trouvé des données
+    if (N.totalPharmacyInvoices > 0) {
+      await cacheSet(cacheKey, result, ttl);
+    }
     return res.status(200).json(result);
 
   } catch (err) {
