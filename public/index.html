@@ -417,17 +417,14 @@
         <div class="chart-header" style="margin-bottom:16px;">
           <div>
             <p class="chart-title">💰 Solde de trésorerie</p>
-            <p class="chart-subtitle">Solde cumulé des comptes bancaires au date choisie</p>
+            <p class="chart-subtitle">Solde actuel des comptes bancaires connectés à Pennylane</p>
           </div>
+          <button onclick="loadTresorerie()" class="btn-settings">↻ Actualiser</button>
         </div>
         <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <label style="font-size:13px;color:#888;">Au</label>
-            <input type="date" id="tresorerieDate" style="font-size:13px;padding:8px 12px;border-radius:8px;border:1px solid #ddd;background:white;" />
-            <button onclick="loadTresorerie()" class="btn btn-primary" style="font-size:13px;padding:8px 16px;">↻ Voir</button>
-          </div>
-          <div id="tresorerieResult" style="font-size:28px;font-weight:500;color:#1a1a1a;">—</div>
-          <div id="tresorerieDetail" style="font-size:12px;color:#888;"></div>
+          <div id="tresorerieResult" style="font-size:28px;font-weight:500;color:#1a1a1a;filter:blur(6px);cursor:pointer;" onclick="toggleTresorerie()" title="Cliquer pour afficher/masquer">——————</div>
+          <button onclick="toggleTresorerie()" style="font-size:12px;padding:6px 12px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;color:#888;" id="tresorerieToggleBtn">👁 Afficher</button>
+          <div id="tresorerieDetail" style="font-size:12px;color:#888;display:none;"></div>
         </div>
       </div>
 
@@ -1867,7 +1864,6 @@ window.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('finSelYtdMonth')) document.getElementById('finSelYtdMonth').value = now.getMonth();
   if (document.getElementById('finDateFrom')) document.getElementById('finDateFrom').value = todayStr;
   if (document.getElementById('finDateTo')) document.getElementById('finDateTo').value = todayStr;
-  if (document.getElementById('tresorerieDate')) document.getElementById('tresorerieDate').value = todayStr;
 });
 
 function setFinPeriod(mode) {
@@ -1913,25 +1909,47 @@ function showFinBudgetBar(wrapperId, labelId, pctId, fillId, value, budgetVal, l
   fill.className = `budget-bar-fill ${pct >= 100 ? 'over' : 'ok'}`;
 }
 
+let tresorerieVisible = false;
+let tresorerieValue = null;
+
+function toggleTresorerie() {
+  tresorerieVisible = !tresorerieVisible;
+  const el = document.getElementById('tresorerieResult');
+  const btn = document.getElementById('tresorerieToggleBtn');
+  const detail = document.getElementById('tresorerieDetail');
+  if (tresorerieVisible && tresorerieValue !== null) {
+    el.style.filter = 'none';
+    el.textContent = fmt(tresorerieValue);
+    detail.style.display = 'block';
+    btn.textContent = '🙈 Masquer';
+  } else {
+    el.style.filter = 'blur(6px)';
+    el.textContent = '——————';
+    detail.style.display = 'none';
+    btn.textContent = '👁 Afficher';
+  }
+}
+
 async function loadTresorerie() {
-  const date = document.getElementById('tresorerieDate').value;
-  if (!date) { alert('Veuillez choisir une date'); return; }
   const resultEl = document.getElementById('tresorerieResult');
   const detailEl = document.getElementById('tresorerieDetail');
+  tresorerieVisible = false;
+  resultEl.style.filter = 'blur(6px)';
   resultEl.textContent = '...';
-  detailEl.textContent = '';
+  document.getElementById('tresorerieToggleBtn').textContent = '👁 Afficher';
   try {
-    const resp = await fetch(`/api/pennylane?dateStart=${date}&dateEnd=${date}&mode=tresorerie`);
+    const today = todayStr;
+    const resp = await fetch(`/api/pennylane?dateStart=${today}&dateEnd=${today}&mode=tresorerie`);
     const data = await resp.json();
-    const solde = data._soldeTresorerie || 0;
-    resultEl.textContent = fmt(solde);
-    resultEl.style.color = solde >= 0 ? '#1a1a1a' : '#D85A30';
+    tresorerieValue = data._soldeTresorerie || 0;
+    resultEl.textContent = '——————';
     if (data._detailComptes && data._detailComptes.length > 0) {
-      detailEl.textContent = data._detailComptes.map(c => `${c.label} : ${fmt(c.solde)}`).join(' · ');
+      detailEl.innerHTML = data._detailComptes.map(c => `${c.label} : ${fmt(c.solde)}`).join(' &nbsp;·&nbsp; ');
     }
   } catch(e) {
+    tresorerieValue = null;
+    resultEl.style.filter = 'none';
     resultEl.textContent = 'Erreur';
-    detailEl.textContent = e.message;
   }
 }
 
