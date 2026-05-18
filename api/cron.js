@@ -1,4 +1,3 @@
-
 export const maxDuration = 300;
 
 export default async function handler(req, res) {
@@ -131,8 +130,6 @@ export default async function handler(req, res) {
     const invoicesB2B = filteredInvoices.filter(inv => inv.rate_category_id !== B2C_CATEGORY_ID);
 
     function classifyClient(inv) {
-      const subject = (inv.subject || '').toLowerCase();
-      if (/\d{6}/.test(subject) || subject.includes('dotation')) return 'Autre';
       if (inv.rate_category_id === B2C_CATEGORY_ID) return 'B2C';
       const name = (inv.company_name || '').toLowerCase();
       if (name.includes('blissim') || name.includes('bradery')) return 'Outlet';
