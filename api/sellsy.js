@@ -236,7 +236,7 @@ export default async function handler(req, res) {
           const customFields = company._embed?.custom_fields || [];
           const typeField = customFields.find(f => f.id === 135940);
           if (typeField && typeField.value) {
-            const label = TYPE_CLIENT_MAP[typeField.value] || 'Site';
+            const label = TYPE_CLIENT_MAP[typeField.value] || 'B2C';
             companyTypeMap[company.id] = label;
           }
         }
@@ -314,10 +314,7 @@ export default async function handler(req, res) {
     const invoicesB2B = filteredInvoices.filter(inv => inv.rate_category_id !== B2C_CATEGORY_ID);
 
     function classifyClient(inv) {
-      // 0. Si l'objet contient 6 chiffres consécutifs ou "dotation" → Autre
-      const subject = (inv.subject || '').toLowerCase();
-      if (/\d{6}/.test(subject) || subject.includes('dotation')) return 'Autre';
-      // 1. Si rate_category B2C → toujours Site
+      // 1. Si rate_category B2C → toujours B2C
       if (inv.rate_category_id === B2C_CATEGORY_ID) return 'B2C';
       // 2. Règles sur le nom en priorité
       const name = (inv.company_name || '').toLowerCase();
@@ -345,7 +342,7 @@ export default async function handler(req, res) {
     }
 
     // B2C = B2C + Outlet, B2B = Pharmacie + Grand Compte + Monoprix
-    const B2C_TYPES = ['Site', 'Outlet'];
+    const B2C_TYPES = ['B2C', 'Outlet'];
     const B2B_TYPES = ['Pharmacie', 'Grand Compte', 'Monoprix'];
 
     const invoicesB2CNew = filteredInvoices.filter(inv => B2C_TYPES.includes(classifyClient(inv)));
