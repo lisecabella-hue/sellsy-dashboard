@@ -1,13 +1,37 @@
 export const maxDuration = 300;
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
-
+  const clientId = process.env.SELLSY_CLIENT_ID;
+  const clientSecret = process.env.SELLSY_CLIENT_SECRET;
   const kvUrl = process.env.KV_REST_API_URL;
   const kvToken = process.env.KV_REST_API_TOKEN;
+
+  const CACHE_VERSION = 'v8';
+  const pad = n => String(n).padStart(2, '0');
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  const TYPE_CLIENT_MAP = {
+    3562348: 'Pharmacie',
+    3562349: 'Monoprix',
+    3562350: 'Autre',
+    3957579: 'Marketing',
+    3957580: 'Grand Compte'
+  };
+
+  const tokenResp = await fetch('https://login.sellsy.com/oauth2/access-tokens', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: clientId,
+      client_secret: clientSecret
+    })
+  });
+  if (!tokenResp.ok) return res.status(500).json({ error: 'Auth failed' });
+  const { access_token } = await tokenResp.json();
 
   async function cacheGet(key) {
     try {
@@ -22,264 +46,226 @@ export default async function handler(req, res) {
   async function cacheSet(key, value, exSeconds) {
     try {
       const encoded = encodeURIComponent(key);
-      const url = `${kvUrl}/set/${encoded}/${encodeURIComponent(JSON.stringify(value))}?EX=${exSeconds}`;
+      const url = exSeconds
+        ? `${kvUrl}/set/${encoded}/${encodeURIComponent(JSON.stringify(value))}?EX=${exSeconds}`
+        : `${kvUrl}/set/${encoded}/${encodeURIComponent(JSON.stringify(value))}`;
       await fetch(url, { method: 'GET', headers: { Authorization: `Bearer ${kvToken}` } });
     } catch {}
   }
 
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  // Charger le dictionnaire company_id → type client
+  const companyCacheKey = `sellsy:companies:type_client:v2`;
+  let companyTypeMap = await cacheGet(companyCacheKey);
 
-  function categorize(subject) {
-    const s = (subject || '').toLowerCase();
-    if (s.includes('sav implant')) return 'Implantation';
-    if (s.includes('sav preco')) return 'Précommandes';
-    if (s.includes('sav')) return 'Réassort';
-    if (s.includes('suite implant')) return 'Réassort';
-    if (s.includes('implant')) return 'Implantation';
-    if (s.includes('preco')) return 'Précommandes';
-    if (s.includes('reassort') || s.includes('ug')) return 'Réassort';
-    if (s.includes('dotation') || s.includes('marketing') || s.includes('seminaire') || s.includes('animation')) return 'Coffres';
-    return 'Précommandes'; // fallback : tout ce qui n'est pas catégorisé = Précommandes
+  if (!companyTypeMap) {
+    companyTypeMap = {};
+    let companyOffset = 0;
+    let hasMoreCompanies = true;
+    while (hasMoreCompanies) {
+      const compResp = await fetch(
+        `https://api.sellsy.com/v2/companies?limit=100&offset=${companyOffset}&field[]=id&field[]=_embed&embed[]=cf.135940`,
+        { headers: { Authorization: `Bearer ${access_token}` } }
+      );
+      if (!compResp.ok) break;
+      const compData = await compResp.json();
+      const companies = compData.data || [];
+      for (const company of companies) {
+        const customFields = company._embed?.custom_fields || [];
+        const typeField = customFields.find(f => f.id === 135940);
+        if (typeField && typeField.value) {
+          const label = TYPE_CLIENT_MAP[typeField.value] || 'Site';
+          companyTypeMap[company.id] = label;
+        }
+      }
+      const totalCompanies = compData.pagination?.total || 0;
+      companyOffset += 100;
+      hasMoreCompanies = companyOffset < totalCompanies;
+      if (hasMoreCompanies) await sleep(300);
+    }
+    await cacheSet(companyCacheKey, companyTypeMap, 86400);
   }
 
-  function getCacheTTL(dateStart, dateEnd) {
-    const now = new Date();
-    const endDate = new Date(dateEnd);
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1;
-    const endYear = endDate.getFullYear();
-    const endMonth = endDate.getMonth() + 1;
-    if (endYear === currentYear && endMonth === currentMonth) return 3600;
-    if (endDate < now) return 60 * 60 * 24 * 30;
-    return 3600;
-  }
-
-  try {
-    const { dateStart, dateEnd } = req.query;
-    if (!dateStart || !dateEnd) return res.status(400).json({ error: 'dateStart and dateEnd required' });
-
-    const currentYear = new Date(dateStart).getFullYear();
-    const prevYear = currentYear - 1;
-    const prevDateStart = dateStart.replace(String(currentYear), String(prevYear));
-    const prevDateEnd = dateEnd.replace(String(currentYear), String(prevYear));
-
-    const cacheKey = `sellsy:pharmacy-breakdown:v12:${dateStart}:${dateEnd}`;
-    const ttl = getCacheTTL(dateStart, dateEnd);
+  async function isCached(year, month) {
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const dateStart = `${year}-${pad(month + 1)}-01`;
+    const dateEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
+    const cacheKey = `sellsy:${CACHE_VERSION}:total:${dateStart}:${dateEnd}`;
     const cached = await cacheGet(cacheKey);
-    if (cached) return res.status(200).json({ ...cached, _fromCache: true });
-
-    // ─── AGRÉGATION DEPUIS LE CACHE DES MOIS INDIVIDUELS ───────────────────────
-    const pad = n => String(n).padStart(2, '0');
-    const start = new Date(dateStart);
-    const end = new Date(dateEnd);
-    const startDay = start.getUTCDate();
-    const endDay = end.getUTCDate();
-    const lastDayOfEndMonth = new Date(end.getUTCFullYear(), end.getUTCMonth() + 1, 0).getUTCDate();
-    const isPeriodAlignedOnMonths = startDay === 1 && endDay === lastDayOfEndMonth;
-
-    if (isPeriodAlignedOnMonths) {
-      const months = [];
-      let cursor = new Date(start.getUTCFullYear(), start.getUTCMonth(), 1);
-      while (cursor <= end) {
-        months.push({ year: cursor.getFullYear(), month: cursor.getMonth() });
-        cursor.setMonth(cursor.getMonth() + 1);
-      }
-
-      let allFoundInCache = true;
-      const cachedMonths = [];
-
-      for (const { year, month } of months) {
-        const lastDay = new Date(year, month + 1, 0).getDate();
-        const mStart = `${year}-${pad(month + 1)}-01`;
-        const mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
-        const monthData = await cacheGet(`sellsy:pharmacy-breakdown:v12:${mStart}:${mEnd}`);
-        if (!monthData) { allFoundInCache = false; break; }
-        cachedMonths.push(monthData);
-      }
-
-      if (allFoundInCache && cachedMonths.length > 0) {
-        // Agréger les mois
-        const aggregated = {
-          currentYear, prevYear,
-          N: { montants: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, counts: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, panierMoyen: {}, totalPharmacyInvoices: 0, nbPharmaTotal: 0, nbPharmaReassort: 0, nbPharmaImplantation: 0 },
-          N1: { montants: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, counts: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, panierMoyen: {}, totalPharmacyInvoices: 0, nbPharmaTotal: 0, nbPharmaReassort: 0, nbPharmaImplantation: 0 },
-          dateStart, dateEnd, prevDateStart, prevDateEnd
-        };
-
-        const pharmaIdsN = new Set();
-        const pharmaIdsN1 = new Set();
-        const reassortIdsN = new Set();
-        const reassortIdsN1 = new Set();
-        const implantIdsN = new Set();
-        const implantIdsN1 = new Set();
-
-        for (const m of cachedMonths) {
-          for (const period of ['N', 'N1']) {
-            const src = m[period];
-            const dst = aggregated[period];
-            if (!src) continue;
-            for (const cat of ['Implantation', 'Précommandes', 'Réassort', 'Coffres']) {
-              dst.montants[cat] = Math.round(((dst.montants[cat] || 0) + (src.montants?.[cat] || 0)) * 100) / 100;
-              dst.counts[cat] = (dst.counts[cat] || 0) + (src.counts?.[cat] || 0);
-            }
-            dst.totalPharmacyInvoices += src.totalPharmacyInvoices || 0;
-          }
-        }
-
-        // Recalculer panierMoyen
-        for (const period of ['N', 'N1']) {
-          const dst = aggregated[period];
-          for (const cat of ['Implantation', 'Précommandes', 'Réassort', 'Coffres']) {
-            dst.panierMoyen[cat] = dst.counts[cat] > 0 ? Math.round((dst.montants[cat] / dst.counts[cat]) * 100) / 100 : 0;
-          }
-          // nbPharma : somme simple (approximation — les IDs uniques cross-mois ne sont pas disponibles en cache)
-          dst.nbPharmaTotal = cachedMonths.reduce((acc, m) => acc + (m[period]?.nbPharmaTotal || 0), 0);
-          dst.nbPharmaReassort = cachedMonths.reduce((acc, m) => acc + (m[period]?.nbPharmaReassort || 0), 0);
-          dst.nbPharmaImplantation = cachedMonths.reduce((acc, m) => acc + (m[period]?.nbPharmaImplantation || 0), 0);
-          dst.tauxReassort = dst.nbPharmaTotal > 0 ? Math.round((dst.nbPharmaReassort / dst.nbPharmaTotal) * 10000) / 100 : 0;
-          dst.panierMoyenReassort = dst.counts['Réassort'] > 0 ? Math.round((dst.montants['Réassort'] / dst.counts['Réassort']) * 100) / 100 : 0;
-        }
-
-        if (ttl > 0) await cacheSet(cacheKey, aggregated, ttl);
-        return res.status(200).json({ ...aggregated, _fromCache: true, _aggregatedFromMonths: cachedMonths.length });
-      }
-    }
-    // ─── FIN AGRÉGATION ─────────────────────────────────────────────────────────
-
-    const tokenResp = await fetch('https://login.sellsy.com/oauth2/access-tokens', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'client_credentials',
-        client_id: process.env.SELLSY_CLIENT_ID,
-        client_secret: process.env.SELLSY_CLIENT_SECRET
-      })
-    });
-    const { access_token } = await tokenResp.json();
-
-    const companyTypeMap = await cacheGet('sellsy:companies:type_client:v2') || {};
-    console.log('companyTypeMap size:', Object.keys(companyTypeMap).length);
-    console.log('sample:', JSON.stringify(Object.entries(companyTypeMap).slice(0, 3)));
-
-    async function fetchAndAggregate(start, end) {
-      const totals = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 };
-      const counts = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 };
-
-      // Sets d'IDs Sellsy uniques par catégorie
-      const pharmacyIds = new Set();           // toutes les pharmacies de la période
-      const reassortPharmacyIds = new Set();   // pharmacies ayant au moins 1 facture Réassort
-      const implantationPharmacyIds = new Set(); // pharmacies ayant au moins 1 facture Implantation
-
-      let offset = 0;
-      let totalPharmacyInvoices = 0;
-
-      while (true) {
-        const r = await fetch(
-          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=subject&field[]=company_name&field[]=related&field[]=rate_category_id`,
-          {
-            method: 'POST',
-            headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              filters: {
-                date: { start, end },
-                status: ['payinprogress', 'due', 'paid', 'late', 'cancelled']
-              }
-            })
-          }
-        );
-        const data = await r.json();
-        const items = data?.data || [];
-
-        for (const inv of items) {
-          const relatedId = inv.related?.[0]?.id;
-          const companyId = relatedId ? String(relatedId) : null;
-          const name = (inv.company_name || '').toLowerCase();
-
-          // Exactement la même logique que sellsy.js classifyClient
-          let clientType;
-          const subject = (inv.subject || '').toLowerCase();
-          if (/\d{6}/.test(subject) || subject.includes('dotation')) clientType = 'Autre';
-          else if (inv.rate_category_id === 215340) clientType = 'B2C';
-          else if (name.includes('blissim') || name.includes('bradery')) clientType = 'Outlet';
-          else if (name.includes('printemps') || name.includes('samaritaine')) clientType = 'Grand Compte';
-          else if (name.includes('figaro') || name.includes('media ')) clientType = 'Marketing';
-          else if (companyId && companyTypeMap[companyId]) clientType = companyTypeMap[companyId];
-          else if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco')) clientType = 'Pharmacie';
-          else clientType = 'Autre';
-
-          const isPharmacy = clientType === 'Pharmacie';
-          if (!isPharmacy) continue;
-
-          totalPharmacyInvoices++;
-          const cat = categorize(inv.subject);
-          const amount = parseFloat(inv.amounts?.total_excl_tax || 0);
-          totals[cat] += amount;
-          counts[cat]++;
-
-          // Tracking des IDs uniques
-          if (relatedId) {
-            pharmacyIds.add(String(relatedId));
-            if (cat === 'Réassort') reassortPharmacyIds.add(String(relatedId));
-            if (cat === 'Implantation') implantationPharmacyIds.add(String(relatedId));
-          }
-        }
-
-        const total = data?.pagination?.total || 0;
-        console.log(`Page offset=${offset}, total=${total}, items=${items.length}, pharmacyFound=${totalPharmacyInvoices}`);
-        // Gérer le rate limiting
-        if (r.status === 429 || items.length === 0 && total > 0) {
-          await sleep(3000);
-          continue;
-        }
-        offset += 100;
-        if (offset >= total) break;
-        await sleep(500);
-      }
-
-      const panierMoyen = {};
-      for (const cat of Object.keys(totals)) {
-        panierMoyen[cat] = counts[cat] > 0 ? Math.round((totals[cat] / counts[cat]) * 100) / 100 : 0;
-      }
-
-      const nbPharmaTotal = pharmacyIds.size;
-      const nbPharmaReassort = reassortPharmacyIds.size;
-      const nbPharmaImplantation = implantationPharmacyIds.size;
-
-      return {
-        montants: {
-          Implantation: Math.round(totals.Implantation * 100) / 100,
-          Précommandes: Math.round(totals.Précommandes * 100) / 100,
-          Réassort: Math.round(totals.Réassort * 100) / 100,
-          Coffres: Math.round(totals.Coffres * 100) / 100,
-        },
-        counts,
-        panierMoyen,
-        totalPharmacyInvoices,
-
-        // Nouveaux indicateurs basés sur les IDs uniques
-        nbPharmaTotal,
-        nbPharmaReassort,
-        nbPharmaImplantation,
-        tauxReassort: nbPharmaTotal > 0
-          ? Math.round((nbPharmaReassort / nbPharmaTotal) * 10000) / 100
-          : 0,
-        panierMoyenReassort: counts['Réassort'] > 0
-          ? Math.round((totals['Réassort'] / counts['Réassort']) * 100) / 100
-          : 0,
-      };
-    }
-
-    const N = await fetchAndAggregate(dateStart, dateEnd);
-    const N1 = { montants: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, counts: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, panierMoyen: {}, totalPharmacyInvoices: 0, nbPharmaTotal: 0, nbPharmaReassort: 0, nbPharmaImplantation: 0, tauxReassort: 0, panierMoyenReassort: 0 };
-
-    const result = { currentYear, prevYear, N, N1, dateStart, dateEnd, prevDateStart, prevDateEnd };
-    // Ne sauvegarder en cache que si on a trouvé des données
-    if (N.totalPharmacyInvoices > 0) {
-      await cacheSet(cacheKey, result, ttl);
-    }
-    return res.status(200).json(result);
-
-  } catch (err) {
-    return res.status(500).json({ error: err.message });
+    return !!cached;
   }
+
+  async function fetchMonthCA(year, month) {
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const dateStart = `${year}-${pad(month + 1)}-01`;
+    const dateEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
+    const cacheKey = `sellsy:${CACHE_VERSION}:total:${dateStart}:${dateEnd}`;
+
+    const body = JSON.stringify({
+      filters: {
+        date: { start: dateStart, end: dateEnd },
+        status: ['payinprogress', 'due', 'paid', 'late', 'cancelled']
+      }
+    });
+
+    let allInvoices = [];
+    let offset = 0;
+    let total = null;
+    do {
+      const resp = await fetch(
+        `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit&field[]=rate_category_id&field[]=company_name&field[]=related&field[]=subject`,
+        { method: 'POST', headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' }, body }
+      );
+      if (resp.status === 429) { await sleep(3000); continue; }
+      if (!resp.ok) break;
+      const data = await resp.json();
+      if (total === null) total = data.pagination?.total || 0;
+      allInvoices = allInvoices.concat(data.data || []);
+      offset += 100;
+      if (offset < total) await sleep(500);
+    } while (offset < total);
+
+    const filteredInvoices = allInvoices.filter(inv => !inv.is_deposit);
+    const B2C_CATEGORY_ID = 215340;
+    const invoicesB2C = filteredInvoices.filter(inv => inv.rate_category_id === B2C_CATEGORY_ID);
+    const invoicesB2B = filteredInvoices.filter(inv => inv.rate_category_id !== B2C_CATEGORY_ID);
+
+    function classifyClient(inv) {
+      if (inv.rate_category_id === B2C_CATEGORY_ID) return 'B2C';
+      const name = (inv.company_name || '').toLowerCase();
+      if (name.includes('blissim') || name.includes('bradery')) return 'Outlet';
+      if (name.includes('printemps') || name.includes('samaritaine')) return 'Grand Compte';
+      if (name.includes('figaro') || name.includes('media ')) return 'Marketing';
+      const companyId = inv.related?.[0]?.id;
+      if (companyId && companyTypeMap[companyId]) return companyTypeMap[companyId];
+      if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco')) return 'Pharmacie';
+      return 'Autre';
+    }
+
+    const caByType = {};
+    for (const inv of filteredInvoices) {
+      const typeClient = classifyClient(inv);
+      const amount = parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0);
+      if (!caByType[typeClient]) caByType[typeClient] = 0;
+      caByType[typeClient] += amount;
+    }
+    for (const key of Object.keys(caByType)) caByType[key] = Math.round(caByType[key] * 100) / 100;
+
+    const b2bByClient = {};
+    for (const inv of invoicesB2B) {
+      const name = inv.company_name || 'Inconnu';
+      const amount = parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0);
+      if (!b2bByClient[name]) b2bByClient[name] = { ca: 0, nbFactures: 0 };
+      b2bByClient[name].ca += amount;
+      b2bByClient[name].nbFactures += 1;
+    }
+    const top30B2B = Object.entries(b2bByClient)
+      .map(([name, data]) => ({ name, ca: Math.round(data.ca * 100) / 100, nbFactures: data.nbFactures }))
+      .sort((a, b) => b.ca - a.ca).slice(0, 30);
+
+    const totalCA = filteredInvoices.reduce((acc, inv) => acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
+    const totalCAB2C = invoicesB2C.reduce((acc, inv) => acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
+    const totalCAB2B = invoicesB2B.reduce((acc, inv) => acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
+
+    const creditBody = JSON.stringify({ filters: { date: { start: dateStart, end: dateEnd } } });
+    let allCredits = [];
+    let creditOffset = 0;
+    let totalCredits = null;
+    do {
+      const resp = await fetch(
+        `https://api.sellsy.com/v2/credit-notes/search?limit=100&offset=${creditOffset}&field[]=amounts.total_excl_tax&field[]=rate_category_id&field[]=related`,
+        { method: 'POST', headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' }, body: creditBody }
+      );
+      if (resp.status === 429) { await sleep(2000); continue; }
+      if (!resp.ok) break;
+      const data = await resp.json();
+      if (totalCredits === null) totalCredits = data.pagination?.total || 0;
+      allCredits = allCredits.concat(data.data || []);
+      creditOffset += 100;
+      if (creditOffset < totalCredits) await sleep(200);
+    } while (creditOffset < (totalCredits || 0));
+
+    const creditsB2C = allCredits.filter(c => c.rate_category_id === B2C_CATEGORY_ID);
+    const creditsB2B = allCredits.filter(c => c.rate_category_id !== B2C_CATEGORY_ID);
+    const totalAvoirsCA = allCredits.reduce((acc, c) => acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
+    const totalAvoirsB2C = creditsB2C.reduce((acc, c) => acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
+    const totalAvoirsB2B = creditsB2B.reduce((acc, c) => acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
+
+    const result = {
+      _totalCA: Math.round(totalCA * 100) / 100,
+      _totalCABrut: Math.round(totalCA * 100) / 100,
+      _totalAvoirs: Math.round(totalAvoirsCA * 100) / 100,
+      _tauxAvoirs: totalCA > 0 ? Math.round((totalAvoirsCA / totalCA) * 10000) / 100 : 0,
+      _totalCAB2C: Math.round(totalCAB2C * 100) / 100,
+      _totalCAB2B: Math.round(totalCAB2B * 100) / 100,
+      _totalCAB2CNet: Math.round((totalCAB2C - totalAvoirsB2C) * 100) / 100,
+      _totalCAB2BNet: Math.round((totalCAB2B - totalAvoirsB2B) * 100) / 100,
+      _countB2C: invoicesB2C.length,
+      _countB2B: invoicesB2B.length,
+      _panierMoyenB2C: invoicesB2C.length > 0 ? Math.round((totalCAB2C / invoicesB2C.length) * 100) / 100 : 0,
+      _panierMoyenB2B: invoicesB2B.length > 0 ? Math.round((totalCAB2B / invoicesB2B.length) * 100) / 100 : 0,
+      _count: allInvoices.length,
+      _countAvoirs: allCredits.length,
+      _caByType: caByType,
+      _top30B2B: top30B2B,
+      pagination: { total: total || allInvoices.length }
+    };
+
+    const isCurrentMonth = year === currentYear && month === currentMonth;
+    const ttl = isCurrentMonth ? 3600 : 60 * 60 * 24 * 35;
+    await cacheSet(cacheKey, result, ttl);
+    return { month, year, totalCA: result._totalCA, count: result._count };
+  }
+
+  // Construire la liste de tous les mois à couvrir (jan 2025 → mois courant)
+  const allMonths = [];
+  for (let y = 2025; y <= currentYear; y++) {
+    const maxMonth = y === currentYear ? currentMonth : 11;
+    for (let m = 0; m <= maxMonth; m++) {
+      allMonths.push({ year: y, month: m });
+    }
+  }
+
+  // Identifier les mois manquants (non en cache) + toujours inclure le mois courant
+  const START_TIME = Date.now();
+  const MAX_DURATION_MS = 240000; // 4 minutes max, garde 1 min de marge
+
+  const missingMonths = [];
+  for (const { year, month } of allMonths) {
+    const isCurrentM = year === currentYear && month === currentMonth;
+    if (isCurrentM) {
+      missingMonths.push({ year, month, reason: 'current' });
+    } else {
+      const cached = await isCached(year, month);
+      if (!cached) missingMonths.push({ year, month, reason: 'missing' });
+    }
+  }
+
+  const results = [];
+  const skipped = [];
+
+  for (const { year, month, reason } of missingMonths) {
+    // Vérifier si on approche du timeout
+    if (Date.now() - START_TIME > MAX_DURATION_MS) {
+      skipped.push({ year, month, reason: 'timeout_protection' });
+      continue;
+    }
+
+    try {
+      const result = await fetchMonthCA(year, month);
+      results.push({ ...result, reason });
+    } catch (e) {
+      results.push({ year, month, error: e.message, reason });
+    }
+  }
+
+  return res.status(200).json({
+    success: true,
+    totalMonths: allMonths.length,
+    alreadyCached: allMonths.length - missingMonths.length,
+    refreshed: results.filter(r => !r.error).length,
+    errors: results.filter(r => r.error).length,
+    skippedDueToTimeout: skipped.length,
+    remainingForNextRun: skipped.map(s => `${s.year}-${pad(s.month + 1)}`),
+    details: results
+  });
 }
