@@ -320,7 +320,7 @@
         </div>
       </div>
       <!-- KPIs réassort -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
         <div style="background:#f9f9f9;border-radius:10px;padding:16px;border:1px solid #e5e5e5;">
           <p style="font-size:12px;color:#888;margin-bottom:6px;">Taux de réassort</p>
           <p style="font-size:24px;font-weight:500;" id="pharmacyTauxReassort">—</p>
@@ -335,6 +335,11 @@
           <p style="font-size:12px;color:#888;margin-bottom:6px;">Nouvelles implantations</p>
           <p style="font-size:24px;font-weight:500;" id="pharmacyNbImplantation">—</p>
           <p style="font-size:11px;color:#888;margin-top:4px;">Pharmacies avec au moins 1 facture Implantation</p>
+        </div>
+        <div style="background:#f9f9f9;border-radius:10px;padding:16px;border:1px solid #e5e5e5;">
+          <p style="font-size:12px;color:#888;margin-bottom:6px;">Parc actif pharmacies</p>
+          <p style="font-size:24px;font-weight:500;" id="pharmacyNbActif">—</p>
+          <p style="font-size:11px;color:#888;margin-top:4px;">Pharmacies distinctes ayant commandé sur la période</p>
         </div>
       </div>
       <!-- Donut + légende -->
@@ -641,6 +646,8 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
       N.panierMoyenReassort !== undefined ? fmt(N.panierMoyenReassort) : '—';
     document.getElementById('pharmacyNbImplantation').textContent =
       N.nbPharmaImplantation !== undefined ? N.nbPharmaImplantation : '—';
+    document.getElementById('pharmacyNbActif').textContent =
+      N.nbPharmaTotal !== undefined ? N.nbPharmaTotal : '—';
 
     pharmacyChartN = renderPharmacyDonut('pharmacyDonutN', montants, pharmacyChartN, N.totalPharmacyInvoices);
 
