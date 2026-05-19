@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard CEO</title>
+  <title>Cockpit CEO</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -74,7 +74,7 @@
   <!-- Login overlay -->
   <div id="loginOverlay" style="position:fixed;inset:0;background:#f5f5f5;z-index:99999;display:flex;align-items:center;justify-content:center;">
     <div style="background:white;border-radius:16px;padding:40px;width:380px;max-width:90vw;border:1px solid #e5e5e5;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
-      <h2 style="font-size:20px;font-weight:600;margin-bottom:6px;">📊 Dashboard CEO</h2>
+      <h2 style="font-size:20px;font-weight:600;margin-bottom:6px;">📊 Cockpit CEO</h2>
       <p style="font-size:13px;color:#888;margin-bottom:24px;">Accès restreint — entrez votre mot de passe</p>
       <input id="passwordInput" type="password" placeholder="Mot de passe" onkeydown="handlePasswordKey(event)"
         style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:12px;outline:none;" />
@@ -136,7 +136,7 @@
 
   <div class="header">
     <div style="display:flex;align-items:center;gap:24px;">
-      <h1>📊 Dashboard CEO</h1>
+      <h1>📊 Cockpit CEO</h1>
       <div style="display:flex;gap:4px;background:#f5f5f5;border-radius:10px;padding:4px;">
         <button id="navBusiness" onclick="switchView('business')" style="font-size:13px;padding:7px 16px;border-radius:7px;border:none;cursor:pointer;background:#1a1a1a;color:white;font-weight:500;">🛒 Business</button>
         <button id="navFinancier" onclick="switchView('financier')" style="font-size:13px;padding:7px 16px;border-radius:7px;border:none;cursor:pointer;background:transparent;color:#666;font-weight:500;">💰 Financier</button>
