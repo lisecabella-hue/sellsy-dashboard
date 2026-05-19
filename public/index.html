@@ -319,8 +319,8 @@
           <p class="chart-subtitle" id="pharmacyBreakdownSubtitle"></p>
         </div>
       </div>
-      <!-- KPIs réassort -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
+      <!-- ✅ MODIF 1 : grille 5 colonnes (était 4) -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
         <div style="background:#f9f9f9;border-radius:10px;padding:16px;border:1px solid #e5e5e5;">
           <p style="font-size:12px;color:#888;margin-bottom:6px;">Taux de réassort</p>
           <p style="font-size:24px;font-weight:500;" id="pharmacyTauxReassort">—</p>
@@ -329,12 +329,18 @@
         <div style="background:#f9f9f9;border-radius:10px;padding:16px;border:1px solid #e5e5e5;">
           <p style="font-size:12px;color:#888;margin-bottom:6px;">Panier moyen Réassort</p>
           <p style="font-size:24px;font-weight:500;" id="pharmacyPanierReassort">—</p>
-         <p style="font-size:11px;color:#888;margin-top:4px;">CA Réassort / nombre de pharmacies avec réassort</p>
+          <p style="font-size:11px;color:#888;margin-top:4px;">CA Réassort / nombre de pharmacies avec réassort</p>
         </div>
         <div style="background:#f9f9f9;border-radius:10px;padding:16px;border:1px solid #e5e5e5;border-left:3px solid #1a1a1a;">
           <p style="font-size:12px;color:#888;margin-bottom:6px;">Nouvelles implantations</p>
           <p style="font-size:24px;font-weight:500;" id="pharmacyNbImplantation">—</p>
           <p style="font-size:11px;color:#888;margin-top:4px;">Pharmacies avec au moins 1 facture Implantation</p>
+        </div>
+        <!-- ✅ MODIF 2 : nouvelle carte Panier moyen Implantation -->
+        <div style="background:#f9f9f9;border-radius:10px;padding:16px;border:1px solid #e5e5e5;border-left:3px solid #1a1a1a;">
+          <p style="font-size:12px;color:#888;margin-bottom:6px;">Panier moyen Implantation</p>
+          <p style="font-size:24px;font-weight:500;" id="pharmacyPanierImplantation">—</p>
+          <p style="font-size:11px;color:#888;margin-top:4px;">CA Implantation / nombre de pharmacies avec au moins 1 facture Implantation</p>
         </div>
         <div style="background:#f9f9f9;border-radius:10px;padding:16px;border:1px solid #e5e5e5;">
           <p style="font-size:12px;color:#888;margin-bottom:6px;">Parc actif pharmacies</p>
@@ -644,6 +650,7 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
   document.getElementById('pharmacyBreakdownSubtitle').textContent = 'Chargement...';
   document.getElementById('pharmacyTauxReassort').textContent = '...';
   document.getElementById('pharmacyPanierReassort').textContent = '...';
+  document.getElementById('pharmacyPanierImplantation').textContent = '...';
 
   try {
     const resp = await fetch(`/api/pharmacy-breakdown?dateStart=${dateStart}&dateEnd=${dateEnd}`);
@@ -662,6 +669,9 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
       N.panierMoyenReassort !== undefined ? fmt(N.panierMoyenReassort) : '—';
     document.getElementById('pharmacyNbImplantation').textContent =
       N.nbPharmaImplantation !== undefined ? N.nbPharmaImplantation : '—';
+    // ✅ MODIF 3 : alimentation du nouveau KPI
+    document.getElementById('pharmacyPanierImplantation').textContent =
+      N.panierMoyenImplantation !== undefined ? fmt(N.panierMoyenImplantation) : '—';
     document.getElementById('pharmacyNbActif').textContent =
       N.nbPharmaTotal !== undefined ? N.nbPharmaTotal : '—';
 
@@ -1151,33 +1161,28 @@ function renderPieChart(caB2C, caB2B) {
   let labels, values, colors;
 
   if (seg === 'b2b') {
-    // Vue B2B : Pharmacie + Grand Compte + Monoprix
     const B2B_CATS = ['Pharmacie', 'Grand Compte', 'Monoprix'];
     const filtered = B2B_CATS.filter(k => (caByType[k] || 0) > 0);
     labels = filtered;
     values = filtered.map(k => caByType[k] || 0);
     colors = filtered.map(l => TYPE_CLIENT_COLORS[l] || '#aaa');
   } else if (seg === 'b2c') {
-    // Vue B2C : B2C + Outlet
     const B2C_CATS = ['B2C', 'Outlet'];
     const filtered = B2C_CATS.filter(k => (caByType[k] || 0) > 0);
     labels = filtered;
     values = filtered.map(k => caByType[k] || 0);
     colors = filtered.map(l => TYPE_CLIENT_COLORS[l] || '#aaa');
   } else {
-    // Vue Total : 4 segments agrégés
     const b2cTotal = (caByType['B2C'] || 0) + (caByType['Outlet'] || 0);
     const b2bTotal = (caByType['Pharmacie'] || 0) + (caByType['Grand Compte'] || 0) + (caByType['Monoprix'] || 0);
     const marketing = caByType['Marketing'] || 0;
     const autre = caByType['Autre'] || 0;
-
     const segments = [
       { label: 'B2C', value: b2cTotal, color: '#74A1D6' },
       { label: 'B2B', value: b2bTotal, color: '#1D9E75' },
       { label: 'Marketing', value: marketing, color: '#9B59B6' },
       { label: 'Autre', value: autre, color: '#F5A623' },
     ].filter(s => s.value > 0);
-
     labels = segments.map(s => s.label);
     values = segments.map(s => s.value);
     colors = segments.map(s => s.color);
@@ -1328,7 +1333,6 @@ function saveTypeClientBudget() {
 }
 
 function getTypeClientBudgetForPeriod(cat) {
-  // B2C dans les données = Site dans le budget
   const budgetCat = cat === 'B2C' ? 'Site' : cat;
   const map = TYPE_CLIENT_BUDGET_CATS2.includes(budgetCat) ? budgetTypeClient2 : budgetTypeClient;
   const arr = map[budgetCat] || Array(12).fill(0);
