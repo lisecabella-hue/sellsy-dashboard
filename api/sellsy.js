@@ -1,4 +1,4 @@
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   const { dateStart, dateEnd, mode } = req.query;
   if (!dateStart || !dateEnd) return res.status(400).json({ error: 'dateStart and dateEnd required' });
 
-  const CACHE_VERSION = 'v9';
+  const CACHE_VERSION = 'v8';
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const pad = n => String(n).padStart(2, '0');
 
