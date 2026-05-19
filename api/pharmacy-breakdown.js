@@ -63,7 +63,8 @@ export default async function handler(req, res) {
     const prevDateStart = dateStart.replace(String(currentYear), String(prevYear));
     const prevDateEnd = dateEnd.replace(String(currentYear), String(prevYear));
 
-    const cacheKey = `sellsy:pharmacy-breakdown:v13:${dateStart}:${dateEnd}`;
+    // v14 : ajout panierMoyenImplantation
+    const cacheKey = `sellsy:pharmacy-breakdown:v14:${dateStart}:${dateEnd}`;
     const ttl = getCacheTTL(dateStart, dateEnd);
     const cached = await cacheGet(cacheKey);
     if (cached) return res.status(200).json({ ...cached, _fromCache: true });
@@ -92,7 +93,7 @@ export default async function handler(req, res) {
         const lastDay = new Date(year, month + 1, 0).getDate();
         const mStart = `${year}-${pad(month + 1)}-01`;
         const mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
-        const monthData = await cacheGet(`sellsy:pharmacy-breakdown:v13:${mStart}:${mEnd}`);
+        const monthData = await cacheGet(`sellsy:pharmacy-breakdown:v14:${mStart}:${mEnd}`);
         if (!monthData) { allFoundInCache = false; break; }
         cachedMonths.push(monthData);
       }
@@ -105,7 +106,6 @@ export default async function handler(req, res) {
           dateStart, dateEnd, prevDateStart, prevDateEnd
         };
 
-        // Merger les IDs uniques cross-mois
         const allPharmaIdsN = new Set();
         const allReassortIdsN = new Set();
         const allImplantIdsN = new Set();
@@ -124,7 +124,6 @@ export default async function handler(req, res) {
             }
             dst.totalPharmacyInvoices += src.totalPharmacyInvoices || 0;
 
-            // Merger les IDs uniques
             const ids = period === 'N' ? allPharmaIdsN : allPharmaIdsN1;
             const rIds = period === 'N' ? allReassortIdsN : allReassortIdsN1;
             const iIds = period === 'N' ? allImplantIdsN : allImplantIdsN1;
@@ -134,7 +133,6 @@ export default async function handler(req, res) {
           }
         }
 
-        // Recalculer avec IDs uniques cross-mois
         for (const period of ['N', 'N1']) {
           const dst = aggregated[period];
           const ids = period === 'N' ? allPharmaIdsN : allPharmaIdsN1;
@@ -148,8 +146,8 @@ export default async function handler(req, res) {
           dst.nbPharmaReassort = rIds.size;
           dst.nbPharmaImplantation = iIds.size;
           dst.tauxReassort = dst.nbPharmaTotal > 0 ? Math.round((dst.nbPharmaReassort / dst.nbPharmaTotal) * 10000) / 100 : 0;
-          // ✅ CORRIGÉ : division par nbPharmaReassort (nombre de pharmacies) et non par counts['Réassort'] (nombre de factures)
           dst.panierMoyenReassort = dst.nbPharmaReassort > 0 ? Math.round((dst.montants['Réassort'] / dst.nbPharmaReassort) * 100) / 100 : 0;
+          dst.panierMoyenImplantation = dst.nbPharmaImplantation > 0 ? Math.round((dst.montants['Implantation'] / dst.nbPharmaImplantation) * 100) / 100 : 0;
         }
 
         if (ttl > 0) await cacheSet(cacheKey, aggregated, ttl);
@@ -260,18 +258,17 @@ export default async function handler(req, res) {
         nbPharmaTotal,
         nbPharmaReassort,
         nbPharmaImplantation,
-        // Stocker les IDs pour merger cross-mois en YTD
         pharmacyIdsArray: [...pharmacyIds],
         reassortIdsArray: [...reassortPharmacyIds],
         implantIdsArray: [...implantationPharmacyIds],
         tauxReassort: nbPharmaTotal > 0 ? Math.round((nbPharmaReassort / nbPharmaTotal) * 10000) / 100 : 0,
-        // ✅ CORRIGÉ : division par nbPharmaReassort (nombre de pharmacies) et non par counts['Réassort'] (nombre de factures)
         panierMoyenReassort: nbPharmaReassort > 0 ? Math.round((totals['Réassort'] / nbPharmaReassort) * 100) / 100 : 0,
+        panierMoyenImplantation: nbPharmaImplantation > 0 ? Math.round((totals['Implantation'] / nbPharmaImplantation) * 100) / 100 : 0,
       };
     }
 
     const N = await fetchAndAggregate(dateStart, dateEnd);
-    const N1 = { montants: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, counts: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, panierMoyen: {}, totalPharmacyInvoices: 0, nbPharmaTotal: 0, nbPharmaReassort: 0, nbPharmaImplantation: 0, tauxReassort: 0, panierMoyenReassort: 0, pharmacyIdsArray: [], reassortIdsArray: [], implantIdsArray: [] };
+    const N1 = { montants: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, counts: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, panierMoyen: {}, totalPharmacyInvoices: 0, nbPharmaTotal: 0, nbPharmaReassort: 0, nbPharmaImplantation: 0, tauxReassort: 0, panierMoyenReassort: 0, panierMoyenImplantation: 0, pharmacyIdsArray: [], reassortIdsArray: [], implantIdsArray: [] };
 
     const result = { currentYear, prevYear, N, N1, dateStart, dateEnd, prevDateStart, prevDateEnd };
     if (N.totalPharmacyInvoices > 0) {
