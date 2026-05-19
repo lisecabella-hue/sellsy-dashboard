@@ -86,12 +86,21 @@ export default async function handler(req, res) {
     await cacheSet(companyCacheKey, companyTypeMap, 86400);
   }
 
+  // Vérifie si le cache CA existe pour un mois
   async function isCached(year, month) {
     const lastDay = new Date(year, month + 1, 0).getDate();
     const dateStart = `${year}-${pad(month + 1)}-01`;
     const dateEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
-    const cacheKey = `sellsy:${CACHE_VERSION}:total:${dateStart}:${dateEnd}`;
-    const cached = await cacheGet(cacheKey);
+    const cached = await cacheGet(`sellsy:${CACHE_VERSION}:total:${dateStart}:${dateEnd}`);
+    return !!cached;
+  }
+
+  // Vérifie si le cache pharmacy v14 existe pour un mois
+  async function isPharmacyCached(year, month) {
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const dateStart = `${year}-${pad(month + 1)}-01`;
+    const dateEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
+    const cached = await cacheGet(`sellsy:pharmacy-breakdown:${PHARMACY_VERSION}:${dateStart}:${dateEnd}`);
     return !!cached;
   }
 
@@ -364,18 +373,24 @@ export default async function handler(req, res) {
     }
   }
 
-  // Identifier les mois manquants (non en cache) + toujours inclure le mois courant
   const START_TIME = Date.now();
-  const MAX_DURATION_MS = 240000; // 4 minutes max, garde 1 min de marge
+  const MAX_DURATION_MS = 240000; // 4 minutes max
 
+  // Identifier les mois manquants CA et pharmacy séparément
   const missingMonths = [];
+  const missingPharmacyMonths = [];
+
   for (const { year, month } of allMonths) {
     const isCurrentM = year === currentYear && month === currentMonth;
     if (isCurrentM) {
       missingMonths.push({ year, month, reason: 'current' });
+      missingPharmacyMonths.push({ year, month, reason: 'current' });
     } else {
       const cached = await isCached(year, month);
       if (!cached) missingMonths.push({ year, month, reason: 'missing' });
+
+      const pharmacyCached = await isPharmacyCached(year, month);
+      if (!pharmacyCached) missingPharmacyMonths.push({ year, month, reason: 'missing' });
     }
   }
 
@@ -399,7 +414,7 @@ export default async function handler(req, res) {
   // ─── RECALCUL PHARMACY ───────────────────────────────────────────────────────
   const pharmacyResults = [];
 
-  for (const { year, month, reason } of missingMonths) {
+  for (const { year, month, reason } of missingPharmacyMonths) {
     if (Date.now() - START_TIME > MAX_DURATION_MS) {
       pharmacyResults.push({ year, month, error: 'timeout_protection' });
       continue;
@@ -415,13 +430,14 @@ export default async function handler(req, res) {
   return res.status(200).json({
     success: true,
     totalMonths: allMonths.length,
-    alreadyCached: allMonths.length - missingMonths.length,
-    refreshed: results.filter(r => !r.error).length,
-    errors: results.filter(r => r.error).length,
+    alreadyCachedCA: allMonths.length - missingMonths.length,
+    alreadyCachedPharmacy: allMonths.length - missingPharmacyMonths.length,
+    refreshedCA: results.filter(r => !r.error).length,
+    refreshedPharmacy: pharmacyResults.filter(r => r.ok).length,
+    errorsCA: results.filter(r => r.error).length,
+    errorsPharmacy: pharmacyResults.filter(r => r.error).length,
     skippedDueToTimeout: skipped.length,
     remainingForNextRun: skipped.map(s => `${s.year}-${pad(s.month + 1)}`),
-    pharmacyRefreshed: pharmacyResults.filter(r => r.ok).length,
-    pharmacyErrors: pharmacyResults.filter(r => r.error).length,
     details: results,
     pharmacyDetails: pharmacyResults
   });
