@@ -7,6 +7,7 @@ export default async function handler(req, res) {
   const kvToken = process.env.KV_REST_API_TOKEN;
 
   const CACHE_VERSION = 'v8';
+  const PHARMACY_VERSION = 'v14';
   const pad = n => String(n).padStart(2, '0');
   const now = new Date();
   const currentYear = now.getFullYear();
@@ -216,6 +217,144 @@ export default async function handler(req, res) {
     return { month, year, totalCA: result._totalCA, count: result._count };
   }
 
+  // ─── PHARMACY BREAKDOWN ──────────────────────────────────────────────────────
+  function categorize(subject) {
+    const s = (subject || '').toLowerCase();
+    if (s.includes('sav implant')) return 'Implantation';
+    if (s.includes('sav preco')) return 'Précommandes';
+    if (s.includes('sav')) return 'Réassort';
+    if (s.includes('suite implant')) return 'Réassort';
+    if (s.includes('implant')) return 'Implantation';
+    if (s.includes('preco')) return 'Précommandes';
+    if (s.includes('reassort') || s.includes('ug')) return 'Réassort';
+    if (s.includes('dotation') || s.includes('marketing') || s.includes('seminaire') || s.includes('animation')) return 'Coffres';
+    return 'Précommandes';
+  }
+
+  async function fetchPharmacyMonth(year, month) {
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const dateStart = `${year}-${pad(month + 1)}-01`;
+    const dateEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
+    const cacheKey = `sellsy:pharmacy-breakdown:${PHARMACY_VERSION}:${dateStart}:${dateEnd}`;
+
+    const totals = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 };
+    const counts = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 };
+    const pharmacyIds = new Set();
+    const reassortPharmacyIds = new Set();
+    const implantationPharmacyIds = new Set();
+    let totalPharmacyInvoices = 0;
+    let offset = 0;
+    let total = null;
+
+    do {
+      const resp = await fetch(
+        `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=subject&field[]=company_name&field[]=related&field[]=rate_category_id`,
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filters: {
+              date: { start: dateStart, end: dateEnd },
+              status: ['payinprogress', 'due', 'paid', 'late', 'cancelled']
+            }
+          })
+        }
+      );
+      if (resp.status === 429) { await sleep(3000); continue; }
+      if (!resp.ok) break;
+      const data = await resp.json();
+      if (total === null) total = data.pagination?.total || 0;
+      const items = data.data || [];
+
+      for (const inv of items) {
+        const relatedId = inv.related?.[0]?.id;
+        const companyId = relatedId ? String(relatedId) : null;
+        const name = (inv.company_name || '').toLowerCase();
+
+        let clientType;
+        if (inv.rate_category_id === 215340) clientType = 'B2C';
+        else if (name.includes('blissim') || name.includes('bradery')) clientType = 'Outlet';
+        else if (name.includes('printemps') || name.includes('samaritaine')) clientType = 'Grand Compte';
+        else if (name.includes('figaro') || name.includes('media ')) clientType = 'Marketing';
+        else if (companyId && companyTypeMap[companyId]) clientType = companyTypeMap[companyId];
+        else if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco')) clientType = 'Pharmacie';
+        else clientType = 'Autre';
+
+        if (clientType !== 'Pharmacie') continue;
+
+        totalPharmacyInvoices++;
+        const cat = categorize(inv.subject);
+        const amount = parseFloat(inv.amounts?.total_excl_tax || 0);
+        totals[cat] += amount;
+        counts[cat]++;
+
+        if (relatedId) {
+          pharmacyIds.add(String(relatedId));
+          if (cat === 'Réassort') reassortPharmacyIds.add(String(relatedId));
+          if (cat === 'Implantation') implantationPharmacyIds.add(String(relatedId));
+        }
+      }
+
+      offset += 100;
+      if (offset < total) await sleep(500);
+    } while (offset < total);
+
+    const nbPharmaTotal = pharmacyIds.size;
+    const nbPharmaReassort = reassortPharmacyIds.size;
+    const nbPharmaImplantation = implantationPharmacyIds.size;
+
+    const panierMoyen = {};
+    for (const cat of Object.keys(totals)) {
+      panierMoyen[cat] = counts[cat] > 0 ? Math.round((totals[cat] / counts[cat]) * 100) / 100 : 0;
+    }
+
+    const result = {
+      N: {
+        montants: {
+          Implantation: Math.round(totals.Implantation * 100) / 100,
+          Précommandes: Math.round(totals.Précommandes * 100) / 100,
+          Réassort: Math.round(totals.Réassort * 100) / 100,
+          Coffres: Math.round(totals.Coffres * 100) / 100,
+        },
+        counts,
+        panierMoyen,
+        totalPharmacyInvoices,
+        nbPharmaTotal,
+        nbPharmaReassort,
+        nbPharmaImplantation,
+        pharmacyIdsArray: [...pharmacyIds],
+        reassortIdsArray: [...reassortPharmacyIds],
+        implantIdsArray: [...implantationPharmacyIds],
+        tauxReassort: nbPharmaTotal > 0 ? Math.round((nbPharmaReassort / nbPharmaTotal) * 10000) / 100 : 0,
+        panierMoyenReassort: nbPharmaReassort > 0 ? Math.round((totals['Réassort'] / nbPharmaReassort) * 100) / 100 : 0,
+        panierMoyenImplantation: nbPharmaImplantation > 0 ? Math.round((totals['Implantation'] / nbPharmaImplantation) * 100) / 100 : 0,
+      },
+      N1: {
+        montants: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 },
+        counts: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 },
+        panierMoyen: {},
+        totalPharmacyInvoices: 0,
+        nbPharmaTotal: 0,
+        nbPharmaReassort: 0,
+        nbPharmaImplantation: 0,
+        tauxReassort: 0,
+        panierMoyenReassort: 0,
+        panierMoyenImplantation: 0,
+        pharmacyIdsArray: [],
+        reassortIdsArray: [],
+        implantIdsArray: []
+      },
+      dateStart,
+      dateEnd
+    };
+
+    const isCurrentMonth = year === currentYear && month === currentMonth;
+    const ttl = isCurrentMonth ? 3600 : 60 * 60 * 24 * 35;
+    await cacheSet(cacheKey, result, ttl);
+    return { year, month };
+  }
+  // ─── FIN PHARMACY BREAKDOWN ──────────────────────────────────────────────────
+
   // Construire la liste de tous les mois à couvrir (jan 2025 → mois courant)
   const allMonths = [];
   for (let y = 2025; y <= currentYear; y++) {
@@ -240,21 +379,36 @@ export default async function handler(req, res) {
     }
   }
 
+  // ─── RECALCUL CA ─────────────────────────────────────────────────────────────
   const results = [];
   const skipped = [];
 
   for (const { year, month, reason } of missingMonths) {
-    // Vérifier si on approche du timeout
     if (Date.now() - START_TIME > MAX_DURATION_MS) {
       skipped.push({ year, month, reason: 'timeout_protection' });
       continue;
     }
-
     try {
       const result = await fetchMonthCA(year, month);
       results.push({ ...result, reason });
     } catch (e) {
       results.push({ year, month, error: e.message, reason });
+    }
+  }
+
+  // ─── RECALCUL PHARMACY ───────────────────────────────────────────────────────
+  const pharmacyResults = [];
+
+  for (const { year, month, reason } of missingMonths) {
+    if (Date.now() - START_TIME > MAX_DURATION_MS) {
+      pharmacyResults.push({ year, month, error: 'timeout_protection' });
+      continue;
+    }
+    try {
+      await fetchPharmacyMonth(year, month);
+      pharmacyResults.push({ year, month, ok: true, reason });
+    } catch (e) {
+      pharmacyResults.push({ year, month, error: e.message, reason });
     }
   }
 
@@ -266,6 +420,9 @@ export default async function handler(req, res) {
     errors: results.filter(r => r.error).length,
     skippedDueToTimeout: skipped.length,
     remainingForNextRun: skipped.map(s => `${s.year}-${pad(s.month + 1)}`),
-    details: results
+    pharmacyRefreshed: pharmacyResults.filter(r => r.ok).length,
+    pharmacyErrors: pharmacyResults.filter(r => r.error).length,
+    details: results,
+    pharmacyDetails: pharmacyResults
   });
 }
