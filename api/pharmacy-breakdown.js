@@ -148,7 +148,8 @@ export default async function handler(req, res) {
           dst.nbPharmaReassort = rIds.size;
           dst.nbPharmaImplantation = iIds.size;
           dst.tauxReassort = dst.nbPharmaTotal > 0 ? Math.round((dst.nbPharmaReassort / dst.nbPharmaTotal) * 10000) / 100 : 0;
-          dst.panierMoyenReassort = dst.counts['Réassort'] > 0 ? Math.round((dst.montants['Réassort'] / dst.counts['Réassort']) * 100) / 100 : 0;
+          // ✅ CORRIGÉ : division par nbPharmaReassort (nombre de pharmacies) et non par counts['Réassort'] (nombre de factures)
+          dst.panierMoyenReassort = dst.nbPharmaReassort > 0 ? Math.round((dst.montants['Réassort'] / dst.nbPharmaReassort) * 100) / 100 : 0;
         }
 
         if (ttl > 0) await cacheSet(cacheKey, aggregated, ttl);
@@ -264,7 +265,8 @@ export default async function handler(req, res) {
         reassortIdsArray: [...reassortPharmacyIds],
         implantIdsArray: [...implantationPharmacyIds],
         tauxReassort: nbPharmaTotal > 0 ? Math.round((nbPharmaReassort / nbPharmaTotal) * 10000) / 100 : 0,
-        panierMoyenReassort: counts['Réassort'] > 0 ? Math.round((totals['Réassort'] / counts['Réassort']) * 100) / 100 : 0,
+        // ✅ CORRIGÉ : division par nbPharmaReassort (nombre de pharmacies) et non par counts['Réassort'] (nombre de factures)
+        panierMoyenReassort: nbPharmaReassort > 0 ? Math.round((totals['Réassort'] / nbPharmaReassort) * 100) / 100 : 0,
       };
     }
 
