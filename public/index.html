@@ -824,9 +824,13 @@ function applySegment(caData) {
   const seg = currentSegment;
   let ca, caB2C, caB2B, panierB2C, panierB2B;
 
+  // Calcul B2C = Site + Outlet depuis _caByType (pas de modif de cache nécessaire)
+  const caByTypeRaw = caData._caByType || {};
+  const caB2CSiteOutlet = (caByTypeRaw['B2C'] || 0) + (caByTypeRaw['Outlet'] || 0);
+
   if (seg === 'total') {
     ca = caData._totalCA || 0;
-    caB2C = caData._totalCAB2C || 0;
+    caB2C = caB2CSiteOutlet;
     caB2B = caData._totalCAB2B || 0;
     panierB2C = caData._panierMoyenB2C || 0;
     panierB2B = caData._panierMoyenB2B || 0;
@@ -837,8 +841,8 @@ function applySegment(caData) {
     panierB2C = 0;
     panierB2B = caData._panierMoyenB2B || 0;
   } else {
-    ca = caData._totalCAB2C || 0;
-    caB2C = caData._totalCAB2C || 0;
+    ca = caB2CSiteOutlet;
+    caB2C = caB2CSiteOutlet;
     caB2B = 0;
     panierB2C = caData._panierMoyenB2C || 0;
     panierB2B = 0;
@@ -1664,7 +1668,8 @@ async function loadData() {
     applySegment(caData);
 
     const totalCA = caData._totalCA || 0;
-    const caB2C = caData._totalCAB2C || 0;
+    const caByTypeRaw2 = caData._caByType || {};
+    const caB2C = (caByTypeRaw2['B2C'] || 0) + (caByTypeRaw2['Outlet'] || 0);
     const caB2B = caData._totalCAB2B || 0;
     const panierB2C = caData._panierMoyenB2C || 0;
     const panierB2B = caData._panierMoyenB2B || 0;
