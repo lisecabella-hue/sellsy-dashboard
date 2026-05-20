@@ -1846,13 +1846,7 @@ function loadFinancierChecked() {
   const dates = getFinDates();
   if (!dates) return;
   const lockMsg = document.getElementById('finLockMsg');
-  
-  // Pour YTD, on vérifie le mois de fin ; pour les autres, le mois de début
-  const checkDate = finCurrentMode === 'ytd' ? dates.dateEnd : dates.dateStart;
-  const d = new Date(checkDate + 'T12:00:00');
-  const isFinalized = d.getFullYear() !== 2026 || finalizedMonths[d.getMonth()] === true;
-  
-  if (!isFinalized) {
+  if (!isMonthFinalized(dates.dateStart)) {
     lockMsg.style.display = 'block';
     updateBanners(dates.monthIndex);
     return;
@@ -1860,7 +1854,6 @@ function loadFinancierChecked() {
   lockMsg.style.display = 'none';
   updateBanners(dates.monthIndex);
   loadFinancier();
-}
 }
 
 let currentView = 'business';
