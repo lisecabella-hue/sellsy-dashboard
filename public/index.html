@@ -1846,7 +1846,7 @@ function loadFinancierChecked() {
   const dates = getFinDates();
   if (!dates) return;
   const lockMsg = document.getElementById('finLockMsg');
-  if (!isMonthFinalized(dates.dateStart)) {
+  if (!isMonthFinalized(dateToCheck)) {
     lockMsg.style.display = 'block';
     updateBanners(dates.monthIndex);
     return;
