@@ -1846,14 +1846,18 @@ function loadFinancierChecked() {
   const dates = getFinDates();
   if (!dates) return;
   const lockMsg = document.getElementById('finLockMsg');
-  if (!isMonthFinalized(dates.dateStart)) {
+
+  // Vérification stricte : le mois de fin doit être finalisé (mois simple ET YTD)
+  if (!isMonthFinalized(dates.dateEnd)) {
     lockMsg.style.display = 'block';
+    lockMsg.textContent = '🔒 Ce mois n\'est pas encore finalisé dans Pennylane.';
     updateBanners(dates.monthIndex);
     return;
   }
   lockMsg.style.display = 'none';
+
   updateBanners(dates.monthIndex);
-  loadFinancier();
+  loadFinancier(dates);
 }
 
 let currentView = 'business';
@@ -2078,8 +2082,8 @@ async function loadTresorerie() {
   }
 }
 
-async function loadFinancier() {
-  const dates = getFinDates();
+async function loadFinancier(datesOverride) {
+  const dates = datesOverride || getFinDates();
   if (!dates) return;
   const { dateStart, dateEnd, label, monthIndex } = dates;
 
