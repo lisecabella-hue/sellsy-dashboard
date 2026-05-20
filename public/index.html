@@ -233,7 +233,7 @@
       </div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
         <div class="metric-card b2c">
-<p class="metric-label">CA B2C (Site + Outlet)</p>
+          <p class="metric-label">CA B2C (Site + Outlet)</p>
           <p class="metric-value" id="mCAB2C">—</p>
           <p class="metric-vs neutral" id="mCAB2CVs">⏳</p>
           <div class="budget-bar-wrap" id="budgetBarB2CWrap" style="display:none;">
@@ -273,7 +273,7 @@
       </div>
     </div>
 
-    <!-- ✅ NOUVEAU : Répartition B2C Site vs Outlet (visible uniquement en vue B2C) -->
+    <!-- Répartition B2C Site vs Outlet -->
     <div class="chart-card" id="b2cBreakdownRow" style="display:none;margin-bottom:24px;">
       <div class="chart-header">
         <div>
@@ -291,7 +291,7 @@
       </div>
     </div>
 
-    <!-- Répartition par type de client EN DESSOUS -->
+    <!-- Répartition par type de client -->
     <div class="chart-card" id="typeClientRow" style="margin-bottom:24px;">
       <div class="chart-header">
         <div>
@@ -329,7 +329,7 @@
       <div class="chart-container" style="height:320px;"><canvas id="budgetChart"></canvas></div>
     </div>
 
-    <!-- GRAPHIQUE PHARMACIES PAR OBJET (visible uniquement en B2B) -->
+    <!-- GRAPHIQUE PHARMACIES PAR OBJET -->
     <div class="chart-card" id="pharmacyBreakdownCard" style="display:none;">
       <div class="chart-header">
         <div>
@@ -720,7 +720,7 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
   }
 }
 
-// ✅ NOUVELLE FONCTION : Donut B2C Site vs Outlet
+// Donut B2C Site vs Outlet
 function renderB2CBreakdownPieChart(caByType) {
   const B2C_CATS = ['B2C', 'Outlet'];
   const B2C_COLORS = { 'B2C': '#bbb', 'Outlet': '#9B59B6' };
@@ -824,26 +824,31 @@ function applySegment(caData) {
   const seg = currentSegment;
   let ca, caB2C, caB2B, panierB2C, panierB2B;
 
-  // Calcul B2C = Site + Outlet depuis _caByType (pas de modif de cache nécessaire)
   const caByTypeRaw = caData._caByType || {};
+
+  // ✅ CORRECTION : caB2C et caB2B calculés depuis _caByType
+  // pour être cohérents avec le camembert "Répartition CA par type de client"
   const caB2CSiteOutlet = (caByTypeRaw['B2C'] || 0) + (caByTypeRaw['Outlet'] || 0);
+  const caB2BFromTypes  = (caByTypeRaw['Pharmacie'] || 0)
+                        + (caByTypeRaw['Grand Compte'] || 0)
+                        + (caByTypeRaw['Monoprix'] || 0);
 
   if (seg === 'total') {
-    ca = caData._totalCA || 0;
-    caB2C = caB2CSiteOutlet;
-    caB2B = caData._totalCAB2B || 0;
+    ca       = caData._totalCA || 0;
+    caB2C    = caB2CSiteOutlet;
+    caB2B    = caB2BFromTypes;         // ✅ corrigé
     panierB2C = caData._panierMoyenB2C || 0;
     panierB2B = caData._panierMoyenB2B || 0;
   } else if (seg === 'b2b') {
-    ca = caData._totalCAB2B || 0;
-    caB2C = 0;
-    caB2B = caData._totalCAB2B || 0;
+    ca       = caB2BFromTypes;         // ✅ corrigé
+    caB2C    = 0;
+    caB2B    = caB2BFromTypes;         // ✅ corrigé
     panierB2C = 0;
     panierB2B = caData._panierMoyenB2B || 0;
   } else {
-    ca = caB2CSiteOutlet;
-    caB2C = caB2CSiteOutlet;
-    caB2B = 0;
+    ca       = caB2CSiteOutlet;
+    caB2C    = caB2CSiteOutlet;
+    caB2B    = 0;
     panierB2C = caData._panierMoyenB2C || 0;
     panierB2B = 0;
   }
@@ -877,9 +882,9 @@ function applySegment(caData) {
   const mainCACard = document.getElementById('mCA')?.closest('.metric-card');
   const avgB2CCard = document.getElementById('mAvgB2C')?.closest('.metric-card');
   const avgB2BCard = document.getElementById('mAvgB2B')?.closest('.metric-card');
-  const caB2CCard = document.getElementById('mCAB2C')?.closest('.metric-card');
-  const caB2BCard = document.getElementById('mCAB2B')?.closest('.metric-card');
-  const pieCard = document.getElementById('b2cPieChart')?.closest('.chart-card');
+  const caB2CCard  = document.getElementById('mCAB2C')?.closest('.metric-card');
+  const caB2BCard  = document.getElementById('mCAB2B')?.closest('.metric-card');
+  const pieCard    = document.getElementById('b2cPieChart')?.closest('.chart-card');
 
   if (mainCACard) mainCACard.style.display = seg === 'total' ? '' : 'none';
   document.getElementById('budgetBarWrap').style.display = seg === 'total' ? '' : 'none';
@@ -889,40 +894,38 @@ function applySegment(caData) {
   else updateBudgetB2CB2BDisplay(caB2C, caB2B);
 
   const typeClientRow = document.getElementById('typeClientRow');
-  const pharmacyCard = document.getElementById('pharmacyBreakdownCard');
-  // ✅ Référence au nouveau bloc B2C
-  const b2cBreakRow = document.getElementById('b2cBreakdownRow');
+  const pharmacyCard  = document.getElementById('pharmacyBreakdownCard');
+  const b2cBreakRow   = document.getElementById('b2cBreakdownRow');
 
   if (seg === 'b2b') {
     if (avgB2CCard) avgB2CCard.style.display = 'none';
-    if (caB2CCard) caB2CCard.style.display = 'none';
-    if (pieCard) pieCard.style.display = 'none';
-    if (avgB2BCard) avgB2BCard.style.display = '';
-    if (caB2BCard) caB2BCard.style.display = '';
+    if (caB2CCard)  caB2CCard.style.display  = 'none';
+    if (pieCard)    pieCard.style.display     = 'none';
+    if (avgB2BCard) avgB2BCard.style.display  = '';
+    if (caB2BCard)  caB2BCard.style.display   = '';
     if (typeClientRow) typeClientRow.style.display = '';
-    if (b2cBreakRow) b2cBreakRow.style.display = 'none';
+    if (b2cBreakRow)   b2cBreakRow.style.display   = 'none';
     const dates = getDates();
     if (dates) loadPharmacyBreakdown(dates.dateStart, dates.dateEnd);
   } else {
     if (pharmacyCard) pharmacyCard.style.display = 'none';
     if (seg === 'b2c') {
       if (avgB2BCard) avgB2BCard.style.display = 'none';
-      if (caB2BCard) caB2BCard.style.display = 'none';
-      if (pieCard) pieCard.style.display = 'none';
-      if (avgB2CCard) avgB2CCard.style.display = '';
-      if (caB2CCard) caB2CCard.style.display = '';
+      if (caB2BCard)  caB2BCard.style.display  = 'none';
+      if (pieCard)    pieCard.style.display     = 'none';
+      if (avgB2CCard) avgB2CCard.style.display  = '';
+      if (caB2CCard)  caB2CCard.style.display   = '';
       if (typeClientRow) typeClientRow.style.display = 'none';
-      // ✅ Afficher le donut Site vs Outlet en vue B2C
-      if (b2cBreakRow) b2cBreakRow.style.display = '';
+      if (b2cBreakRow)   b2cBreakRow.style.display   = '';
       if (caData._caByType) renderB2CBreakdownPieChart(caData._caByType);
     } else {
       if (avgB2CCard) avgB2CCard.style.display = '';
       if (avgB2BCard) avgB2BCard.style.display = '';
-      if (caB2CCard) caB2CCard.style.display = '';
-      if (caB2BCard) caB2BCard.style.display = '';
-      if (pieCard) pieCard.style.display = '';
+      if (caB2CCard)  caB2CCard.style.display  = '';
+      if (caB2BCard)  caB2BCard.style.display  = '';
+      if (pieCard)    pieCard.style.display     = '';
       if (typeClientRow) typeClientRow.style.display = '';
-      if (b2cBreakRow) b2cBreakRow.style.display = 'none';
+      if (b2cBreakRow)   b2cBreakRow.style.display   = 'none';
     }
   }
 
@@ -958,7 +961,7 @@ function applySegment(caData) {
 const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const monthsShort = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
 
-const DEFAULT_BUDGET    = [1617, 1151, 3439, 1267, 1722, 2085, 1498, 814, 1319, 2401, 1461, 1483];
+const DEFAULT_BUDGET     = [1617, 1151, 3439, 1267, 1722, 2085, 1498, 814, 1319, 2401, 1461, 1483];
 const DEFAULT_BUDGET_B2C = [0,0,0,0,0,0,0,0,0,0,0,0];
 const DEFAULT_BUDGET_B2B = [0,0,0,0,0,0,0,0,0,0,0,0];
 let budget2026    = [...DEFAULT_BUDGET];
@@ -1409,7 +1412,7 @@ function displayLabel(label) {
   return TYPE_CLIENT_DISPLAY[label] || label;
 }
 
-const TYPE_CLIENT_BUDGET_CATS = ['Pharmacie', 'Monoprix', 'Marketing', 'Grand Compte'];
+const TYPE_CLIENT_BUDGET_CATS  = ['Pharmacie', 'Monoprix', 'Marketing', 'Grand Compte'];
 const TYPE_CLIENT_BUDGET_CATS2 = ['Site', 'Outlet', 'Autre'];
 let budgetTypeClient = {};
 TYPE_CLIENT_BUDGET_CATS.forEach(cat => { budgetTypeClient[cat] = Array(12).fill(0); });
@@ -1546,9 +1549,21 @@ async function loadMonthlyChart(year, upToMonth) {
   }
   const results = await Promise.all(promises);
   for (let m = 0; m <= upToMonth; m++) {
-    const caField = currentSegment === 'b2b' ? '_totalCAB2B' : currentSegment === 'b2c' ? '_totalCAB2C' : '_totalCA';
-    currentYearData.push(Math.round((results[m*2][caField] || 0) / 1000 * 10) / 10);
-    prevYearData.push(Math.round((results[m*2+1][caField] || 0) / 1000 * 10) / 10);
+    const caByTypeN = results[m*2]._caByType || {};
+    const caByTypeP = results[m*2+1]._caByType || {};
+    let curVal, prevVal;
+    if (currentSegment === 'b2b') {
+      curVal  = (caByTypeN['Pharmacie']||0) + (caByTypeN['Grand Compte']||0) + (caByTypeN['Monoprix']||0);
+      prevVal = (caByTypeP['Pharmacie']||0) + (caByTypeP['Grand Compte']||0) + (caByTypeP['Monoprix']||0);
+    } else if (currentSegment === 'b2c') {
+      curVal  = (caByTypeN['B2C']||0) + (caByTypeN['Outlet']||0);
+      prevVal = (caByTypeP['B2C']||0) + (caByTypeP['Outlet']||0);
+    } else {
+      curVal  = results[m*2]._totalCA || 0;
+      prevVal = results[m*2+1]._totalCA || 0;
+    }
+    currentYearData.push(Math.round(curVal / 1000 * 10) / 10);
+    prevYearData.push(Math.round(prevVal / 1000 * 10) / 10);
     if (year === 2026) budgetData.push(currentSegment === 'b2b' ? budgetB2B2026[m] : currentSegment === 'b2c' ? budgetB2C2026[m] : budget2026[m]);
   }
   renderChart(labels, currentYearData, prevYearData, budgetData, year);
@@ -1667,10 +1682,12 @@ async function loadData() {
     lastCaData = caData;
     applySegment(caData);
 
-    const totalCA = caData._totalCA || 0;
     const caByTypeRaw2 = caData._caByType || {};
     const caB2C = (caByTypeRaw2['B2C'] || 0) + (caByTypeRaw2['Outlet'] || 0);
-    const caB2B = caData._totalCAB2B || 0;
+    // ✅ caB2B cohérent avec le camembert
+    const caB2B = (caByTypeRaw2['Pharmacie'] || 0)
+                + (caByTypeRaw2['Grand Compte'] || 0)
+                + (caByTypeRaw2['Monoprix'] || 0);
     const panierB2C = caData._panierMoyenB2C || 0;
     const panierB2B = caData._panierMoyenB2B || 0;
 
@@ -1686,12 +1703,15 @@ async function loadData() {
       .then(r => r.json())
       .then(prev => {
         const seg = currentSegment;
-        const prevCA = seg === 'b2b' ? (prev._totalCAB2B || 0) : seg === 'b2c' ? (prev._totalCAB2C || 0) : (prev._totalCA || 0);
-        const prevB2C = prev._totalCAB2C || 0;
-        const prevB2B = prev._totalCAB2B || 0;
+        const prevByType = prev._caByType || {};
+        const prevB2C = (prevByType['B2C']||0) + (prevByType['Outlet']||0);
+        const prevB2B = (prevByType['Pharmacie']||0) + (prevByType['Grand Compte']||0) + (prevByType['Monoprix']||0);
+        const prevTotal = prev._totalCA || 0;
         const prevPanierB2C = prev._panierMoyenB2C || 0;
         const prevPanierB2B = prev._panierMoyenB2B || 0;
-        const curCA = seg === 'b2b' ? caB2B : seg === 'b2c' ? caB2C : totalCA;
+
+        const curCA   = seg === 'b2b' ? caB2B : seg === 'b2c' ? caB2C : (caData._totalCA || 0);
+        const prevCA  = seg === 'b2b' ? prevB2B : seg === 'b2c' ? prevB2C : prevTotal;
 
         if (prevCA > 0) {
           const diff = ((curCA - prevCA) / prevCA) * 100;
@@ -1850,17 +1870,17 @@ function switchView(view) {
 
 let finCurrentMode = 'month';
 
-const DEFAULT_BUDGET_CM1 = [0,0,0,0,0,0,0,0,0,0,0,0];
-const DEFAULT_BUDGET_CM2 = [0,0,0,0,0,0,0,0,0,0,0,0];
+const DEFAULT_BUDGET_CM1    = [0,0,0,0,0,0,0,0,0,0,0,0];
+const DEFAULT_BUDGET_CM2    = [0,0,0,0,0,0,0,0,0,0,0,0];
 const DEFAULT_BUDGET_EBITDA = [0,0,0,0,0,0,0,0,0,0,0,0];
-let budgetCM12026 = [...DEFAULT_BUDGET_CM1];
-let budgetCM22026 = [...DEFAULT_BUDGET_CM2];
+let budgetCM12026    = [...DEFAULT_BUDGET_CM1];
+let budgetCM22026    = [...DEFAULT_BUDGET_CM2];
 let budgetEBITDA2026 = [...DEFAULT_BUDGET_EBITDA];
 
 function loadFinBudgetLocal() {
   try {
-    const s1 = localStorage.getItem('budgetCM12026'); if (s1) budgetCM12026 = JSON.parse(s1);
-    const s2 = localStorage.getItem('budgetCM22026'); if (s2) budgetCM22026 = JSON.parse(s2);
+    const s1 = localStorage.getItem('budgetCM12026');    if (s1) budgetCM12026    = JSON.parse(s1);
+    const s2 = localStorage.getItem('budgetCM22026');    if (s2) budgetCM22026    = JSON.parse(s2);
     const s3 = localStorage.getItem('budgetEBITDA2026'); if (s3) budgetEBITDA2026 = JSON.parse(s3);
   } catch {}
 }
@@ -1937,11 +1957,11 @@ function openBudgetModalWithFin() {
 
 function saveBudgetWithFin() {
   saveBudget();
-  budgetCM12026 = months.map((_, i) => parseFloat(document.getElementById(`budgetCM1_${i}`)?.value) || 0);
-  budgetCM22026 = months.map((_, i) => parseFloat(document.getElementById(`budgetCM2_${i}`)?.value) || 0);
+  budgetCM12026    = months.map((_, i) => parseFloat(document.getElementById(`budgetCM1_${i}`)?.value) || 0);
+  budgetCM22026    = months.map((_, i) => parseFloat(document.getElementById(`budgetCM2_${i}`)?.value) || 0);
   budgetEBITDA2026 = months.map((_, i) => parseFloat(document.getElementById(`budgetEBITDA_${i}`)?.value) || 0);
-  localStorage.setItem('budgetCM12026', JSON.stringify(budgetCM12026));
-  localStorage.setItem('budgetCM22026', JSON.stringify(budgetCM22026));
+  localStorage.setItem('budgetCM12026',    JSON.stringify(budgetCM12026));
+  localStorage.setItem('budgetCM22026',    JSON.stringify(budgetCM22026));
   localStorage.setItem('budgetEBITDA2026', JSON.stringify(budgetEBITDA2026));
   PHARMACY_CATS.forEach(cat => {
     budgetPharmacy[cat] = months.map((_, i) => parseFloat(document.getElementById(`budgetPharmacy_${cat}_${i}`)?.value) || 0);
@@ -1965,10 +1985,10 @@ window.addEventListener('DOMContentLoaded', () => {
       opt.value = y; opt.textContent = y; el.appendChild(opt);
     }
   });
-  if (document.getElementById('finSelMonth')) document.getElementById('finSelMonth').value = now.getMonth();
+  if (document.getElementById('finSelMonth'))    document.getElementById('finSelMonth').value    = now.getMonth();
   if (document.getElementById('finSelYtdMonth')) document.getElementById('finSelYtdMonth').value = now.getMonth();
-  if (document.getElementById('finDateFrom')) document.getElementById('finDateFrom').value = todayStr;
-  if (document.getElementById('finDateTo')) document.getElementById('finDateTo').value = todayStr;
+  if (document.getElementById('finDateFrom'))    document.getElementById('finDateFrom').value    = todayStr;
+  if (document.getElementById('finDateTo'))      document.getElementById('finDateTo').value      = todayStr;
 });
 
 function setFinPeriod(mode) {
@@ -1977,27 +1997,27 @@ function setFinPeriod(mode) {
     const btn = document.getElementById('finBtn' + m.charAt(0).toUpperCase() + m.slice(1));
     if (btn) btn.classList.toggle('active', m === mode);
   });
-  document.getElementById('finSelectorsMonth').style.display = mode === 'month' ? 'flex' : 'none';
-  document.getElementById('finSelectorsYtd').style.display = mode === 'ytd' ? 'flex' : 'none';
+  document.getElementById('finSelectorsMonth').style.display  = mode === 'month'  ? 'flex' : 'none';
+  document.getElementById('finSelectorsYtd').style.display    = mode === 'ytd'    ? 'flex' : 'none';
   document.getElementById('finSelectorsCustom').style.display = mode === 'custom' ? 'flex' : 'none';
 }
 
 function getFinDates() {
   if (finCurrentMode === 'month') {
     const month = parseInt(document.getElementById('finSelMonth').value);
-    const year = parseInt(document.getElementById('finSelYear').value);
+    const year  = parseInt(document.getElementById('finSelYear').value);
     const lastDay = new Date(year, month+1, 0).getDate();
     return { dateStart: `${year}-${pad(month+1)}-01`, dateEnd: `${year}-${pad(month+1)}-${pad(lastDay)}`, label: `${months[month]} ${year}`, monthIndex: month };
   }
   if (finCurrentMode === 'ytd') {
     const month = parseInt(document.getElementById('finSelYtdMonth').value);
-    const year = parseInt(document.getElementById('finSelYtdYear').value);
+    const year  = parseInt(document.getElementById('finSelYtdYear').value);
     const lastDay = new Date(year, month+1, 0).getDate();
     return { dateStart: `${year}-01-01`, dateEnd: `${year}-${pad(month+1)}-${pad(lastDay)}`, label: `Cumul YTD — Janvier à ${months[month]} ${year}`, monthIndex: month };
   }
   if (finCurrentMode === 'custom') {
     const from = document.getElementById('finDateFrom').value;
-    const to = document.getElementById('finDateTo').value;
+    const to   = document.getElementById('finDateTo').value;
     if (!from || !to) { alert('Veuillez sélectionner une date de début et de fin.'); return null; }
     return { dateStart: from, dateEnd: to, label: `Du ${new Date(from+'T12:00:00').toLocaleDateString('fr-FR')} au ${new Date(to+'T12:00:00').toLocaleDateString('fr-FR')}`, monthIndex: new Date(from+'T12:00:00').getMonth() };
   }
@@ -2019,7 +2039,7 @@ let tresorerieValue = null;
 
 function toggleTresorerie() {
   tresorerieVisible = !tresorerieVisible;
-  const el = document.getElementById('tresorerieResult');
+  const el  = document.getElementById('tresorerieResult');
   const btn = document.getElementById('tresorerieToggleBtn');
   const detail = document.getElementById('tresorerieDetail');
   if (tresorerieVisible && tresorerieValue !== null) {
@@ -2074,12 +2094,12 @@ async function loadFinancier() {
     if (!resp.ok) throw new Error('Erreur API Pennylane');
     const data = await resp.json();
 
-    document.getElementById('finCA').textContent = fmt(data._caComptable || 0);
-    document.getElementById('finCM1').textContent = fmt(data._cm1 || 0);
-    document.getElementById('finTauxCM1').textContent = `Taux : ${(data._tauxCm1 || 0).toFixed(1)}%`;
-    document.getElementById('finCM2').textContent = fmt(data._cm2 || 0);
-    document.getElementById('finTauxCM2').textContent = `Taux : ${(data._tauxCm2 || 0).toFixed(1)}%`;
-    document.getElementById('finEBITDA').textContent = fmt(data._ebitda || 0);
+    document.getElementById('finCA').textContent       = fmt(data._caComptable || 0);
+    document.getElementById('finCM1').textContent      = fmt(data._cm1 || 0);
+    document.getElementById('finTauxCM1').textContent  = `Taux : ${(data._tauxCm1 || 0).toFixed(1)}%`;
+    document.getElementById('finCM2').textContent      = fmt(data._cm2 || 0);
+    document.getElementById('finTauxCM2').textContent  = `Taux : ${(data._tauxCm2 || 0).toFixed(1)}%`;
+    document.getElementById('finEBITDA').textContent   = fmt(data._ebitda || 0);
     document.getElementById('finTauxEBITDA').textContent = `Taux : ${(data._tauxEbitda || 0).toFixed(1)}%`;
 
     const ebitdaEl = document.getElementById('finEBITDA');
@@ -2089,29 +2109,29 @@ async function loadFinancier() {
     if (year === 2026) {
       let budCM1 = 0, budCM2 = 0, budEBITDA = 0;
       if (finCurrentMode === 'month') {
-        budCM1 = budgetCM12026[monthIndex];
-        budCM2 = budgetCM22026[monthIndex];
+        budCM1    = budgetCM12026[monthIndex];
+        budCM2    = budgetCM22026[monthIndex];
         budEBITDA = budgetEBITDA2026[monthIndex];
       } else if (finCurrentMode === 'ytd') {
         for (let m = 0; m <= monthIndex; m++) {
-          budCM1 += budgetCM12026[m];
-          budCM2 += budgetCM22026[m];
+          budCM1    += budgetCM12026[m];
+          budCM2    += budgetCM22026[m];
           budEBITDA += budgetEBITDA2026[m];
         }
       }
-      showFinBudgetBar('finBudgetCM1Wrap','finBudgetCM1Label','finBudgetCM1Pct','finBudgetCM1Fill', data._cm1||0, budCM1, 'Budget CM1');
-      showFinBudgetBar('finBudgetCM2Wrap','finBudgetCM2Label','finBudgetCM2Pct','finBudgetCM2Fill', data._cm2||0, budCM2, 'Budget CM2');
-      showFinBudgetBar('finBudgetEBITDAWrap','finBudgetEBITDALabel','finBudgetEBITDAPct','finBudgetEBITDAFill', data._ebitda||0, budEBITDA, 'Budget EBITDA');
+      showFinBudgetBar('finBudgetCM1Wrap',    'finBudgetCM1Label',    'finBudgetCM1Pct',    'finBudgetCM1Fill',    data._cm1||0,    budCM1,    'Budget CM1');
+      showFinBudgetBar('finBudgetCM2Wrap',    'finBudgetCM2Label',    'finBudgetCM2Pct',    'finBudgetCM2Fill',    data._cm2||0,    budCM2,    'Budget CM2');
+      showFinBudgetBar('finBudgetEBITDAWrap', 'finBudgetEBITDALabel', 'finBudgetEBITDAPct', 'finBudgetEBITDAFill', data._ebitda||0, budEBITDA, 'Budget EBITDA');
     }
 
-    document.getElementById('finStatusDot').className = 'dot ok';
+    document.getElementById('finStatusDot').className  = 'dot ok';
     document.getElementById('finStatusText').textContent = `Données à jour${data._fromCache ? ' (cache)' : ''}`;
 
     const endDateObj = new Date(dateEnd + 'T12:00:00');
     await loadFinancierCharts(endDateObj.getFullYear(), endDateObj.getMonth());
 
   } catch(e) {
-    document.getElementById('finStatusDot').className = 'dot err';
+    document.getElementById('finStatusDot').className  = 'dot err';
     document.getElementById('finStatusText').textContent = 'Erreur';
     document.getElementById('finErrorBox').style.display = 'block';
     document.getElementById('finErrorBox').textContent = 'Erreur : ' + e.message;
