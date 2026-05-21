@@ -1708,10 +1708,23 @@ async function loadMonthlyChart(year, upToMonth) {
   document.getElementById('chartSubtitle').textContent = 'Chargement du graphique...';
   const currentYearData = [], prevYearData = [], budgetData = [], labels = [];
   const promises = [];
+  const todayForChart = new Date();
   for (let m = 0; m <= upToMonth; m++) {
     const lastDay = new Date(year, m+1, 0).getDate();
     const ds = `${year}-${pad(m+1)}-01`, de = `${year}-${pad(m+1)}-${pad(lastDay)}`;
-    const dsPrev = `${year-1}-${pad(m+1)}-01`, dePrev = `${year-1}-${pad(m+1)}-${pad(lastDay)}`;
+
+    // Pour le mois en cours de l'année affichée : tronquer N-1 au même jour
+    const isCurrentMonth = (year === todayForChart.getFullYear() && m === todayForChart.getMonth());
+    let lastDayPrev;
+    if (isCurrentMonth) {
+      // Même jour qu'aujourd'hui mais l'année dernière
+      const prevLastDay = new Date(year-1, m+1, 0).getDate();
+      lastDayPrev = Math.min(todayForChart.getDate(), prevLastDay);
+    } else {
+      lastDayPrev = new Date(year-1, m+1, 0).getDate();
+    }
+    const dsPrev = `${year-1}-${pad(m+1)}-01`, dePrev = `${year-1}-${pad(m+1)}-${pad(lastDayPrev)}`;
+
     labels.push(monthsShort[m]);
     promises.push(
       fetch(`/api/sellsy?dateStart=${ds}&dateEnd=${de}&mode=total`).then(r => r.json()),
