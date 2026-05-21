@@ -44,14 +44,18 @@
     .metric-vs.neutral { color: #888; }
     .budget-bar-wrap { margin-top: 10px; }
     .budget-bar-label { display: flex; justify-content: space-between; font-size: 11px; color: #888; margin-bottom: 4px; }
-    .budget-bar-bg { position: relative; background: #f0f0f0; border-radius: 4px; height: 6px; overflow: visible; }
-    .budget-bar-fill { height: 6px; border-radius: 4px; transition: width 0.5s; }
+    .budget-bar-bg { position: relative; background: #f0f0f0; border-radius: 4px; height: 8px; overflow: visible; }
+    .budget-bar-fill { height: 8px; border-radius: 4px; transition: width 0.5s; }
     .budget-bar-fill.over { background: #1D9E75; }
     .budget-bar-fill.ok { background: #D85A30; }
-    .budget-bar-expected { position: absolute; top: -4px; width: 3px; height: 14px; background: #1a1a1a; border-radius: 2px; transition: left 0.5s; z-index: 2; }
-    .budget-status { font-size: 11px; margin-top: 5px; font-weight: 600; }
+    .budget-bar-bg { position: relative; background: #f0f0f0; border-radius: 4px; height: 8px; overflow: visible; }
+    .budget-bar-fill { height: 8px; border-radius: 4px; transition: width 0.5s; position: relative; z-index: 1; }
+    .budget-bar-expected { position: absolute; top: -5px; width: 3px; height: 18px; background: #1a1a1a; border-radius: 2px; transition: left 0.5s; z-index: 3; box-shadow: 0 0 0 2px white; }
+    .budget-bar-expected::after { content: ''; position: absolute; top: -5px; left: 50%; transform: translateX(-50%); width: 7px; height: 7px; background: #1a1a1a; border-radius: 50%; border: 2px solid white; }
+    .budget-status { font-size: 11px; margin-top: 6px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
     .budget-status.ahead { color: #1D9E75; }
     .budget-status.behind { color: #D85A30; }
+    .budget-status.inline { color: #888; }
     .chart-card { background: white; border-radius: 12px; padding: 24px; border: 1px solid #e5e5e5; margin-bottom: 24px; }
     .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
     .chart-title { font-size: 15px; font-weight: 500; }
@@ -216,7 +220,9 @@
           </div>
           <div class="budget-bar-bg">
             <div class="budget-bar-fill ok" id="budgetBarFill" style="width:0%"></div>
+            <div class="budget-bar-expected" id="budgetBarExpected" style="left:0%;display:none;"></div>
           </div>
+          <p class="budget-status" id="budgetStatusTotal"></p>
         </div>
         <p class="metric-sub">Total de la période</p>
         <p class="metric-sub" id="mAvoirsKpi" style="margin-top:8px;"></p>
@@ -1118,55 +1124,6 @@ function updateBudgetB2CB2BDisplay(caB2C, caB2B) {
     return Math.round(t * 10) / 10;
   }
 
-  // Jours fériés FR (principaux, fixes)
-  function joursFeries(year) {
-    return [
-      `${year}-01-01`, `${year}-05-01`, `${year}-05-08`,
-      `${year}-07-14`, `${year}-08-15`, `${year}-11-01`,
-      `${year}-11-11`, `${year}-12-25`
-    ];
-  }
-
-  // Compte les jours ouvrés (lun-ven hors fériés) entre deux dates incluses
-  function countWorkdays(start, end) {
-    let count = 0;
-    const feries = joursFeries(start.getFullYear()).concat(
-      start.getFullYear() !== end.getFullYear() ? joursFeries(end.getFullYear()) : []
-    );
-    const cursor = new Date(start);
-    while (cursor <= end) {
-      const dow = cursor.getDay();
-      const ds = `${cursor.getFullYear()}-${pad(cursor.getMonth()+1)}-${pad(cursor.getDate())}`;
-      if (dow !== 0 && dow !== 6 && !feries.includes(ds)) count++;
-      cursor.setDate(cursor.getDate() + 1);
-    }
-    return count;
-  }
-
-  // Retourne le ratio temps écoulé pour le mois en cours uniquement
-  // useWorkdays=true → jours ouvrés (B2B), false → jours calendaires (B2C)
-  function getProratioForCurrentMonth(useWorkdays) {
-    if (currentMode !== 'month') return null;
-    const today = new Date();
-    if (startDate.getMonth() !== today.getMonth() || startDate.getFullYear() !== today.getFullYear()) return null;
-
-    const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-    const monthEnd   = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
-    // On prend hier comme dernier jour complet (les données du jour en cours sont partielles)
-    const yesterday  = new Date(today); yesterday.setDate(today.getDate() - 1);
-    const elapsedEnd = yesterday < monthStart ? monthStart : (yesterday > monthEnd ? monthEnd : yesterday);
-
-    if (useWorkdays) {
-      const totalWD   = countWorkdays(monthStart, monthEnd);
-      const elapsedWD = countWorkdays(monthStart, elapsedEnd);
-      return totalWD > 0 ? elapsedWD / totalWD : null;
-    } else {
-      const totalDays   = monthEnd.getDate();
-      const elapsedDays = elapsedEnd.getDate();
-      return totalDays > 0 ? elapsedDays / totalDays : null;
-    }
-  }
-
   function renderBar(wrapperId, labelId, pctId, fillId, expectedId, statusId, caVal, budgetArr, label, useWorkdays) {
     const budVal = getBudgetForPeriod(budgetArr);
     if (budVal <= 0) {
@@ -1189,23 +1146,24 @@ function updateBudgetB2CB2BDisplay(caB2C, caB2B) {
     const statusEl   = document.getElementById(statusId);
 
     if (ratio !== null) {
-      const expectedPct = Math.round(ratio * 100);
+      const expectedPct   = Math.round(ratio * 100);
+      const expectedEuros = Math.round((budVal * 1000) * ratio);
+      const diffEuros     = caVal - expectedEuros;
+      const diffAbs       = Math.abs(diffEuros);
+      const base          = useWorkdays ? 'jours ouvrés' : 'jours calendaires';
+
       expectedEl.style.display = 'block';
       expectedEl.style.left = Math.min(expectedPct, 100) + '%';
 
-      const diff = pct - expectedPct;
-      const diffAbs = Math.abs(diff);
-      const base = useWorkdays ? 'jours ouvrés' : 'jours calendaires';
-
-      if (diff >= 2) {
-        statusEl.textContent = `✓ En avance de ${diffAbs} pts — attendu ${expectedPct}% (${base})`;
+      if (diffEuros >= 500) {
+        statusEl.textContent = `✓ En avance de ${fmt(diffAbs)} — attendu ${expectedPct}% (${base})`;
         statusEl.className = 'budget-status ahead';
-      } else if (diff <= -2) {
-        statusEl.textContent = `↓ En retard de ${diffAbs} pts — attendu ${expectedPct}% (${base})`;
+      } else if (diffEuros <= -500) {
+        statusEl.textContent = `↓ En retard de ${fmt(diffAbs)} — attendu ${expectedPct}% (${base})`;
         statusEl.className = 'budget-status behind';
       } else {
         statusEl.textContent = `≈ Dans les clous — attendu ${expectedPct}% (${base})`;
-        statusEl.className = 'budget-status ahead';
+        statusEl.className = 'budget-status inline';
       }
     } else {
       if (expectedEl) expectedEl.style.display = 'none';
@@ -1228,6 +1186,58 @@ function updateBudgetB2CB2BDisplay(caB2C, caB2B) {
   );
 }
 // ============================================================
+
+// Jours fériés FR (principaux, fixes)
+function joursFeries(year) {
+  return [
+    `${year}-01-01`, `${year}-05-01`, `${year}-05-08`,
+    `${year}-07-14`, `${year}-08-15`, `${year}-11-01`,
+    `${year}-11-11`, `${year}-12-25`
+  ];
+}
+
+// Compte les jours ouvrés (lun-ven hors fériés) entre deux dates incluses
+function countWorkdays(start, end) {
+  let count = 0;
+  const feries = joursFeries(start.getFullYear()).concat(
+    start.getFullYear() !== end.getFullYear() ? joursFeries(end.getFullYear()) : []
+  );
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    const dow = cursor.getDay();
+    const ds = `${cursor.getFullYear()}-${pad(cursor.getMonth()+1)}-${pad(cursor.getDate())}`;
+    if (dow !== 0 && dow !== 6 && !feries.includes(ds)) count++;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return count;
+}
+
+// Retourne le ratio temps écoulé pour le mois en cours uniquement
+// useWorkdays=true → jours ouvrés (B2B), false → jours calendaires (B2C/Total)
+function getProratioForCurrentMonth(useWorkdays) {
+  if (currentMode !== 'month') return null;
+  const dates = getDates();
+  if (!dates) return null;
+  const startDate = new Date(dates.dateStart + 'T12:00:00');
+  const today = new Date();
+  if (startDate.getMonth() !== today.getMonth() || startDate.getFullYear() !== today.getFullYear()) return null;
+
+  const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+  const monthEnd   = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
+  // Hier = dernier jour complet (les données du jour en cours sont partielles)
+  const yesterday  = new Date(today); yesterday.setDate(today.getDate() - 1);
+  const elapsedEnd = yesterday < monthStart ? monthStart : (yesterday > monthEnd ? monthEnd : yesterday);
+
+  if (useWorkdays) {
+    const totalWD   = countWorkdays(monthStart, monthEnd);
+    const elapsedWD = countWorkdays(monthStart, elapsedEnd);
+    return totalWD > 0 ? elapsedWD / totalWD : null;
+  } else {
+    const totalDays   = monthEnd.getDate();
+    const elapsedDays = elapsedEnd.getDate();
+    return totalDays > 0 ? elapsedDays / totalDays : null;
+  }
+}
 
 function updateBudgetDisplay(totalCA, budgetArr) {
   const arr = budgetArr || budget2026;
@@ -1263,13 +1273,40 @@ function updateBudgetDisplay(totalCA, budgetArr) {
     budgetTotal = Math.round(budgetTotal * 10) / 10;
   }
   if (budgetTotal <= 0) { document.getElementById('budgetBarWrap').style.display = 'none'; return; }
+
   const pct = Math.round(((totalCA / 1000) / budgetTotal) * 100);
   document.getElementById('budgetBarWrap').style.display = 'block';
   document.getElementById('budgetBarLabel').textContent = `Budget : ${budgetTotal.toLocaleString('fr-FR')} k€`;
-  document.getElementById('budgetBarPct').textContent = `${pct}% atteint`;
+  document.getElementById('budgetBarPct').textContent = `${pct}% réalisé`;
   const fillEl = document.getElementById('budgetBarFill');
   fillEl.style.width = Math.min(pct, 100) + '%';
   fillEl.className = `budget-bar-fill ${pct >= 100 ? 'over' : 'ok'}`;
+
+  // Curseur attendu sur le mois en cours (jours calendaires pour le total)
+  const ratio = getProratioForCurrentMonth(false);
+  const expectedEl = document.getElementById('budgetBarExpected');
+  const statusEl   = document.getElementById('budgetStatusTotal');
+  if (ratio !== null && expectedEl && statusEl) {
+    const expectedPct = Math.round(ratio * 100);
+    const expectedEuros = Math.round((budgetTotal * 1000) * ratio);
+    const diffEuros = totalCA - expectedEuros;
+    const diffAbs = Math.abs(diffEuros);
+    expectedEl.style.display = 'block';
+    expectedEl.style.left = Math.min(expectedPct, 100) + '%';
+    if (diffEuros >= 500) {
+      statusEl.textContent = `✓ En avance de ${fmt(diffAbs)} vs rythme attendu (${expectedPct}%)`;
+      statusEl.className = 'budget-status ahead';
+    } else if (diffEuros <= -500) {
+      statusEl.textContent = `↓ En retard de ${fmt(diffAbs)} vs rythme attendu (${expectedPct}%)`;
+      statusEl.className = 'budget-status behind';
+    } else {
+      statusEl.textContent = `≈ Dans les clous — rythme attendu ${expectedPct}%`;
+      statusEl.className = 'budget-status inline';
+    }
+  } else {
+    if (expectedEl) expectedEl.style.display = 'none';
+    if (statusEl) statusEl.textContent = '';
+  }
 }
 
 [document.getElementById('selYear'), document.getElementById('selYtdYear')].forEach(el => {
