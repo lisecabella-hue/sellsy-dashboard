@@ -208,19 +208,64 @@
     <div class="error-box" id="errorBox"></div>
     <p class="period-label" id="periodLabel"></p>
 
-    <div class="metric-grid">
-      <div class="metric-card">
-        <p class="metric-label">Chiffre d'affaires HT (brut)</p>
-        <p class="metric-value" id="mCA">—</p>
-        <p class="metric-vs neutral" id="mCAVs"></p>
-        <div id="budgetBarWrap" style="display:none;margin-top:10px;">
-          <canvas id="gaugeTotal" width="180" height="100" style="display:block;margin:0 auto;"></canvas>
-          <p id="budgetStatusTotal" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;"></p>
+    <!-- 3 blocs pleine largeur : Total, B2B, B2C -->
+    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
+
+      <!-- TOTAL -->
+      <div id="blockTotal" class="metric-card" style="display:flex;align-items:center;gap:32px;padding:20px 28px;">
+        <div style="flex:1;min-width:0;">
+          <p class="metric-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#888;">Chiffre d'affaires total HT</p>
+          <p class="metric-value" id="mCA" style="font-size:32px;">—</p>
+          <p class="metric-vs neutral" id="mCAVs" style="margin-top:4px;"></p>
+          <div style="display:flex;gap:24px;margin-top:10px;flex-wrap:wrap;">
+            <div>
+              <p style="font-size:11px;color:#888;margin-bottom:2px;">🛒 Panier B2C</p>
+              <p style="font-size:14px;font-weight:500;" id="mAvgB2C">—</p>
+              <p style="font-size:11px;" id="mAvgB2CVs">⏳</p>
+            </div>
+            <div>
+              <p style="font-size:11px;color:#888;margin-bottom:2px;">🛒 Panier B2B</p>
+              <p style="font-size:14px;font-weight:500;" id="mAvgB2B">—</p>
+              <p style="font-size:11px;" id="mAvgB2BVs">⏳</p>
+            </div>
+          </div>
+        </div>
+        <div id="budgetBarWrap" style="display:none;text-align:center;flex-shrink:0;">
+          <canvas id="gaugeTotal" width="220" height="130" style="display:block;margin:0 auto;"></canvas>
+          <p id="budgetStatusTotal" style="font-size:11px;text-align:center;margin-top:2px;font-weight:600;"></p>
         </div>
         <p class="metric-sub" id="mAvoirsKpi" style="display:none;"></p>
       </div>
+
+      <!-- B2B -->
+      <div id="blockB2B" class="metric-card" style="display:flex;align-items:center;gap:32px;padding:20px 28px;border-left:4px solid #1D9E75;background:linear-gradient(to right, #f4fbf8, white);">
+        <div style="flex:1;min-width:0;">
+          <p class="metric-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#1D9E75;">CA B2B — Pharmacies &amp; Grands Comptes</p>
+          <p class="metric-value" id="mCAB2B" style="font-size:32px;">—</p>
+          <p class="metric-vs neutral" id="mCAB2BVs" style="margin-top:4px;">⏳</p>
+        </div>
+        <div id="budgetBarB2BWrap" style="display:none;text-align:center;flex-shrink:0;">
+          <canvas id="gaugeB2B" width="220" height="130" style="display:block;margin:0 auto;"></canvas>
+          <p id="budgetStatusB2B" style="font-size:11px;text-align:center;margin-top:2px;font-weight:600;"></p>
+        </div>
+      </div>
+
+      <!-- B2C -->
+      <div id="blockB2C" class="metric-card" style="display:flex;align-items:center;gap:32px;padding:20px 28px;border-left:4px solid #74A1D6;background:linear-gradient(to right, #f2f6fb, white);">
+        <div style="flex:1;min-width:0;">
+          <p class="metric-label" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#74A1D6;">CA B2C — Site &amp; Outlet</p>
+          <p class="metric-value" id="mCAB2C" style="font-size:32px;">—</p>
+          <p class="metric-vs neutral" id="mCAB2CVs" style="margin-top:4px;">⏳</p>
+        </div>
+        <div id="budgetBarB2CWrap" style="display:none;text-align:center;flex-shrink:0;">
+          <canvas id="gaugeB2C" width="220" height="130" style="display:block;margin:0 auto;"></canvas>
+          <p id="budgetStatusB2C" style="font-size:11px;text-align:center;margin-top:2px;font-weight:600;"></p>
+        </div>
+      </div>
+
     </div>
 
+    <!-- Camembert répartition (conservé) -->
     <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:24px;">
       <div class="chart-card" style="margin-bottom:0;">
         <div class="chart-header" style="margin-bottom:12px;">
@@ -233,35 +278,8 @@
           <div id="b2cB2BLegend" style="display:flex;flex-direction:column;gap:14px;min-width:160px;"></div>
         </div>
       </div>
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
-        <div class="metric-card b2c">
-          <p class="metric-label">CA B2C (Site + Outlet)</p>
-          <p class="metric-value" id="mCAB2C">—</p>
-          <p class="metric-vs neutral" id="mCAB2CVs">⏳</p>
-          <div id="budgetBarB2CWrap" style="display:none;margin-top:10px;">
-            <canvas id="gaugeB2C" width="160" height="90" style="display:block;margin:0 auto;"></canvas>
-            <p id="budgetStatusB2C" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;"></p>
-          </div>
-        </div>
-        <div class="metric-card b2b">
-          <p class="metric-label">CA B2B</p>
-          <p class="metric-value" id="mCAB2B">—</p>
-          <p class="metric-vs neutral" id="mCAB2BVs">⏳</p>
-          <div id="budgetBarB2BWrap" style="display:none;margin-top:10px;">
-            <canvas id="gaugeB2B" width="160" height="90" style="display:block;margin:0 auto;"></canvas>
-            <p id="budgetStatusB2B" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;"></p>
-          </div>
-        </div>
-        <div class="metric-card b2c">
-          <p class="metric-label">🛒 Panier moyen B2C</p>
-          <p class="metric-value" id="mAvgB2C">—</p>
-          <p class="metric-vs neutral" id="mAvgB2CVs">⏳</p>
-        </div>
-        <div class="metric-card b2b">
-          <p class="metric-label">🛒 Panier moyen B2B</p>
-          <p class="metric-value" id="mAvgB2B">—</p>
-          <p class="metric-vs neutral" id="mAvgB2BVs">⏳</p>
-        </div>
+      <div style="display:grid;grid-template-columns:1fr;gap:16px;">
+        <!-- placeholder pour garder la grille équilibrée -->
       </div>
     </div>
 
@@ -814,43 +832,42 @@ function setSegment(seg) {
 
 function applySegment(caData) {
   const seg = currentSegment;
-  let ca, caB2C, caB2B, panierB2C, panierB2B;
 
   const caByTypeRaw = caData._caByType || {};
-
   const caB2CSiteOutlet = (caByTypeRaw['B2C'] || 0) + (caByTypeRaw['Outlet'] || 0);
   const caB2BFromTypes  = (caByTypeRaw['Pharmacie'] || 0)
                         + (caByTypeRaw['Grand Compte'] || 0)
                         + (caByTypeRaw['Monoprix'] || 0);
+  const caTotal    = caData._totalCA || 0;
+  const panierB2C  = caData._panierMoyenB2C || 0;
+  const panierB2B  = caData._panierMoyenB2B || 0;
 
-  if (seg === 'total') {
-    ca       = caData._totalCA || 0;
-    caB2C    = caB2CSiteOutlet;
-    caB2B    = caB2BFromTypes;
-    panierB2C = caData._panierMoyenB2C || 0;
-    panierB2B = caData._panierMoyenB2B || 0;
-  } else if (seg === 'b2b') {
-    ca       = caB2BFromTypes;
-    caB2C    = 0;
-    caB2B    = caB2BFromTypes;
-    panierB2C = 0;
-    panierB2B = caData._panierMoyenB2B || 0;
-  } else {
-    ca       = caB2CSiteOutlet;
-    caB2C    = caB2CSiteOutlet;
-    caB2B    = 0;
-    panierB2C = caData._panierMoyenB2C || 0;
-    panierB2B = 0;
-  }
+  // Blocs du haut : visibilité selon segment
+  const blockTotal = document.getElementById('blockTotal');
+  const blockB2B   = document.getElementById('blockB2B');
+  const blockB2C   = document.getElementById('blockB2C');
+  if (blockTotal) blockTotal.style.display = seg === 'total' ? '' : 'none';
+  if (blockB2B)   blockB2B.style.display   = (seg === 'total' || seg === 'b2b') ? '' : 'none';
+  if (blockB2C)   blockB2C.style.display   = (seg === 'total' || seg === 'b2c') ? '' : 'none';
 
-  document.getElementById('mCA').textContent = fmt(ca);
-  document.getElementById('mCAB2C').textContent = fmt(caB2C);
-  document.getElementById('mCAB2B').textContent = fmt(caB2B);
+  // Valeurs
+  document.getElementById('mCA').textContent    = fmt(caTotal);
+  document.getElementById('mCAB2B').textContent = fmt(caB2BFromTypes);
+  document.getElementById('mCAB2C').textContent = fmt(caB2CSiteOutlet);
   document.getElementById('mAvgB2C').textContent = fmt(panierB2C);
   document.getElementById('mAvgB2B').textContent = fmt(panierB2B);
 
   const avoirsEl = document.getElementById('mAvoirsKpi');
-  if (avoirsEl) avoirsEl.innerHTML = ''; // avoirs masqués
+  if (avoirsEl) avoirsEl.innerHTML = '';
+
+  // Jauges : toujours les vraies valeurs
+  updateBudgetDisplay(caTotal, budget2026);
+  updateBudgetB2CB2BDisplay(caB2CSiteOutlet, caB2BFromTypes);
+
+  // Pour les graphiques en dessous, on garde les valeurs filtrées par segment
+  const ca    = seg === 'b2b' ? caB2BFromTypes : seg === 'b2c' ? caB2CSiteOutlet : caTotal;
+  const caB2C = seg === 'b2b' ? 0 : caB2CSiteOutlet;
+  const caB2B = seg === 'b2c' ? 0 : caB2BFromTypes;
 
   renderPieChart(caB2C, caB2B);
   currentTotalCA = ca;
@@ -862,30 +879,13 @@ function applySegment(caData) {
     else pieTitle.textContent = 'Répartition CA par type de client';
   }
 
-  const mainCACard = document.getElementById('mCA')?.closest('.metric-card');
-  const avgB2CCard = document.getElementById('mAvgB2C')?.closest('.metric-card');
-  const avgB2BCard = document.getElementById('mAvgB2B')?.closest('.metric-card');
-  const caB2CCard  = document.getElementById('mCAB2C')?.closest('.metric-card');
-  const caB2BCard  = document.getElementById('mCAB2B')?.closest('.metric-card');
   const pieCard    = document.getElementById('b2cPieChart')?.closest('.chart-card');
-
-  if (mainCACard) mainCACard.style.display = seg === 'total' ? '' : 'none';
-  document.getElementById('budgetBarWrap').style.display = seg === 'total' ? '' : 'none';
-  if (seg === 'total') updateBudgetDisplay(ca, budget2026);
-  if (seg === 'b2b') updateBudgetB2CB2BDisplay(0, caB2B);
-  else if (seg === 'b2c') updateBudgetB2CB2BDisplay(caB2C, 0);
-  else updateBudgetB2CB2BDisplay(caB2C, caB2B);
-
   const typeClientRow = document.getElementById('typeClientRow');
   const pharmacyCard  = document.getElementById('pharmacyBreakdownCard');
   const b2cBreakRow   = document.getElementById('b2cBreakdownRow');
 
   if (seg === 'b2b') {
-    if (avgB2CCard) avgB2CCard.style.display = 'none';
-    if (caB2CCard)  caB2CCard.style.display  = 'none';
     if (pieCard)    pieCard.style.display     = 'none';
-    if (avgB2BCard) avgB2BCard.style.display  = '';
-    if (caB2BCard)  caB2BCard.style.display   = '';
     if (typeClientRow) typeClientRow.style.display = '';
     if (b2cBreakRow)   b2cBreakRow.style.display   = 'none';
     const dates = getDates();
@@ -893,19 +893,11 @@ function applySegment(caData) {
   } else {
     if (pharmacyCard) pharmacyCard.style.display = 'none';
     if (seg === 'b2c') {
-      if (avgB2BCard) avgB2BCard.style.display = 'none';
-      if (caB2BCard)  caB2BCard.style.display  = 'none';
       if (pieCard)    pieCard.style.display     = 'none';
-      if (avgB2CCard) avgB2CCard.style.display  = '';
-      if (caB2CCard)  caB2CCard.style.display   = '';
       if (typeClientRow) typeClientRow.style.display = 'none';
       if (b2cBreakRow)   b2cBreakRow.style.display   = '';
       if (caData._caByType) renderB2CBreakdownPieChart(caData._caByType);
     } else {
-      if (avgB2CCard) avgB2CCard.style.display = '';
-      if (avgB2BCard) avgB2BCard.style.display = '';
-      if (caB2CCard)  caB2CCard.style.display  = '';
-      if (caB2BCard)  caB2BCard.style.display  = '';
       if (pieCard)    pieCard.style.display     = '';
       if (typeClientRow) typeClientRow.style.display = '';
       if (b2cBreakRow)   b2cBreakRow.style.display   = 'none';
@@ -1192,9 +1184,9 @@ function drawArcGauge(canvasId, realPct, expectedPct, color, budgetKe, caEuros) 
   ctx.clearRect(0, 0, W, H);
 
   const cx = W / 2;
-  const cy = H * 0.88;
-  const r  = Math.min(W, H * 2) * 0.42;
-  const lw = 10;
+  const cy = H * 0.90;
+  const r  = Math.min(W * 0.40, H * 0.82);
+  const lw = 12;
 
   // Arc part: 180° de -π à 0 (gauche à droite, bas)
   const startAngle = Math.PI;
