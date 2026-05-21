@@ -1797,7 +1797,7 @@ function renderChart(labels, currentData, prevData, budgetData, year) {
       interaction: { mode: 'index', intersect: false },
       layout: { padding: { top: 48 } },
       plugins: {
-        legend: { position: 'top', labels: { font: { size: 12 }, boxWidth: 24 } },
+        legend: { position: 'bottom', labels: { font: { size: 12 }, boxWidth: 24, padding: 16 } },
         tooltip: { callbacks: { label: ctx => {
           const line = ` ${ctx.dataset.label} : ${ctx.parsed.y.toLocaleString('fr-FR')} k€`;
           if (ctx.datasetIndex === 0 && pctData[ctx.dataIndex] !== null && pctData[ctx.dataIndex] !== undefined) {
