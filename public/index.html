@@ -316,6 +316,7 @@
         <div>
           <p class="chart-title">Évolution mensuelle du CA</p>
           <p class="chart-subtitle" id="chartSubtitle">Cliquez sur Voir pour charger le graphique</p>
+          <p class="chart-subtitle" style="margin-top:2px;">Les % indiquent le taux de réalisation vs budget — <span style="color:#1D9E75;font-weight:600;">vert ≥ 100%</span> · <span style="color:#D85A30;font-weight:600;">rouge &lt; 100%</span></p>
         </div>
       </div>
       <div class="chart-container"><canvas id="caChart"></canvas></div>
@@ -1651,6 +1652,8 @@ function renderTypeClientPieChart(caByType) {
     }]
   });
 
+  // B2C cats = jours calendaires, B2B = jours ouvrés
+  const B2C_CATS = ['B2C', 'Site', 'Outlet'];
   const legendEl = document.getElementById('typeClientLegend');
   legendEl.innerHTML = labels.map(cat => {
     const val = caByType[cat] || 0;
@@ -1661,13 +1664,31 @@ function renderTypeClientPieChart(caByType) {
     const budgetText = budgetPct !== null
       ? `<span style="color:${budgetColor};font-weight:600;">${budgetPct}% du budget</span>`
       : `<span style="color:#bbb;">Pas de budget</span>`;
+
+    // Rythme attendu
+    const useWorkdays = !B2C_CATS.includes(cat);
+    const ratio = getProratioForPeriod(useWorkdays);
+    let rythmeText = '';
+    if (ratio !== null && budgetVal > 0) {
+      const expectedEuros = Math.round((budgetVal * 1000) * ratio);
+      const diffEuros = val - expectedEuros;
+      const diffAbs = Math.abs(diffEuros);
+      if (diffEuros >= 500) {
+        rythmeText = `<span style="color:#1D9E75;">✓ +${fmt(diffAbs)} vs rythme</span>`;
+      } else if (diffEuros <= -500) {
+        rythmeText = `<span style="color:#D85A30;">↓ -${fmt(diffAbs)} vs rythme</span>`;
+      } else {
+        rythmeText = `<span style="color:#888;">≈ Dans les clous</span>`;
+      }
+    }
+
     return `<div style="display:flex;flex-direction:column;gap:3px;">
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="width:12px;height:12px;border-radius:3px;background:${TYPE_CLIENT_COLORS[cat] || '#aaa'};display:inline-block;flex-shrink:0;"></span>
         <span style="font-size:13px;font-weight:500;">${displayLabel(cat)}</span>
         <span style="font-size:12px;color:#888;">${pct}% — ${fmt(val)}</span>
       </div>
-      <div style="font-size:11px;padding-left:20px;">${budgetText}</div>
+      <div style="font-size:11px;padding-left:20px;display:flex;gap:10px;">${budgetText}${rythmeText ? ' · ' + rythmeText : ''}</div>
     </div>`;
   }).join('');
 
@@ -1743,36 +1764,7 @@ function renderChart(labels, currentData, prevData, budgetData, year) {
   // Plugin étiquettes % réalisation sur les points 2026
   const pctLabelPlugin = {
     id: 'pctLabels',
-    afterDraw(chart) {
-      // Ajouter légende "Taux de réalisation" à côté des items existants
-      if (!pctData.length) return;
-      const { ctx, chartArea } = chart;
-      const legendItems = chart.legend.legendItems;
-      if (!legendItems || !legendItems.length) return;
-      const lastItem = legendItems[legendItems.length - 1];
-      if (!lastItem) return;
-      // Position après le dernier item de légende
-      const legendBox = chart.legend;
-      const top = legendBox.top + legendBox.height / 2;
-      const lastX = (legendBox.left + legendBox.right) / 2 + 120;
-      ctx.save();
-      // Pastille verte
-      ctx.beginPath();
-      ctx.arc(lastX + 8, top, 5, 0, 2 * Math.PI);
-      ctx.fillStyle = '#1D9E75';
-      ctx.fill();
-      // Pastille rouge
-      ctx.beginPath();
-      ctx.arc(lastX + 20, top, 5, 0, 2 * Math.PI);
-      ctx.fillStyle = '#D85A30';
-      ctx.fill();
-      ctx.font = '11px -apple-system, sans-serif';
-      ctx.fillStyle = '#888';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('% réalisation vs budget', lastX + 28, top);
-      ctx.restore();
-    },
+
     afterDatasetsDraw(chart) {
       if (!pctData.length) return;
       const { ctx } = chart;
@@ -1805,29 +1797,7 @@ function renderChart(labels, currentData, prevData, budgetData, year) {
       interaction: { mode: 'index', intersect: false },
       layout: { padding: { top: 32 } },
       plugins: {
-        legend: {
-          position: 'top',
-          labels: {
-            font: { size: 12 }, boxWidth: 24,
-            generateLabels(chart) {
-              const base = Chart.defaults.plugins.legend.labels.generateLabels(chart);
-              if (pctData.length > 0) {
-                base.push({
-                  text: 'Taux de réalisation',
-                  fillStyle: 'transparent',
-                  strokeStyle: 'transparent',
-                  lineWidth: 0,
-                  hidden: false,
-                  index: -1,
-                  fontColor: '#888',
-                  pointStyle: 'circle',
-                  // custom render handled by plugin
-                });
-              }
-              return base;
-            }
-          }
-        },
+        legend: { position: 'top', labels: { font: { size: 12 }, boxWidth: 24 } },
         tooltip: { callbacks: { label: ctx => {
           const line = ` ${ctx.dataset.label} : ${ctx.parsed.y.toLocaleString('fr-FR')} k€`;
           if (ctx.datasetIndex === 0 && pctData[ctx.dataIndex] !== null && pctData[ctx.dataIndex] !== undefined) {
