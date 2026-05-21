@@ -258,8 +258,8 @@
     </div>
 
     <!-- Camembert répartition (conservé) -->
-    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:24px;">
-      <div class="chart-card" style="margin-bottom:0;">
+    <div style="display:none;">
+      <div class="chart-card" style="margin-bottom:0;display:none;">
         <div class="chart-header" style="margin-bottom:12px;">
           <p class="chart-title" id="pieChartTitle">Répartition CA B2C vs B2B</p>
         </div>
@@ -294,7 +294,7 @@
     </div>
 
     <!-- Répartition par type de client -->
-    <div class="chart-card" id="typeClientRow" style="margin-bottom:24px;display:none;">
+    <div class="chart-card" id="typeClientRow" style="margin-bottom:24px;">
       <div class="chart-header">
         <div>
           <p class="chart-title">Répartition CA par type de client</p>
@@ -1327,7 +1327,7 @@ function updateBudgetB2CB2BDisplay(caB2C, caB2B) {
 
 function updateBudgetDisplay(totalCA, budgetArr) {
   const arr = budgetArr || budget2026;
-  renderArcGauge('budgetBarWrap', 'gaugeTotal', 'budgetStatusTotal', totalCA, arr, false, 'mCABudgetLabel', 'mCAResteAFaire');
+  renderArcGauge('budgetBarWrap', 'gaugeTotal', 'budgetStatusTotal', totalCA, arr, false, null, 'mCAResteAFaire');
 }
 
 [document.getElementById('selYear'), document.getElementById('selYtdYear')].forEach(el => {
@@ -1725,6 +1725,13 @@ async function loadMonthlyChart(year, upToMonth) {
 function renderChart(labels, currentData, prevData, budgetData, year) {
   const ctx = document.getElementById('caChart').getContext('2d');
   if (caChartInstance) caChartInstance.destroy();
+
+  // Calcul des % de réalisation vs budget pour les étiquettes
+  const activeBudget = currentSegment === 'b2b' ? budgetB2B2026 : currentSegment === 'b2c' ? budgetB2C2026 : budget2026;
+  const pctData = year === 2026 && budgetData.length > 0
+    ? labels.map((_, i) => activeBudget[i] > 0 ? Math.round((currentData[i] / activeBudget[i]) * 100) : null)
+    : [];
+
   const datasets = [
     { label: `${year}`, data: currentData, borderColor: '#1a1a1a', backgroundColor: 'rgba(26,26,26,0.05)', borderWidth: 2.5, pointRadius: 5, pointBackgroundColor: '#1a1a1a', tension: 0.3, fill: true },
     { label: `${year-1}`, data: prevData, borderColor: '#aaa', backgroundColor: 'transparent', borderWidth: 1.5, borderDash: [5,4], pointRadius: 3, pointBackgroundColor: '#aaa', tension: 0.3, fill: false }
@@ -1732,53 +1739,64 @@ function renderChart(labels, currentData, prevData, budgetData, year) {
   if (year === 2026 && budgetData.length > 0) {
     datasets.push({ label: 'Budget 2026', data: budgetData, borderColor: '#74A1D6', backgroundColor: 'transparent', borderWidth: 2, borderDash: [3,3], pointRadius: 3, pointBackgroundColor: '#74A1D6', tension: 0.3, fill: false });
   }
+
+  // Plugin étiquettes % réalisation sur les points 2026
+  const pctLabelPlugin = {
+    id: 'pctLabels',
+    afterDatasetsDraw(chart) {
+      if (!pctData.length) return;
+      const { ctx } = chart;
+      const meta = chart.getDatasetMeta(0); // dataset 2026
+      meta.data.forEach((point, i) => {
+        const pct = pctData[i];
+        if (pct === null) return;
+        const color = pct >= 100 ? '#1D9E75' : '#D85A30';
+        const label = pct + '%';
+        ctx.save();
+        ctx.font = 'bold 11px -apple-system, sans-serif';
+        ctx.fillStyle = color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        // Fond blanc pour lisibilité
+        const tw = ctx.measureText(label).width + 6;
+        ctx.fillStyle = 'white';
+        ctx.fillRect(point.x - tw/2, point.y - 22, tw, 16);
+        ctx.fillStyle = color;
+        ctx.fillText(label, point.x, point.y - 8);
+        ctx.restore();
+      });
+    }
+  };
+
   caChartInstance = new Chart(ctx, {
     type: 'line', data: { labels, datasets },
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
+      layout: { padding: { top: 24 } },
       plugins: {
         legend: { position: 'top', labels: { font: { size: 12 }, boxWidth: 24 } },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label} : ${ctx.parsed.y.toLocaleString('fr-FR')} k€` } }
+        tooltip: { callbacks: { label: ctx => {
+          const line = ` ${ctx.dataset.label} : ${ctx.parsed.y.toLocaleString('fr-FR')} k€`;
+          if (ctx.datasetIndex === 0 && pctData[ctx.dataIndex] !== null && pctData[ctx.dataIndex] !== undefined) {
+            return [line, ` Réalisation : ${pctData[ctx.dataIndex]}% du budget`];
+          }
+          return line;
+        }}}
       },
       scales: {
         y: { beginAtZero: false, grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 }, callback: v => v + ' k€' } },
         x: { grid: { display: false }, ticks: { font: { size: 12 } } }
       }
-    }
+    },
+    plugins: [pctLabelPlugin]
   });
 }
 
 function renderBudgetChart(labels, realDataKe, upToMonth) {
-  const ctx = document.getElementById('budgetChart').getContext('2d');
-  if (budgetChartInstance) budgetChartInstance.destroy();
-  const activeBudget = currentSegment === 'b2b' ? budgetB2B2026 : currentSegment === 'b2c' ? budgetB2C2026 : budget2026;
-  const pctData = labels.map((_, i) => Math.round((realDataKe[i] / (activeBudget[i] || 1)) * 100));
-  const barColors = pctData.map(p => p >= 100 ? '#1D9E75' : '#D85A30');
-  budgetChartInstance = new Chart(ctx, {
-    type: 'bar', data: { labels, datasets: [{ label: '% de réalisation', data: pctData, backgroundColor: barColors, borderWidth: 0, borderRadius: 6, budgetValues: [...activeBudget] }] },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: ctx => { const m = ctx.dataIndex; const bv = ctx.dataset.budgetValues[m]; return [` Réalisation : ${ctx.parsed.y}%`, ` Réel : ${realDataKe[m].toLocaleString('fr-FR')} k€`, ` Budget : ${bv.toLocaleString('fr-FR')} k€`]; } } }
-      },
-      scales: {
-        y: { beginAtZero: true, max: Math.max(130, ...pctData) + 10, grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 }, callback: v => v + '%' } },
-        x: { grid: { display: false }, ticks: { font: { size: 12 } } }
-      }
-    },
-    plugins: [{ id: 'pctLabels', afterDatasetsDraw(chart) {
-      const { ctx, data } = chart;
-      chart.getDatasetMeta(0).data.forEach((bar, i) => {
-        const val = data.datasets[0].data[i];
-        ctx.save(); ctx.fillStyle = val >= 100 ? '#0F6E56' : '#A32D2D';
-        ctx.font = 'bold 12px -apple-system, sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText(val + '%', bar.x, bar.y - 6); ctx.restore();
-      });
-    }}]
-  });
-  document.getElementById('budgetChartCard').style.display = 'block';
+  // Graphique barres désactivé — les % sont maintenant dans le graphique courbes
+  document.getElementById('budgetChartCard').style.display = 'none';
+  if (budgetChartInstance) { budgetChartInstance.destroy(); budgetChartInstance = null; }
 }
 
 function renderTop30(top30, totalCAB2B) {
