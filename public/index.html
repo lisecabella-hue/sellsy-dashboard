@@ -209,23 +209,18 @@
     <p class="period-label" id="periodLabel"></p>
 
     <!-- Ligne de jauges style compteur : Total + B2B + B2C -->
-    <div id="gaugesRow" class="chart-card" style="margin-bottom:16px;padding:0;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
-      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:0;border-radius:12px;overflow:hidden;">
+    <div id="gaugesRow" style="display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:14px;margin-bottom:16px;">
 
         <!-- TOTAL -->
-        <div id="blockTotal" style="padding:24px 28px;border-right:1px solid #e5e5e5;">
-          <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:14px;">CA Total HT</p>
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
-            <div>
-              <p style="font-size:36px;font-weight:500;line-height:1;" id="mCA">—</p>
-              <p style="font-size:12px;margin-top:6px;" id="mCAVs"></p>
-              <p style="font-size:12px;margin-top:4px;color:#aaa;" id="mCABudgetLabel"></p>
-              <p style="font-size:13px;font-weight:600;color:#D85A30;margin-top:4px;" id="mCAResteAFaire"></p>
-            </div>
-            <div id="budgetBarWrap" style="display:none;text-align:center;">
-              <canvas id="gaugeTotal" width="160" height="95" style="display:block;margin:0 auto;"></canvas>
-              <p id="budgetStatusTotal" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;"></p>
-            </div>
+        <div id="blockTotal" class="metric-card" style="padding:24px 28px;border-radius:16px;border:1px solid #e5e5e5;">
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#888;margin-bottom:12px;">CA Total HT</p>
+          <p style="font-size:34px;font-weight:500;line-height:1;" id="mCA">—</p>
+          <p style="font-size:12px;margin-top:6px;font-weight:500;" id="mCAVs"></p>
+          <p style="font-size:11px;margin-top:5px;color:#bbb;" id="mCABudgetLabel"></p>
+          <p style="font-size:12px;font-weight:600;margin-top:4px;" id="mCAResteAFaire"></p>
+          <div id="budgetBarWrap" style="display:none;text-align:center;margin-top:12px;">
+            <canvas id="gaugeTotal" width="180" height="108" style="display:block;margin:0 auto;"></canvas>
+            <p id="budgetStatusTotal" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;"></p>
           </div>
           <div style="display:none;">
             <p id="mAvgB2C"></p><p id="mAvgB2CVs"></p>
@@ -235,40 +230,31 @@
         </div>
 
         <!-- B2B -->
-        <div id="blockB2B" style="padding:24px 22px;border-right:1px solid #e5e5e5;background:linear-gradient(135deg, #edf8f3 0%, #f8fdfb 100%);">
-          <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#1D9E75;margin-bottom:14px;">Dont CA B2B</p>
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
-            <div>
-              <p style="font-size:26px;font-weight:500;line-height:1;" id="mCAB2B">—</p>
-              <p style="font-size:12px;margin-top:6px;" id="mCAB2BVs">⏳</p>
-              <p style="font-size:12px;margin-top:4px;color:#aaa;" id="mB2BBudgetLabel"></p>
-              <p style="font-size:13px;font-weight:600;color:#D85A30;margin-top:4px;" id="mB2BResteAFaire"></p>
-            </div>
-            <div id="budgetBarB2BWrap" style="display:none;text-align:center;">
-              <canvas id="gaugeB2B" width="160" height="95" style="display:block;margin:0 auto;"></canvas>
-              <p id="budgetStatusB2B" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;color:#1D9E75;"></p>
-            </div>
+        <div id="blockB2B" class="metric-card" style="padding:24px 24px;border-radius:16px;border:1px solid #c8eadb;background:linear-gradient(145deg, #edf8f3 0%, #f8fdfb 100%);">
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#1D9E75;margin-bottom:12px;">Dont CA B2B</p>
+          <p style="font-size:28px;font-weight:500;line-height:1;" id="mCAB2B">—</p>
+          <p style="font-size:12px;margin-top:6px;font-weight:500;" id="mCAB2BVs">⏳</p>
+          <p style="font-size:11px;margin-top:5px;color:#bbb;" id="mB2BBudgetLabel"></p>
+          <p style="font-size:12px;font-weight:600;margin-top:4px;" id="mB2BResteAFaire"></p>
+          <div id="budgetBarB2BWrap" style="display:none;text-align:center;margin-top:12px;">
+            <canvas id="gaugeB2B" width="160" height="96" style="display:block;margin:0 auto;"></canvas>
+            <p id="budgetStatusB2B" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;color:#1D9E75;"></p>
           </div>
         </div>
 
         <!-- B2C -->
-        <div id="blockB2C" style="padding:24px 22px;background:linear-gradient(135deg, #edf3fb 0%, #f7fafd 100%);">
-          <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#74A1D6;margin-bottom:14px;">Dont CA B2C</p>
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
-            <div>
-              <p style="font-size:26px;font-weight:500;line-height:1;" id="mCAB2C">—</p>
-              <p style="font-size:12px;margin-top:6px;" id="mCAB2CVs">⏳</p>
-              <p style="font-size:12px;margin-top:4px;color:#aaa;" id="mB2CBudgetLabel"></p>
-              <p style="font-size:13px;font-weight:600;color:#D85A30;margin-top:4px;" id="mB2CResteAFaire"></p>
-            </div>
-            <div id="budgetBarB2CWrap" style="display:none;text-align:center;">
-              <canvas id="gaugeB2C" width="160" height="95" style="display:block;margin:0 auto;"></canvas>
-              <p id="budgetStatusB2C" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;color:#74A1D6;"></p>
-            </div>
+        <div id="blockB2C" class="metric-card" style="padding:24px 24px;border-radius:16px;border:1px solid #c5d9f0;background:linear-gradient(145deg, #edf3fb 0%, #f7fafd 100%);">
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#74A1D6;margin-bottom:12px;">Dont CA B2C</p>
+          <p style="font-size:28px;font-weight:500;line-height:1;" id="mCAB2C">—</p>
+          <p style="font-size:12px;margin-top:6px;font-weight:500;" id="mCAB2CVs">⏳</p>
+          <p style="font-size:11px;margin-top:5px;color:#bbb;" id="mB2CBudgetLabel"></p>
+          <p style="font-size:12px;font-weight:600;margin-top:4px;" id="mB2CResteAFaire"></p>
+          <div id="budgetBarB2CWrap" style="display:none;text-align:center;margin-top:12px;">
+            <canvas id="gaugeB2C" width="160" height="96" style="display:block;margin:0 auto;"></canvas>
+            <p id="budgetStatusB2C" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;color:#74A1D6;"></p>
           </div>
         </div>
 
-      </div>
     </div>
 
     <!-- Camembert répartition (conservé) -->
