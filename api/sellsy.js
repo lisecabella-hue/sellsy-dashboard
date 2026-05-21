@@ -1,439 +1,2347 @@
-export const maxDuration = 300;
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cockpit CEO</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #1a1a1a; }
+    .header { position:relative; background: white; border-bottom: 1px solid #e5e5e5; padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; }
+    .header h1 { font-size: 18px; font-weight: 500; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .header span { font-size: 13px; color: #888; }
+    .btn-settings { background: none; border: 1px solid #ddd; border-radius: 8px; padding: 7px 14px; font-size: 13px; cursor: pointer; color: #444; }
+    .btn-settings:hover { background: #f5f5f5; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+    .controls-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+    .period-btns { display: flex; gap: 6px; background: white; border: 1px solid #e5e5e5; border-radius: 10px; padding: 4px; }
+    .period-btn { font-size: 13px; padding: 7px 16px; border-radius: 7px; border: none; cursor: pointer; background: transparent; color: #666; font-weight: 500; transition: all 0.15s; }
+    .period-btn:hover { background: #f5f5f5; color: #1a1a1a; }
+    .period-btn.active { background: #1a1a1a; color: white; }
+    .date-selectors { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    select, input[type="date"] { font-size: 13px; padding: 8px 12px; border-radius: 8px; border: 1px solid #ddd; background: white; cursor: pointer; color: #1a1a1a; }
+    .sep { font-size: 13px; color: #888; }
+    .btn { font-size: 14px; padding: 9px 20px; border-radius: 8px; border: none; cursor: pointer; }
+    .btn-primary { background: #1a1a1a; color: white; font-weight: 500; }
+    .btn-primary:hover { background: #333; }
+    .status { font-size: 12px; color: #888; display: flex; align-items: center; gap: 6px; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #ccc; display: inline-block; }
+    .dot.ok { background: #1D9E75; } .dot.err { background: #D85A30; } .dot.spin { background: #74A1D6; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .error-box { background: #fff0f0; border: 1px solid #fcc; border-radius: 8px; padding: 12px 16px; font-size: 13px; color: #c00; margin-bottom: 16px; display: none; }
+    .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px; }
+    .metric-card { background: white; border-radius: 12px; padding: 24px; border: 1px solid #e5e5e5; }
+    .metric-card.b2c { border-left: 3px solid #74A1D6; }
+    .metric-card.b2b { border-left: 3px solid #1D9E75; }
+    .metric-label { font-size: 12px; color: #888; margin-bottom: 8px; }
+    .metric-value { font-size: 28px; font-weight: 500; }
+    .metric-sub { font-size: 12px; margin-top: 6px; color: #888; }
+    .metric-vs { font-size: 12px; margin-top: 6px; font-weight: 500; }
+    .metric-vs.up { color: #1D9E75; }
+    .metric-vs.down { color: #D85A30; }
+    .metric-vs.neutral { color: #888; }
+    .budget-bar-wrap { margin-top: 10px; }
+    .budget-bar-label { display: flex; justify-content: space-between; font-size: 11px; color: #888; margin-bottom: 4px; }
+    .budget-bar-bg { position: relative; background: #f0f0f0; border-radius: 4px; height: 8px; overflow: visible; }
+    .budget-bar-fill { height: 8px; border-radius: 4px; transition: width 0.5s; }
+    .budget-bar-fill.over { background: #1D9E75; }
+    .budget-bar-fill.ok { background: #D85A30; }
+    .budget-bar-bg { position: relative; background: #f0f0f0; border-radius: 4px; height: 8px; overflow: visible; }
+    .budget-bar-fill { height: 8px; border-radius: 4px; transition: width 0.5s; position: relative; z-index: 1; }
+    .budget-bar-expected { position: absolute; top: -5px; width: 3px; height: 18px; background: #1a1a1a; border-radius: 2px; transition: left 0.5s; z-index: 3; box-shadow: 0 0 0 2px white; }
+    .budget-bar-expected::after { content: ''; position: absolute; top: -5px; left: 50%; transform: translateX(-50%); width: 7px; height: 7px; background: #1a1a1a; border-radius: 50%; border: 2px solid white; }
+    .budget-status { font-size: 11px; margin-top: 6px; font-weight: 600; display: flex; align-items: center; gap: 4px; }
+    .budget-status.ahead { color: #1D9E75; }
+    .budget-status.behind { color: #D85A30; }
+    .budget-status.inline { color: #888; }
+    .chart-card { background: white; border-radius: 12px; padding: 24px; border: 1px solid #e5e5e5; margin-bottom: 24px; }
+    .chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    .chart-title { font-size: 15px; font-weight: 500; }
+    .chart-subtitle { font-size: 12px; color: #888; margin-top: 2px; }
+    .chart-container { position: relative; height: 280px; }
+    .period-label { font-size: 20px; font-weight: 500; margin-bottom: 20px; }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1000; display: none; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: white; border-radius: 16px; padding: 32px; width: 700px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+    .modal-title { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+    .modal-sub { font-size: 13px; color: #888; margin-bottom: 24px; }
+    .budget-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+    .budget-input-wrap label { font-size: 12px; color: #888; display: block; margin-bottom: 4px; }
+    .budget-input-wrap input { width: 100%; padding: 8px 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+    .budget-input-wrap input:focus { outline: none; border-color: #1a1a1a; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+    .btn-cancel { background: #f5f5f5; color: #444; }
+    .btn-cancel:hover { background: #eee; }
+    .save-msg { font-size: 12px; color: #1D9E75; display: none; margin-top: 8px; text-align: right; }
+  </style>
+</head>
+<body>
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  <!-- Login overlay -->
+  <div id="loginOverlay" style="position:fixed;inset:0;background:#f5f5f5;z-index:99999;display:flex;align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:16px;padding:40px;width:380px;max-width:90vw;border:1px solid #e5e5e5;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
+      <h2 style="font-size:20px;font-weight:600;margin-bottom:6px;">📊 Cockpit CEO</h2>
+      <p style="font-size:13px;color:#888;margin-bottom:24px;">Accès restreint — entrez votre mot de passe</p>
+      <input id="passwordInput" type="password" placeholder="Mot de passe" onkeydown="handlePasswordKey(event)"
+        style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:8px;font-size:14px;margin-bottom:12px;outline:none;" />
+      <p id="loginError" style="display:none;color:#D85A30;font-size:12px;margin-bottom:12px;">❌ Mot de passe incorrect</p>
+      <button onclick="checkPassword()" style="width:100%;padding:11px;background:#1a1a1a;color:white;border:none;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;">
+        Accéder au dashboard
+      </button>
+    </div>
+  </div>
 
-  const clientId = process.env.SELLSY_CLIENT_ID;
-  const clientSecret = process.env.SELLSY_CLIENT_SECRET;
-  const kvUrl = process.env.KV_REST_API_URL;
-  const kvToken = process.env.KV_REST_API_TOKEN;
+  <div id="app" style="display:none;">
 
-  const { dateStart, dateEnd, mode } = req.query;
-  if (!dateStart || !dateEnd) return res.status(400).json({ error: 'dateStart and dateEnd required' });
+  <div class="modal-overlay" id="notesModal">
+    <div class="modal">
+      <p class="modal-title">📝 Messages du dashboard</p>
+      <p class="modal-sub">Ces messages s'affichent en bandeau en haut du dashboard</p>
+      <div style="margin-bottom:20px;">
+        <label style="font-size:12px;color:#888;display:block;margin-bottom:6px;">Message permanent (toujours affiché)</label>
+        <textarea id="notesPermanentInput" rows="2" placeholder="Ex : Ce dashboard est mis à jour chaque semaine par la direction."
+          style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;resize:vertical;font-family:inherit;"></textarea>
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="font-size:12px;color:#888;display:block;margin-bottom:8px;">✅ Mois finalisés Pennylane 2026</label>
+        <p style="font-size:11px;color:#aaa;margin-bottom:8px;">Seuls les mois cochés sont accessibles dans la vue Financier</p>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;" id="finalizedMonthsGrid"></div>
+      </div>
+      <div>
+        <label style="font-size:12px;color:#888;display:block;margin-bottom:8px;">Messages par mois 2026</label>
+        <div id="notesMonthsGrid" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+      <div class="modal-actions" style="margin-top:20px;">
+        <button class="btn btn-cancel" onclick="closeNotesModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="saveNotes()">💾 Enregistrer</button>
+      </div>
+      <p class="save-msg" id="notesSaveMsg">✓ Notes enregistrées !</p>
+    </div>
+  </div>
 
-  const CACHE_VERSION = 'v8';
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
-  const pad = n => String(n).padStart(2, '0');
+  <!-- Bandeau messages -->
+  <div id="bannerPermanent" style="display:none;background:#1a1a1a;color:white;padding:10px 32px;font-size:13px;align-items:center;gap:8px;">
+    <span>📌</span><span id="bannerPermanentText"></span>
+  </div>
+  <div id="bannerMonth" style="display:none;background:#FFF8E1;border-bottom:1px solid #FFE082;padding:10px 32px;font-size:13px;color:#7B5E00;align-items:center;gap:8px;">
+    <span>⚠️</span><span id="bannerMonthText"></span>
+  </div>
 
-  async function cacheGet(key) {
-    try {
-      const r = await fetch(`${kvUrl}/get/${encodeURIComponent(key)}`, {
-        headers: { Authorization: `Bearer ${kvToken}` }
-      });
-      const json = await r.json();
-      return json.result ? JSON.parse(json.result) : null;
-    } catch { return null; }
+  <div class="modal-overlay" id="budgetModal">
+    <div class="modal">
+      <p class="modal-title">Budget 2026 mensuel</p>
+      <p class="modal-sub">Saisissez vos budgets en k€ (milliers d'euros HT)</p>
+      <div class="budget-grid" id="budgetGrid"></div>
+      <div class="modal-actions">
+        <button class="btn btn-cancel" onclick="closeBudgetModal()">Annuler</button>
+        <button class="btn btn-primary" onclick="saveBudgetWithFin()">💾 Enregistrer</button>
+      </div>
+      <p class="save-msg" id="saveMsg">✓ Budget enregistré !</p>
+    </div>
+  </div>
+
+  <div class="header">
+    <div style="display:flex;align-items:center;gap:24px;">
+      <h1>📊 Cockpit CEO</h1>
+      <div style="display:flex;gap:4px;background:#f5f5f5;border-radius:10px;padding:4px;">
+        <button id="navBusiness" onclick="switchView('business')" style="font-size:13px;padding:7px 16px;border-radius:7px;border:none;cursor:pointer;background:#1a1a1a;color:white;font-weight:500;">🛒 Business</button>
+        <button id="navFinancier" onclick="switchView('financier')" style="font-size:13px;padding:7px 16px;border-radius:7px;border:none;cursor:pointer;background:transparent;color:#666;font-weight:500;">💰 Financier</button>
+      </div>
+    </div>
+    <div style="position:absolute;left:50%;transform:translateX(-50%);">
+      <img src="/logo.png.png" alt="Krème" style="height:52px;object-fit:contain;" onerror="this.style.display='none'" />
+    </div>
+    <div class="header-right">
+      <span id="lastUpdate">Pas encore actualisé</span>
+      <button class="btn-settings" onclick="openBudgetModalWithFin()">⚙️ Budget</button>
+      <button class="btn-settings" onclick="openNotesModal()">📝 Notes</button>
+    </div>
+  </div>
+
+  <div class="container">
+
+    <div id="businessView">
+    <div class="controls-bar">
+      <div class="period-btns">
+        <button class="period-btn" id="btnToday" onclick="setPeriod('today')">Aujourd'hui</button>
+        <button class="period-btn" id="btnWeek" onclick="setPeriod('week')">Cette semaine</button>
+        <button class="period-btn active" id="btnMonth" onclick="setPeriod('month')">Ce mois</button>
+        <button class="period-btn" id="btnYtd" onclick="setPeriod('ytd')">Cumul YTD</button>
+        <button class="period-btn" id="btnCustom" onclick="setPeriod('custom')">Période</button>
+      </div>
+      <div class="date-selectors" id="selectorsMonth">
+        <select id="selMonth">
+          <option value="0">Janvier</option><option value="1">Février</option><option value="2">Mars</option>
+          <option value="3">Avril</option><option value="4">Mai</option><option value="5">Juin</option>
+          <option value="6">Juillet</option><option value="7">Août</option><option value="8">Septembre</option>
+          <option value="9">Octobre</option><option value="10">Novembre</option><option value="11">Décembre</option>
+        </select>
+        <select id="selYear"></select>
+      </div>
+      <div class="date-selectors" id="selectorsYtd" style="display:none;">
+        <select id="selYtdMonth">
+          <option value="0">Janvier</option><option value="1">Février</option><option value="2">Mars</option>
+          <option value="3">Avril</option><option value="4">Mai</option><option value="5">Juin</option>
+          <option value="6">Juillet</option><option value="7">Août</option><option value="8">Septembre</option>
+          <option value="9">Octobre</option><option value="10">Novembre</option><option value="11">Décembre</option>
+        </select>
+        <select id="selYtdYear"></select>
+      </div>
+      <div class="date-selectors" id="selectorsCustom" style="display:none;">
+        <input type="date" id="dateFrom" />
+        <span class="sep">→</span>
+        <input type="date" id="dateTo" />
+      </div>
+      <button class="btn btn-primary" onclick="loadData()">↻ Voir</button>
+      <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">En attente</span></div>
+    </div>
+
+    <!-- Onglets segment -->
+    <div style="display:flex;gap:4px;background:#f5f5f5;border-radius:10px;padding:4px;width:fit-content;margin-bottom:20px;">
+      <button id="segTotal" onclick="setSegment('total')" style="font-size:13px;padding:7px 18px;border-radius:7px;border:none;cursor:pointer;background:#1a1a1a;color:white;font-weight:500;">Total</button>
+      <button id="segB2B" onclick="setSegment('b2b')" style="font-size:13px;padding:7px 18px;border-radius:7px;border:none;cursor:pointer;background:transparent;color:#666;font-weight:500;">B2B</button>
+      <button id="segB2C" onclick="setSegment('b2c')" style="font-size:13px;padding:7px 18px;border-radius:7px;border:none;cursor:pointer;background:transparent;color:#666;font-weight:500;">B2C</button>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+    <p class="period-label" id="periodLabel"></p>
+
+    <!-- Ligne de jauges style compteur : Total + B2B + B2C -->
+    <div id="gaugesRow" style="display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:14px;margin-bottom:16px;">
+
+        <!-- TOTAL -->
+        <div id="blockTotal" class="metric-card" style="padding:24px 28px;border-radius:16px;border:1px solid #e5e5e5;">
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#888;margin-bottom:12px;">CA Total HT</p>
+          <p style="font-size:34px;font-weight:500;line-height:1;" id="mCA">—</p>
+          <p style="font-size:12px;margin-top:6px;font-weight:500;" id="mCAVs"></p>
+          <p style="font-size:11px;margin-top:5px;color:#bbb;" id="mCABudgetLabel"></p>
+          <p style="font-size:12px;font-weight:600;margin-top:4px;" id="mCAResteAFaire"></p>
+          <div id="budgetBarWrap" style="display:none;text-align:center;margin-top:12px;">
+            <canvas id="gaugeTotal" width="180" height="108" style="display:block;margin:0 auto;"></canvas>
+            <p id="budgetStatusTotal" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;"></p>
+          </div>
+          <div style="display:none;">
+            <p id="mAvgB2C"></p><p id="mAvgB2CVs"></p>
+            <p id="mAvgB2B"></p><p id="mAvgB2BVs"></p>
+          </div>
+          <p id="mAvoirsKpi" style="display:none;"></p>
+        </div>
+
+        <!-- B2B -->
+        <div id="blockB2B" class="metric-card" style="padding:24px 24px;border-radius:16px;border:1px solid #c8eadb;background:linear-gradient(145deg, #edf8f3 0%, #f8fdfb 100%);">
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#1D9E75;margin-bottom:12px;">Dont CA B2B</p>
+          <p style="font-size:28px;font-weight:500;line-height:1;" id="mCAB2B">—</p>
+          <p style="font-size:12px;margin-top:6px;font-weight:500;" id="mCAB2BVs">⏳</p>
+          <p style="font-size:11px;margin-top:5px;color:#bbb;" id="mB2BBudgetLabel"></p>
+          <p style="font-size:12px;font-weight:600;margin-top:4px;" id="mB2BResteAFaire"></p>
+          <div id="budgetBarB2BWrap" style="display:none;text-align:center;margin-top:12px;">
+            <canvas id="gaugeB2B" width="160" height="96" style="display:block;margin:0 auto;"></canvas>
+            <p id="budgetStatusB2B" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;color:#1D9E75;"></p>
+          </div>
+        </div>
+
+        <!-- B2C -->
+        <div id="blockB2C" class="metric-card" style="padding:24px 24px;border-radius:16px;border:1px solid #c5d9f0;background:linear-gradient(145deg, #edf3fb 0%, #f7fafd 100%);">
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#74A1D6;margin-bottom:12px;">Dont CA B2C</p>
+          <p style="font-size:28px;font-weight:500;line-height:1;" id="mCAB2C">—</p>
+          <p style="font-size:12px;margin-top:6px;font-weight:500;" id="mCAB2CVs">⏳</p>
+          <p style="font-size:11px;margin-top:5px;color:#bbb;" id="mB2CBudgetLabel"></p>
+          <p style="font-size:12px;font-weight:600;margin-top:4px;" id="mB2CResteAFaire"></p>
+          <div id="budgetBarB2CWrap" style="display:none;text-align:center;margin-top:12px;">
+            <canvas id="gaugeB2C" width="160" height="96" style="display:block;margin:0 auto;"></canvas>
+            <p id="budgetStatusB2C" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;color:#74A1D6;"></p>
+          </div>
+        </div>
+
+    </div>
+
+    <!-- Camembert répartition (conservé) -->
+    <div style="display:none;">
+      <div class="chart-card" style="margin-bottom:0;display:none;">
+        <div class="chart-header" style="margin-bottom:12px;">
+          <p class="chart-title" id="pieChartTitle">Répartition CA B2C vs B2B</p>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:center; gap:24px; flex-wrap:wrap;">
+          <div style="position:relative; width:180px; height:180px; flex-shrink:0;">
+            <canvas id="b2cPieChart" width="180" height="180"></canvas>
+          </div>
+          <div id="b2cB2BLegend" style="display:flex;flex-direction:column;gap:14px;min-width:160px;"></div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr;gap:16px;">
+        <!-- placeholder pour garder la grille équilibrée -->
+      </div>
+    </div>
+
+    <!-- Répartition B2C Site vs Outlet -->
+    <div class="chart-card" id="b2cBreakdownRow" style="display:none;margin-bottom:24px;">
+      <div class="chart-header">
+        <div>
+          <p class="chart-title">Répartition CA B2C — Site vs Outlet</p>
+          <p class="chart-subtitle" id="b2cBreakdownSubtitle">Période sélectionnée</p>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:48px;flex-wrap:wrap;padding:8px 0;">
+        <div style="position:relative;width:220px;height:220px;flex-shrink:0;">
+          <canvas id="b2cBreakdownPieChart" width="220" height="220"></canvas>
+        </div>
+        <div id="b2cBreakdownLegend" style="display:flex;flex-direction:column;gap:14px;min-width:220px;">
+          <span style="color:#aaa;font-size:13px;">En attente de données...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Répartition par type de client -->
+    <div class="chart-card" id="typeClientRow" style="margin-bottom:24px;">
+      <div class="chart-header">
+        <div>
+          <p class="chart-title">Répartition CA par type de client</p>
+          <p class="chart-subtitle" id="typeClientSubtitle">Période sélectionnée</p>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; justify-content:center; gap:48px; flex-wrap:wrap; padding:8px 0;">
+        <div style="position:relative; width:220px; height:220px; flex-shrink:0;">
+          <canvas id="typeClientPieChart" width="220" height="220"></canvas>
+        </div>
+        <div id="typeClientLegend" style="display:flex;flex-direction:column;gap:14px;min-width:220px;">
+          <span style="color:#aaa;font-size:13px;">En attente de données...</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <div>
+          <p class="chart-title">Évolution mensuelle du CA</p>
+          <p class="chart-subtitle" id="chartSubtitle">Cliquez sur Voir pour charger le graphique</p>
+          <p class="chart-subtitle" style="margin-top:2px;">% = taux de réalisation vs budget</p>
+        </div>
+      </div>
+      <div class="chart-container" style="height:320px;"><canvas id="caChart"></canvas></div>
+    </div>
+
+    <div class="chart-card" id="budgetChartCard" style="display:none;">
+      <div class="chart-header">
+        <div>
+          <p class="chart-title">Réel vs Budget 2026</p>
+          <p class="chart-subtitle">% de réalisation par mois</p>
+        </div>
+      </div>
+      <div class="chart-container" style="height:320px;"><canvas id="budgetChart"></canvas></div>
+    </div>
+
+    <!-- GRAPHIQUE PHARMACIES PAR OBJET -->
+    <div class="chart-card" id="pharmacyBreakdownCard" style="display:none;">
+      <div class="chart-header">
+        <div>
+          <p class="chart-title">CA par type de commande — Pharmacies</p>
+          <p class="chart-subtitle" id="pharmacyBreakdownSubtitle"></p>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:16px;margin-bottom:20px;">
+        <div style="background:#f9f9f9;border-radius:10px;padding:16px;border:1px solid #e5e5e5;">
+          <p style="font-size:12px;color:#888;margin-bottom:6px;">Taux de réassort</p>
+          <p style="font-size:24px;font-weight:500;" id="pharmacyTauxReassort">—</p>
+          <p style="font-size:11px;color:#888;margin-top:4px;" id="pharmacyTauxReassortDetail">% pharmacies avec réassort / parc total</p>
+        </div>
+        <div style="background:#f9f9f9;border-radius:10px;padding:16px;border:1px solid #e5e5e5;">
+          <p style="font-size:12px;color:#888;margin-bottom:6px;">Panier moyen Réassort</p>
+          <p style="font-size:24px;font-weight:500;" id="pharmacyPanierReassort">—</p>
+          <p style="font-size:11px;color:#888;margin-top:4px;">CA Réassort / nombre de pharmacies avec réassort</p>
+        </div>
+        <div style="background:#f9f9f9;border-radius:10px;padding:16px;border:1px solid #e5e5e5;border-left:3px solid #1a1a1a;">
+          <p style="font-size:12px;color:#888;margin-bottom:6px;">Nouvelles implantations</p>
+          <p style="font-size:24px;font-weight:500;" id="pharmacyNbImplantation">—</p>
+          <p style="font-size:11px;color:#888;margin-top:4px;">Pharmacies avec au moins 1 facture Implantation</p>
+        </div>
+        <div style="background:#f9f9f9;border-radius:10px;padding:16px;border:1px solid #e5e5e5;border-left:3px solid #1a1a1a;">
+          <p style="font-size:12px;color:#888;margin-bottom:6px;">Panier moyen Implantation</p>
+          <p style="font-size:24px;font-weight:500;" id="pharmacyPanierImplantation">—</p>
+          <p style="font-size:11px;color:#888;margin-top:4px;">CA Implantation / nombre de pharmacies avec au moins 1 facture Implantation</p>
+        </div>
+        <div style="background:#f9f9f9;border-radius:10px;padding:16px;border:1px solid #e5e5e5;">
+          <p style="font-size:12px;color:#888;margin-bottom:6px;">Parc actif pharmacies</p>
+          <p style="font-size:24px;font-weight:500;" id="pharmacyNbActif">—</p>
+          <p style="font-size:11px;color:#888;margin-top:4px;">Pharmacies distinctes ayant commandé sur la période</p>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; justify-content:center; gap:48px; flex-wrap:wrap; padding:8px 0;">
+        <div style="position:relative; width:220px; height:220px; flex-shrink:0;">
+          <canvas id="pharmacyDonutN" width="220" height="220"></canvas>
+        </div>
+        <div id="pharmacyLegend" style="display:flex;flex-direction:column;gap:14px;min-width:220px;"></div>
+      </div>
+    </div>
+
+    <div class="chart-card" id="top30Card" style="display:none;">
+      <div class="chart-header">
+        <div>
+          <p class="chart-title" id="top30Title">🏆 Top 30 clients B2B</p>
+          <p class="chart-subtitle" id="top30Subtitle">CA HT de la période</p>
+        </div>
+      </div>
+      <table style="width:100%; border-collapse:collapse; font-size:13px;">
+        <thead>
+          <tr style="border-bottom:2px solid #e5e5e5;">
+            <th style="text-align:left; padding:8px 12px; color:#888; font-weight:500;">#</th>
+            <th style="text-align:left; padding:8px 12px; color:#888; font-weight:500;">Client</th>
+            <th style="text-align:right; padding:8px 12px; color:#888; font-weight:500;">CA HT</th>
+            <th style="text-align:right; padding:8px 12px; color:#888; font-weight:500;">Nb factures</th>
+            <th style="text-align:right; padding:8px 12px; color:#888; font-weight:500;" id="top30PctHeader">% du CA B2B</th>
+          </tr>
+        </thead>
+        <tbody id="top30Body"></tbody>
+      </table>
+    </div>
+
+    </div><!-- end businessView -->
+
+    <!-- VUE FINANCIER -->
+    <div id="financierView" style="display:none;">
+      <div class="controls-bar">
+        <div class="period-btns">
+          <button class="period-btn active" id="finBtnMonth" onclick="setFinPeriod('month')">Ce mois</button>
+          <button class="period-btn" id="finBtnYtd" onclick="setFinPeriod('ytd')">Cumul YTD</button>
+          <button class="period-btn" id="finBtnCustom" onclick="setFinPeriod('custom')">Période</button>
+        </div>
+        <div class="date-selectors" id="finSelectorsMonth">
+          <select id="finSelMonth">
+            <option value="0">Janvier</option><option value="1">Février</option><option value="2">Mars</option>
+            <option value="3">Avril</option><option value="4">Mai</option><option value="5">Juin</option>
+            <option value="6">Juillet</option><option value="7">Août</option><option value="8">Septembre</option>
+            <option value="9">Octobre</option><option value="10">Novembre</option><option value="11">Décembre</option>
+          </select>
+          <select id="finSelYear"></select>
+        </div>
+        <div class="date-selectors" id="finSelectorsYtd" style="display:none;">
+          <select id="finSelYtdMonth">
+            <option value="0">Janvier</option><option value="1">Février</option><option value="2">Mars</option>
+            <option value="3">Avril</option><option value="4">Mai</option><option value="5">Juin</option>
+            <option value="6">Juillet</option><option value="7">Août</option><option value="8">Septembre</option>
+            <option value="9">Octobre</option><option value="10">Novembre</option><option value="11">Décembre</option>
+          </select>
+          <select id="finSelYtdYear"></select>
+        </div>
+        <div class="date-selectors" id="finSelectorsCustom" style="display:none;">
+          <input type="date" id="finDateFrom" />
+          <span class="sep">→</span>
+          <input type="date" id="finDateTo" />
+        </div>
+        <button class="btn btn-primary" id="finVoirBtn" onclick="loadFinancierChecked()">↻ Voir</button>
+        <div class="status"><span class="dot" id="finStatusDot"></span><span id="finStatusText">En attente</span></div>
+      </div>
+      <div id="finLockMsg" style="display:none;background:#fff0f0;border:1px solid #fcc;border-radius:8px;padding:12px 16px;font-size:13px;color:#c00;margin-bottom:16px;">
+        🔒 Ce mois n'est pas encore finalisé dans Pennylane.
+      </div>
+
+      <!-- Solde de trésorerie -->
+      <div class="chart-card" style="margin-bottom:24px;">
+        <div class="chart-header" style="margin-bottom:16px;">
+          <div>
+            <p class="chart-title">💰 Solde de trésorerie</p>
+            <p class="chart-subtitle">Solde actuel des comptes bancaires connectés à Pennylane</p>
+          </div>
+          <button onclick="loadTresorerie()" class="btn-settings">↻ Actualiser</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+          <div id="tresorerieResult" style="font-size:28px;font-weight:500;color:#1a1a1a;filter:blur(6px);cursor:pointer;" onclick="toggleTresorerie()" title="Cliquer pour afficher/masquer">——————</div>
+          <button onclick="toggleTresorerie()" style="font-size:12px;padding:6px 12px;border:1px solid #ddd;border-radius:6px;background:white;cursor:pointer;color:#888;" id="tresorerieToggleBtn">👁 Afficher</button>
+          <div id="tresorerieDetail" style="font-size:12px;color:#888;display:none;"></div>
+        </div>
+      </div>
+
+      <div class="error-box" id="finErrorBox"></div>
+      <p class="period-label" id="finPeriodLabel"></p>
+
+      <div class="metric-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+        <div class="metric-card" style="border-left:3px solid #1a1a1a;">
+          <p class="metric-label">CA Comptable</p>
+          <p class="metric-value" id="finCA">—</p>
+          <p class="metric-sub">Pennylane</p>
+        </div>
+        <div class="metric-card" style="border-left:3px solid #74A1D6;">
+          <p class="metric-label">CM1</p>
+          <p class="metric-value" id="finCM1">—</p>
+          <p class="metric-sub" id="finTauxCM1"></p>
+          <div class="budget-bar-wrap" id="finBudgetCM1Wrap" style="display:none;">
+            <div class="budget-bar-label"><span id="finBudgetCM1Label">vs Budget CM1</span><span id="finBudgetCM1Pct"></span></div>
+            <div class="budget-bar-bg"><div class="budget-bar-fill ok" id="finBudgetCM1Fill" style="width:0%"></div></div>
+          </div>
+        </div>
+        <div class="metric-card" style="border-left:3px solid #1D9E75;">
+          <p class="metric-label">CM2</p>
+          <p class="metric-value" id="finCM2">—</p>
+          <p class="metric-sub" id="finTauxCM2"></p>
+          <div class="budget-bar-wrap" id="finBudgetCM2Wrap" style="display:none;">
+            <div class="budget-bar-label"><span id="finBudgetCM2Label">vs Budget CM2</span><span id="finBudgetCM2Pct"></span></div>
+            <div class="budget-bar-bg"><div class="budget-bar-fill ok" id="finBudgetCM2Fill" style="width:0%"></div></div>
+          </div>
+        </div>
+        <div class="metric-card" style="border-left:3px solid #D85A30;">
+          <p class="metric-label">EBITDA</p>
+          <p class="metric-value" id="finEBITDA">—</p>
+          <p class="metric-sub" id="finTauxEBITDA"></p>
+          <div class="budget-bar-wrap" id="finBudgetEBITDAWrap" style="display:none;">
+            <div class="budget-bar-label"><span id="finBudgetEBITDALabel">vs Budget EBITDA</span><span id="finBudgetEBITDAPct"></span></div>
+            <div class="budget-bar-bg"><div class="budget-bar-fill ok" id="finBudgetEBITDAFill" style="width:0%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chart-card" id="finChartCard" style="display:none;margin-top:24px;">
+        <div class="chart-header">
+          <div>
+            <p class="chart-title">Évolution mensuelle — CM1, CM2, EBITDA</p>
+            <p class="chart-subtitle" id="finChartSubtitle">en k€</p>
+          </div>
+        </div>
+        <div class="chart-container" style="height:300px;"><canvas id="finLineChart"></canvas></div>
+      </div>
+
+      <div class="chart-card" id="finBudgetChartCard" style="display:none;margin-top:24px;">
+        <div class="chart-header">
+          <div>
+            <p class="chart-title">Taux de réalisation EBITDA vs Budget</p>
+            <p class="chart-subtitle">% de réalisation par mois</p>
+          </div>
+        </div>
+        <div class="chart-container" style="height:300px;"><canvas id="finBarChart"></canvas></div>
+      </div>
+
+    </div><!-- end financierView -->
+
+    </div><!-- end container -->
+    </div><!-- end app -->
+
+<script>
+const PASSWORD = 'DashboardCEO';
+function checkPassword() {
+  const saved = sessionStorage.getItem('dashboard_auth');
+  if (saved === PASSWORD) return true;
+  const input = document.getElementById('passwordInput').value;
+  if (input === PASSWORD) {
+    sessionStorage.setItem('dashboard_auth', PASSWORD);
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    updateBanners();
+    return true;
   }
-
-  async function cacheSet(key, value, exSeconds) {
-    try {
-      const encoded = encodeURIComponent(key);
-      const url = exSeconds
-        ? `${kvUrl}/set/${encoded}/${encodeURIComponent(JSON.stringify(value))}?EX=${exSeconds}`
-        : `${kvUrl}/set/${encoded}/${encodeURIComponent(JSON.stringify(value))}`;
-      await fetch(url, { method: 'GET', headers: { Authorization: `Bearer ${kvToken}` } });
-    } catch {}
+  document.getElementById('loginError').style.display = 'block';
+  return false;
+}
+function handlePasswordKey(e) { if (e.key === 'Enter') checkPassword(); }
+window.addEventListener('DOMContentLoaded', () => {
+  if (sessionStorage.getItem('dashboard_auth') === PASSWORD) {
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    updateBanners();
   }
+});
 
-  function getCacheTTL(dateStart, dateEnd) {
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1;
-    const endDate = new Date(dateEnd);
-    const endYear = endDate.getFullYear();
-    const endMonth = endDate.getMonth() + 1;
-    if (dateStart === dateEnd) return 0;
-    if (endYear === currentYear && endMonth === currentMonth) return 3600;
-    if (endDate < now) return 60 * 60 * 24 * 30;
-    return 0;
+const now = new Date();
+const pad = n => String(n).padStart(2,'0');
+const todayStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
+let currentMode = 'month';
+let currentSegment = 'total';
+let lastCaData = null;
+let caChartInstance = null;
+let budgetChartInstance = null;
+let pieChartInstance = null;
+let b2cBreakdownPieInstance = null;
+let currentTotalCA = 0;
+let pharmacyChartN = null;
+
+const PHARMACY_COLORS = {
+  'Implantation': '#1a1a1a',
+  'Précommandes': '#74A1D6',
+  'Réassort': '#1D9E75',
+  'Coffres': '#D85A30'
+};
+
+const PHARMACY_CATS = ['Implantation', 'Précommandes', 'Réassort', 'Coffres'];
+let budgetPharmacy = {};
+PHARMACY_CATS.forEach(cat => { budgetPharmacy[cat] = Array(12).fill(0); });
+
+function loadPharmacyBudget() {
+  try {
+    const saved = localStorage.getItem('budgetPharmacy');
+    if (saved) budgetPharmacy = JSON.parse(saved);
+  } catch {}
+}
+loadPharmacyBudget();
+
+function savePharmacyBudget() {
+  localStorage.setItem('budgetPharmacy', JSON.stringify(budgetPharmacy));
+}
+
+function getPharmacyBudgetForPeriod(cat, dateStart, dateEnd) {
+  const arr = budgetPharmacy[cat] || Array(12).fill(0);
+  const start = new Date(dateStart + 'T12:00:00');
+  const end = new Date(dateEnd + 'T12:00:00');
+  if (start.getFullYear() !== 2026 && end.getFullYear() !== 2026) return 0;
+  let total = 0;
+  if (currentMode === 'month' && start.getFullYear() === 2026) return arr[start.getMonth()];
+  if (currentMode === 'ytd' && end.getFullYear() === 2026) {
+    for (let m = 0; m <= end.getMonth(); m++) total += arr[m]; return total;
   }
-
-  const TYPE_CLIENT_MAP = {
-    3562348: 'Pharmacie',
-    3562349: 'Monoprix',
-    3562350: 'Autre',
-    3957579: 'Marketing',
-    3957580: 'Grand Compte'
-  };
-
-  const cacheKey = `sellsy:${CACHE_VERSION}:${mode}:${dateStart}:${dateEnd}`;
-  const ttl = getCacheTTL(dateStart, dateEnd);
-
-  // Vérifier le cache direct d'abord
-  if (ttl > 0 && kvUrl && kvToken) {
-    const cached = await cacheGet(cacheKey);
-    if (cached) return res.status(200).json({ ...cached, _fromCache: true });
+  const days = Math.round((end - start) / 86400000) + 1;
+  for (let d = 0; d < days; d++) {
+    const day = new Date(start); day.setDate(start.getDate() + d);
+    if (day.getFullYear() === 2026) { const m = day.getMonth(); total += arr[m] / new Date(2026, m+1, 0).getDate(); }
   }
+  return Math.round(total * 10) / 10;
+}
 
-  // ─── AGRÉGATION DEPUIS LE CACHE DES MOIS INDIVIDUELS ───────────────────────
-  if (mode === 'total' && kvUrl && kvToken) {
-    const start = new Date(dateStart);
-    const end = new Date(dateEnd);
+function renderPharmacyDonut(canvasId, data, existingChart, totalInvoices) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  if (existingChart) existingChart.destroy();
+  const labels = Object.keys(PHARMACY_COLORS).filter(k => (data[k] || 0) > 0);
+  const values = labels.map(k => data[k] || 0);
+  const total = values.reduce((a, b) => a + b, 0);
+  const colors = labels.map(l => PHARMACY_COLORS[l] || '#aaa');
 
-    const startDay = start.getUTCDate();
-    const endDay = end.getUTCDate();
-    const lastDayOfEndMonth = new Date(end.getUTCFullYear(), end.getUTCMonth() + 1, 0).getUTCDate();
-    const isPeriodAlignedOnMonths = startDay === 1 && endDay === lastDayOfEndMonth;
-
-    if (isPeriodAlignedOnMonths) {
-      const months = [];
-      let cursor = new Date(start.getUTCFullYear(), start.getUTCMonth(), 1);
-      while (cursor <= end) {
-        months.push({ year: cursor.getFullYear(), month: cursor.getMonth() });
-        cursor.setMonth(cursor.getMonth() + 1);
+  const chart = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }] },
+    options: {
+      responsive: false,
+      cutout: '62%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmt(ctx.raw)} (${total > 0 ? Math.round((ctx.raw/total)*100) : 0}%)` } }
       }
-
-      let cachedMonths = [];
-      let allFoundInCache = true;
-
-      for (const { year, month } of months) {
-        const lastDay = new Date(year, month + 1, 0).getDate();
-        const mStart = `${year}-${pad(month + 1)}-01`;
-        const mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
-
-        const monthCacheKey = `sellsy:${CACHE_VERSION}:total:${mStart}:${mEnd}`;
-        const monthData = await cacheGet(monthCacheKey);
-
-        if (!monthData) {
-          allFoundInCache = false;
-          break;
+    },
+    plugins: [
+      {
+        id: 'centerText',
+        afterDatasetsDraw(chart) {
+          const { ctx, chartArea: { left, top, right, bottom } } = chart;
+          const cx = (left + right) / 2;
+          const cy = (top + bottom) / 2;
+          ctx.save();
+          ctx.font = 'bold 14px -apple-system, sans-serif';
+          ctx.fillStyle = '#1a1a1a';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(fmt(total), cx, cy - 10);
+          ctx.font = '11px -apple-system, sans-serif';
+          ctx.fillStyle = '#888';
+          ctx.fillText(`${totalInvoices || 0} factures`, cx, cy + 10);
+          ctx.restore();
         }
-
-        cachedMonths.push(monthData);
+      },
+      {
+        id: 'pctOnSlice',
+        afterDatasetsDraw(chart) {
+          const { ctx, data } = chart;
+          const meta = chart.getDatasetMeta(0);
+          meta.data.forEach((arc, i) => {
+            const val = data.datasets[0].data[i];
+            const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+            if (pct < 5) return;
+            const angle = (arc.startAngle + arc.endAngle) / 2;
+            const r = (arc.outerRadius + arc.innerRadius) / 2;
+            const x = arc.x + Math.cos(angle) * r;
+            const y = arc.y + Math.sin(angle) * r;
+            ctx.save();
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 12px -apple-system, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(pct + '%', x, y);
+            ctx.restore();
+          });
+        }
       }
+    ]
+  });
+  return chart;
+}
 
-      if (allFoundInCache && cachedMonths.length > 0 && cachedMonths.length === months.length) {
-        const aggregated = {
-          _totalCA: 0,
-          _totalCABrut: 0,
-          _totalAvoirs: 0,
-          _totalCAB2C: 0,
-          _totalCAB2B: 0,
-          _totalCAB2CNet: 0,
-          _totalCAB2BNet: 0,
-          _countB2C: 0,
-          _countB2B: 0,
-          _count: 0,
-          _countAvoirs: 0,
-          _caByType: {},
-          _top30B2B: {},
-          pagination: { total: 0 }
-        };
-
-        const b2bByClient = {};
-
-        for (const m of cachedMonths) {
-          aggregated._totalCA += m._totalCA || 0;
-          aggregated._totalCABrut += m._totalCABrut || 0;
-          aggregated._totalAvoirs += m._totalAvoirs || 0;
-          aggregated._totalCAB2C += m._totalCAB2C || 0;
-          aggregated._totalCAB2B += m._totalCAB2B || 0;
-          aggregated._totalCAB2CNet += m._totalCAB2CNet || 0;
-          aggregated._totalCAB2BNet += m._totalCAB2BNet || 0;
-          aggregated._countB2C += m._countB2C || 0;
-          aggregated._countB2B += m._countB2B || 0;
-          aggregated._count += m._count || 0;
-          aggregated._countAvoirs += m._countAvoirs || 0;
-          aggregated.pagination.total += m.pagination?.total || 0;
-
-          for (const [type, amount] of Object.entries(m._caByType || {})) {
-            aggregated._caByType[type] = (aggregated._caByType[type] || 0) + amount;
-          }
-
-          for (const client of (m._top30B2B || [])) {
-            if (!b2bByClient[client.name]) b2bByClient[client.name] = { ca: 0, nbFactures: 0 };
-            b2bByClient[client.name].ca += client.ca;
-            b2bByClient[client.name].nbFactures += client.nbFactures;
-          }
-        }
-
-        for (const key of Object.keys(aggregated._caByType)) {
-          aggregated._caByType[key] = Math.round(aggregated._caByType[key] * 100) / 100;
-        }
-
-        aggregated._top30B2B = Object.entries(b2bByClient)
-          .map(([name, data]) => ({ name, ca: Math.round(data.ca * 100) / 100, nbFactures: data.nbFactures }))
-          .sort((a, b) => b.ca - a.ca)
-          .slice(0, 30);
-
-        aggregated._totalCA = Math.round(aggregated._totalCA * 100) / 100;
-        aggregated._totalCABrut = Math.round(aggregated._totalCABrut * 100) / 100;
-        aggregated._totalAvoirs = Math.round(aggregated._totalAvoirs * 100) / 100;
-        aggregated._totalCAB2C = Math.round(aggregated._totalCAB2C * 100) / 100;
-        aggregated._totalCAB2B = Math.round(aggregated._totalCAB2B * 100) / 100;
-        aggregated._totalCAB2CNet = Math.round(aggregated._totalCAB2CNet * 100) / 100;
-        aggregated._totalCAB2BNet = Math.round(aggregated._totalCAB2BNet * 100) / 100;
-        aggregated._tauxAvoirs = aggregated._totalCA > 0
-          ? Math.round((aggregated._totalAvoirs / aggregated._totalCA) * 10000) / 100
-          : 0;
-        aggregated._panierMoyenB2C = aggregated._countB2C > 0
-          ? Math.round((aggregated._totalCAB2C / aggregated._countB2C) * 100) / 100
-          : 0;
-        aggregated._panierMoyenB2B = aggregated._countB2B > 0
-          ? Math.round((aggregated._totalCAB2B / aggregated._countB2B) * 100) / 100
-          : 0;
-
-        if (ttl > 0) await cacheSet(cacheKey, aggregated, ttl);
-
-        return res.status(200).json({ ...aggregated, _fromCache: true, _aggregatedFromMonths: cachedMonths.length });
-      }
-    }
-  }
-  // ─── FIN AGRÉGATION ─────────────────────────────────────────────────────────
+async function loadPharmacyBreakdown(dateStart, dateEnd) {
+  const card = document.getElementById('pharmacyBreakdownCard');
+  card.style.display = 'block';
+  document.getElementById('pharmacyBreakdownSubtitle').textContent = 'Chargement...';
+  document.getElementById('pharmacyTauxReassort').textContent = '...';
+  document.getElementById('pharmacyPanierReassort').textContent = '...';
+  document.getElementById('pharmacyPanierImplantation').textContent = '...';
 
   try {
-    const tokenResp = await fetch('https://login.sellsy.com/oauth2/access-tokens', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'client_credentials',
-        client_id: clientId,
-        client_secret: clientSecret
-      })
-    });
-    if (!tokenResp.ok) throw new Error('Auth failed');
-    const { access_token } = await tokenResp.json();
+    const resp = await fetch(`/api/pharmacy-breakdown?dateStart=${dateStart}&dateEnd=${dateEnd}`);
+    const data = await resp.json();
 
-    const companyCacheKey = `sellsy:companies:type_client:v2`;
-    let companyTypeMap = await cacheGet(companyCacheKey);
+    const N = data.N || {};
+    const montants = N.montants || N;
 
-    if (!companyTypeMap) {
-      companyTypeMap = {};
-      let companyOffset = 0;
-      let hasMoreCompanies = true;
+    document.getElementById('pharmacyTauxReassort').textContent =
+      N.tauxReassort !== undefined ? `${N.tauxReassort.toFixed(1)}%` : '—';
+    document.getElementById('pharmacyTauxReassortDetail').textContent =
+      N.nbPharmaReassort !== undefined
+        ? `${N.nbPharmaReassort} pharmacies avec réassort / ${N.nbPharmaTotal} au total`
+        : '% pharmacies avec réassort / parc total';
+    document.getElementById('pharmacyPanierReassort').textContent =
+      N.panierMoyenReassort !== undefined ? fmt(N.panierMoyenReassort) : '—';
+    document.getElementById('pharmacyNbImplantation').textContent =
+      N.nbPharmaImplantation !== undefined ? N.nbPharmaImplantation : '—';
+    document.getElementById('pharmacyPanierImplantation').textContent =
+      N.panierMoyenImplantation !== undefined ? fmt(N.panierMoyenImplantation) : '—';
+    document.getElementById('pharmacyNbActif').textContent =
+      N.nbPharmaTotal !== undefined ? N.nbPharmaTotal : '—';
 
-      while (hasMoreCompanies) {
-        const compResp = await fetch(
-          `https://api.sellsy.com/v2/companies?limit=100&offset=${companyOffset}&field[]=id&field[]=_embed&embed[]=cf.135940`,
-          { headers: { 'Authorization': `Bearer ${access_token}` } }
-        );
-        if (!compResp.ok) break;
-        const compData = await compResp.json();
-        const companies = compData.data || [];
+    pharmacyChartN = renderPharmacyDonut('pharmacyDonutN', montants, pharmacyChartN, N.totalPharmacyInvoices);
 
-        for (const company of companies) {
-          const customFields = company._embed?.custom_fields || [];
-          const typeField = customFields.find(f => f.id === 135940);
-          if (typeField && typeField.value) {
-            const label = TYPE_CLIENT_MAP[typeField.value] || 'B2C';
-            companyTypeMap[company.id] = label;
-          }
-        }
+    const total = Object.values(montants).reduce((a, b) => a + b, 0);
+    const legend = document.getElementById('pharmacyLegend');
+    legend.innerHTML = Object.keys(PHARMACY_COLORS).filter(cat => cat !== 'Coffres').map(cat => {
+      const val = montants[cat] || 0;
+      const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+      const nbFact = (N.counts || {})[cat] || 0;
+      const budgetVal = getPharmacyBudgetForPeriod(cat, dateStart, dateEnd);
+      const budgetPct = budgetVal > 0 ? Math.round(((val / 1000) / budgetVal) * 100) : null;
+      const budgetColor = budgetPct === null ? '#888' : budgetPct >= 100 ? '#1D9E75' : '#D85A30';
+      const budgetText = budgetPct !== null
+        ? `<span style="color:${budgetColor};font-weight:600;">${budgetPct}% du budget</span>`
+        : `<span style="color:#bbb;">Pas de budget</span>`;
+      return `<div style="display:flex;flex-direction:column;gap:3px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="width:12px;height:12px;border-radius:3px;background:${PHARMACY_COLORS[cat]};display:inline-block;flex-shrink:0;"></span>
+          <span style="font-size:13px;font-weight:500;">${displayLabel(cat)}</span>
+          <span style="font-size:12px;color:#888;">${pct}% — ${fmt(val)}${nbFact > 0 ? ` (${nbFact} fact.)` : ''}</span>
+        </div>
+        <div style="font-size:11px;padding-left:20px;">${budgetText}</div>
+      </div>`;
+    }).join('');
 
-        const totalCompanies = compData.pagination?.total || 0;
-        companyOffset += 100;
-        hasMoreCompanies = companyOffset < totalCompanies;
-        if (hasMoreCompanies) await sleep(300);
-      }
+    document.getElementById('pharmacyBreakdownSubtitle').textContent =
+      `Pharmacies — période sélectionnée${data._fromCache ? ' (cache)' : ''}`;
 
-      await cacheSet(companyCacheKey, companyTypeMap, 86400);
-    }
-
-    const body = JSON.stringify({
-      filters: {
-        date: { start: dateStart, end: dateEnd },
-        status: ['payinprogress', 'due', 'paid', 'late', 'cancelled']
-      }
-    });
-
-    if (mode === 'list') {
-      const listResp = await fetch('https://api.sellsy.com/v2/invoices/search?limit=100&offset=0&order=date&direction=desc', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
-        body
-      });
-      const listData = await listResp.json();
-      if (ttl > 0 && kvUrl) await cacheSet(cacheKey, listData, ttl);
-      return res.status(200).json(listData);
-    }
-
-    const fetchPage = async (offset, retries = 3) => {
-      for (let attempt = 0; attempt < retries; attempt++) {
-        const resp = await fetch(
-          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit&field[]=rate_category_id&field[]=company_name&field[]=related&field[]=subject`,
-          {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
-            body
-          }
-        );
-        if (resp.status === 429) { await sleep(1000 * (attempt + 1)); continue; }
-        if (!resp.ok) return { data: [] };
-        return await resp.json();
-      }
-      return { data: [] };
-    };
-
-    const firstPage = await fetchPage(0);
-    const total = firstPage.pagination?.total || 0;
-    let allInvoices = [...(firstPage.data || [])];
-
-    if (total > 100) {
-      const totalPages = Math.ceil(total / 100);
-      const BATCH_SIZE = 3;
-      const DELAY_MS = 500;
-      for (let batchStart = 1; batchStart < totalPages; batchStart += BATCH_SIZE) {
-        const batchEnd = Math.min(batchStart + BATCH_SIZE, totalPages);
-        const batchPromises = [];
-        for (let p = batchStart; p < batchEnd; p++) {
-          batchPromises.push(fetchPage(p * 100));
-        }
-        const pages = await Promise.all(batchPromises);
-        for (const page of pages) {
-          allInvoices = allInvoices.concat(page.data || []);
-        }
-        if (batchEnd < totalPages) await sleep(DELAY_MS);
-      }
-    }
-
-    const filteredInvoices = allInvoices.filter(inv => !inv.is_deposit);
-
-    const B2C_CATEGORY_ID = 215340;
-
-    function classifyClient(inv) {
-      // 1. Si rate_category B2C → toujours B2C
-      if (inv.rate_category_id === B2C_CATEGORY_ID) return 'B2C';
-      // 2. Règles sur le nom en priorité
-      const name = (inv.company_name || '').toLowerCase();
-      if (name.includes('blissim') || name.includes('bradery')) return 'Outlet';
-      if (name.includes('printemps') || name.includes('samaritaine')) return 'Grand Compte';
-      if (name.includes('figaro') || name.includes('media ')) return 'Marketing';
-      // 3. Si type client renseigné dans le map → uniquement Pharmacie et Monoprix
-      const companyId = inv.related?.[0]?.id;
-      if (companyId && companyTypeMap[companyId]) {
-        const type = companyTypeMap[companyId];
-        if (type === 'Pharmacie' || type === 'Monoprix') return type;
-      }
-      // 4. Fallback sur le nom du client
-      if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco')) return 'Pharmacie';
-      // 5. Sinon Autre
-      return 'Autre';
-    }
-
-    const caByType = {};
-    for (const inv of filteredInvoices) {
-      const typeClient = classifyClient(inv);
-      const amount = parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0);
-      if (!caByType[typeClient]) caByType[typeClient] = 0;
-      caByType[typeClient] += amount;
-    }
-    for (const key of Object.keys(caByType)) {
-      caByType[key] = Math.round(caByType[key] * 100) / 100;
-    }
-
-    // B2C = B2C + Outlet, B2B = Pharmacie + Grand Compte + Monoprix
-    const B2C_TYPES = ['B2C', 'Outlet'];
-    const B2B_TYPES = ['Pharmacie', 'Grand Compte', 'Monoprix'];
-
-    const invoicesB2CNew = filteredInvoices.filter(inv => B2C_TYPES.includes(classifyClient(inv)));
-    const invoicesB2BNew = filteredInvoices.filter(inv => B2B_TYPES.includes(classifyClient(inv)));
-
-    const totalCA = filteredInvoices.reduce((acc, inv) =>
-      acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
-    const totalCAB2C = invoicesB2CNew.reduce((acc, inv) =>
-      acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
-    const totalCAB2B = invoicesB2BNew.reduce((acc, inv) =>
-      acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
-
-    const b2bByClient = {};
-    for (const inv of invoicesB2BNew) {
-      const name = inv.company_name || 'Inconnu';
-      const amount = parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0);
-      if (!b2bByClient[name]) b2bByClient[name] = { ca: 0, nbFactures: 0 };
-      b2bByClient[name].ca += amount;
-      b2bByClient[name].nbFactures += 1;
-    }
-    const top30B2B = Object.entries(b2bByClient)
-      .map(([name, data]) => ({ name, ca: Math.round(data.ca * 100) / 100, nbFactures: data.nbFactures }))
-      .sort((a, b) => b.ca - a.ca)
-      .slice(0, 30);
-
-    const b2cByClient = {};
-    for (const inv of invoicesB2CNew) {
-      const name = inv.company_name || 'Inconnu';
-      const amount = parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0);
-      if (!b2cByClient[name]) b2cByClient[name] = { ca: 0, nbFactures: 0 };
-      b2cByClient[name].ca += amount;
-      b2cByClient[name].nbFactures += 1;
-    }
-    const top30B2C = Object.entries(b2cByClient)
-      .map(([name, data]) => ({ name, ca: Math.round(data.ca * 100) / 100, nbFactures: data.nbFactures }))
-      .sort((a, b) => b.ca - a.ca)
-      .slice(0, 30);
-
-    const creditBody = JSON.stringify({
-      filters: { date: { start: dateStart, end: dateEnd } }
-    });
-
-    const fetchCreditPage = async (offset) => {
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const resp = await fetch(
-          `https://api.sellsy.com/v2/credit-notes/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=rate_category_id&field[]=company_name&field[]=related`,
-          {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
-            body: creditBody
-          }
-        );
-        if (resp.status === 429) { await sleep(1000 * (attempt + 1)); continue; }
-        if (!resp.ok) return { data: [] };
-        return await resp.json();
-      }
-      return { data: [] };
-    };
-
-    const firstCreditPage = await fetchCreditPage(0);
-    const totalCredits = firstCreditPage.pagination?.total || 0;
-    let allCredits = [...(firstCreditPage.data || [])];
-
-    if (totalCredits > 100) {
-      const totalCreditPages = Math.ceil(totalCredits / 100);
-      for (let p = 1; p < totalCreditPages; p++) {
-        const page = await fetchCreditPage(p * 100);
-        allCredits = allCredits.concat(page.data || []);
-        await sleep(300);
-      }
-    }
-
-    const creditsB2C = allCredits.filter(c => B2C_TYPES.includes(classifyClient(c)));
-    const creditsB2B = allCredits.filter(c => B2B_TYPES.includes(classifyClient(c)));
-
-    const totalAvoirsCA = allCredits.reduce((acc, c) =>
-      acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
-    const totalAvoirsB2C = creditsB2C.reduce((acc, c) =>
-      acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
-    const totalAvoirsB2B = creditsB2B.reduce((acc, c) =>
-      acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
-
-    const result = {
-      _totalCA: Math.round(totalCA * 100) / 100,
-      _totalCABrut: Math.round(totalCA * 100) / 100,
-      _totalAvoirs: Math.round(totalAvoirsCA * 100) / 100,
-      _tauxAvoirs: totalCA > 0 ? Math.round((totalAvoirsCA / totalCA) * 10000) / 100 : 0,
-      _totalCAB2C: Math.round(totalCAB2C * 100) / 100,
-      _totalCAB2B: Math.round(totalCAB2B * 100) / 100,
-      _totalCAB2CNet: Math.round((totalCAB2C - totalAvoirsB2C) * 100) / 100,
-      _totalCAB2BNet: Math.round((totalCAB2B - totalAvoirsB2B) * 100) / 100,
-      _countB2C: invoicesB2CNew.length,
-      _countB2B: invoicesB2BNew.length,
-      _panierMoyenB2C: invoicesB2CNew.length > 0 ? Math.round((totalCAB2C / invoicesB2CNew.length) * 100) / 100 : 0,
-      _panierMoyenB2B: invoicesB2BNew.length > 0 ? Math.round((totalCAB2B / invoicesB2BNew.length) * 100) / 100 : 0,
-      _count: allInvoices.length,
-      _countAvoirs: allCredits.length,
-      _caByType: caByType,
-      _top30B2B: top30B2B,
-      _top30B2C: top30B2C,
-      pagination: { total }
-    };
-
-    const isComplete = allInvoices.length >= total;
-    if (ttl > 0 && kvUrl && isComplete) await cacheSet(cacheKey, result, ttl);
-    return res.status(200).json({ ...result, _complete: isComplete });
-
-  } catch (e) {
-    return res.status(500).json({ error: e.message });
+  } catch(e) {
+    document.getElementById('pharmacyBreakdownSubtitle').textContent = 'Erreur de chargement';
+    card.style.display = 'none';
   }
 }
+
+// Donut B2C Site vs Outlet
+function renderB2CBreakdownPieChart(caByType) {
+  const B2C_CATS = ['B2C', 'Outlet'];
+  const B2C_COLORS = { 'B2C': '#bbb', 'Outlet': '#9B59B6' };
+  const B2C_LABELS = { 'B2C': 'Site', 'Outlet': 'Outlet' };
+
+  const ctx = document.getElementById('b2cBreakdownPieChart').getContext('2d');
+  if (b2cBreakdownPieInstance) b2cBreakdownPieInstance.destroy();
+
+  const entries = B2C_CATS.filter(k => (caByType[k] || 0) > 0);
+  const values = entries.map(k => caByType[k] || 0);
+  const total = values.reduce((a, b) => a + b, 0);
+  const colors = entries.map(k => B2C_COLORS[k]);
+  const labels = entries.map(k => B2C_LABELS[k]);
+
+  b2cBreakdownPieInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }] },
+    options: {
+      responsive: false,
+      cutout: '62%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmt(ctx.raw)} (${total > 0 ? Math.round((ctx.raw/total)*100) : 0}%)` } }
+      }
+    },
+    plugins: [
+      {
+        id: 'centerTextB2C',
+        afterDatasetsDraw(chart) {
+          const { ctx, chartArea: { left, top, right, bottom } } = chart;
+          const cx = (left + right) / 2;
+          const cy = (top + bottom) / 2;
+          ctx.save();
+          ctx.font = 'bold 14px -apple-system, sans-serif';
+          ctx.fillStyle = '#1a1a1a';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(fmt(total), cx, cy);
+          ctx.restore();
+        }
+      },
+      {
+        id: 'pctOnSliceB2C',
+        afterDatasetsDraw(chart) {
+          const { ctx, data } = chart;
+          const meta = chart.getDatasetMeta(0);
+          meta.data.forEach((arc, i) => {
+            const val = data.datasets[0].data[i];
+            const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+            if (pct < 5) return;
+            const angle = (arc.startAngle + arc.endAngle) / 2;
+            const r = (arc.outerRadius + arc.innerRadius) / 2;
+            ctx.save();
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 12px -apple-system, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(pct + '%', arc.x + Math.cos(angle) * r, arc.y + Math.sin(angle) * r);
+            ctx.restore();
+          });
+        }
+      }
+    ]
+  });
+
+  const legendEl = document.getElementById('b2cBreakdownLegend');
+  legendEl.innerHTML = entries.map((k, i) => {
+    const pct = total > 0 ? Math.round((values[i] / total) * 100) : 0;
+    return `<div style="display:flex;flex-direction:column;gap:4px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="width:12px;height:12px;border-radius:3px;background:${colors[i]};display:inline-block;flex-shrink:0;"></span>
+        <span style="font-size:14px;font-weight:500;">${labels[i]}</span>
+        <span style="font-size:13px;color:#888;">${pct}% — ${fmt(values[i])}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('b2cBreakdownSubtitle').textContent = 'Période sélectionnée';
+}
+
+function setSegment(seg) {
+  currentSegment = seg;
+  ['total','b2b','b2c'].forEach(s => {
+    const btn = document.getElementById('seg' + s.charAt(0).toUpperCase() + s.slice(1));
+    if (btn) {
+      btn.style.background = s === seg ? '#1a1a1a' : 'transparent';
+      btn.style.color = s === seg ? 'white' : '#666';
+    }
+  });
+  if (lastCaData) {
+    applySegment(lastCaData);
+    const dates = getDates();
+    if (dates) {
+      const endDate = new Date(dates.dateEnd + 'T12:00:00');
+      loadMonthlyChart(endDate.getFullYear(), endDate.getMonth());
+    }
+  }
+}
+
+function applySegment(caData) {
+  const seg = currentSegment;
+
+  const caByTypeRaw = caData._caByType || {};
+  const caB2CSiteOutlet = (caByTypeRaw['B2C'] || 0) + (caByTypeRaw['Outlet'] || 0);
+  const caB2BFromTypes  = (caByTypeRaw['Pharmacie'] || 0)
+                        + (caByTypeRaw['Grand Compte'] || 0)
+                        + (caByTypeRaw['Monoprix'] || 0);
+  const caTotal    = caData._totalCA || 0;
+  const panierB2C  = caData._panierMoyenB2C || 0;
+  const panierB2B  = caData._panierMoyenB2B || 0;
+
+  // Blocs du haut : visibilité selon segment
+  const blockTotal = document.getElementById('blockTotal');
+  const blockB2B   = document.getElementById('blockB2B');
+  const blockB2C   = document.getElementById('blockB2C');
+  if (blockTotal) blockTotal.style.display = seg === 'total' ? '' : 'none';
+  if (blockB2B)   blockB2B.style.display   = (seg === 'total' || seg === 'b2b') ? '' : 'none';
+  if (blockB2C)   blockB2C.style.display   = (seg === 'total' || seg === 'b2c') ? '' : 'none';
+
+  // Valeurs
+  document.getElementById('mCA').textContent    = fmt(caTotal);
+  document.getElementById('mCAB2B').textContent = fmt(caB2BFromTypes);
+  document.getElementById('mCAB2C').textContent = fmt(caB2CSiteOutlet);
+  document.getElementById('mAvgB2C').textContent = fmt(panierB2C);
+  document.getElementById('mAvgB2B').textContent = fmt(panierB2B);
+
+  const avoirsEl = document.getElementById('mAvoirsKpi');
+  if (avoirsEl) avoirsEl.innerHTML = '';
+
+  // Jauges : toujours les vraies valeurs
+  updateBudgetDisplay(caTotal, budget2026);
+  updateBudgetB2CB2BDisplay(caB2CSiteOutlet, caB2BFromTypes);
+
+  // Pour les graphiques en dessous, on garde les valeurs filtrées par segment
+  const ca    = seg === 'b2b' ? caB2BFromTypes : seg === 'b2c' ? caB2CSiteOutlet : caTotal;
+  const caB2C = seg === 'b2b' ? 0 : caB2CSiteOutlet;
+  const caB2B = seg === 'b2c' ? 0 : caB2BFromTypes;
+
+  renderPieChart(caB2C, caB2B);
+  currentTotalCA = ca;
+
+  const pieTitle = document.getElementById('pieChartTitle');
+  if (pieTitle) {
+    if (seg === 'b2b') pieTitle.textContent = 'Répartition CA B2B par type de client';
+    else if (seg === 'b2c') pieTitle.textContent = 'Répartition CA B2C par canal';
+    else pieTitle.textContent = 'Répartition CA par type de client';
+  }
+
+  const pieCard    = document.getElementById('b2cPieChart')?.closest('.chart-card');
+  const typeClientRow = document.getElementById('typeClientRow');
+  const pharmacyCard  = document.getElementById('pharmacyBreakdownCard');
+  const b2cBreakRow   = document.getElementById('b2cBreakdownRow');
+
+  if (seg === 'b2b') {
+    if (pieCard)    pieCard.style.display     = 'none';
+    if (typeClientRow) typeClientRow.style.display = '';
+    if (b2cBreakRow)   b2cBreakRow.style.display   = 'none';
+    const dates = getDates();
+    if (dates) loadPharmacyBreakdown(dates.dateStart, dates.dateEnd);
+  } else {
+    if (pharmacyCard) pharmacyCard.style.display = 'none';
+    if (seg === 'b2c') {
+      if (pieCard)    pieCard.style.display     = 'none';
+      if (typeClientRow) typeClientRow.style.display = 'none';
+      if (b2cBreakRow)   b2cBreakRow.style.display   = '';
+      if (caData._caByType) renderB2CBreakdownPieChart(caData._caByType);
+    } else {
+      if (pieCard)    pieCard.style.display     = '';
+      if (typeClientRow) typeClientRow.style.display = '';
+      if (b2cBreakRow)   b2cBreakRow.style.display   = 'none';
+    }
+  }
+
+  if (seg === 'b2c') {
+    if (typeClientRow) typeClientRow.style.display = 'none';
+  } else {
+    if (seg === 'b2b' && caData._caByType) {
+      const B2B_CATS = ['Pharmacie', 'Grand Compte', 'Monoprix'];
+      const caByTypeB2B = Object.fromEntries(
+        Object.entries(caData._caByType).filter(([k]) => B2B_CATS.includes(k))
+      );
+      renderTypeClientPieChart(caByTypeB2B);
+    } else if (caData._caByType && Object.keys(caData._caByType).length > 0) {
+      renderTypeClientPieChart(caData._caByType);
+    }
+  }
+
+  if (seg === 'b2c') {
+    document.getElementById('top30Title').textContent = '🏆 Top 30 clients B2C';
+    document.getElementById('top30PctHeader').textContent = '% du CA B2C';
+    if (caData._top30B2C) renderTop30(caData._top30B2C, caB2C);
+    else document.getElementById('top30Card').style.display = 'none';
+  } else if (seg === 'b2b') {
+    document.getElementById('top30Title').textContent = '🏆 Top 30 clients B2B';
+    document.getElementById('top30PctHeader').textContent = '% du CA B2B';
+    if (caData._top30B2B) renderTop30(caData._top30B2B, caB2B);
+    else document.getElementById('top30Card').style.display = 'none';
+  } else {
+    document.getElementById('top30Card').style.display = 'none';
+  }
+}
+
+const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const monthsShort = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
+
+const DEFAULT_BUDGET     = [1617, 1151, 3439, 1267, 1722, 2085, 1498, 814, 1319, 2401, 1461, 1483];
+const DEFAULT_BUDGET_B2C = [0,0,0,0,0,0,0,0,0,0,0,0];
+const DEFAULT_BUDGET_B2B = [0,0,0,0,0,0,0,0,0,0,0,0];
+let budget2026    = [...DEFAULT_BUDGET];
+let budgetB2C2026 = [...DEFAULT_BUDGET_B2C];
+let budgetB2B2026 = [...DEFAULT_BUDGET_B2B];
+
+function loadBudgetLocal() {
+  try {
+    const saved = localStorage.getItem('budget2026');
+    if (saved) budget2026 = JSON.parse(saved);
+    const savedB2C = localStorage.getItem('budgetB2C2026');
+    if (savedB2C) budgetB2C2026 = JSON.parse(savedB2C);
+    const savedB2B = localStorage.getItem('budgetB2B2026');
+    if (savedB2B) budgetB2B2026 = JSON.parse(savedB2B);
+  } catch {}
+}
+loadBudgetLocal();
+
+let notesPermanent = '';
+let notesMonths = Array(12).fill('');
+
+function loadNotes() {
+  try {
+    notesPermanent = localStorage.getItem('notesPermanent') || '';
+    const saved = localStorage.getItem('notesMonths');
+    if (saved) notesMonths = JSON.parse(saved);
+  } catch {}
+}
+loadNotes();
+
+function openNotesModal() {
+  document.getElementById('notesPermanentInput').value = notesPermanent;
+  const finGrid = document.getElementById('finalizedMonthsGrid');
+  finGrid.innerHTML = months.map((m, i) =>
+    '<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;padding:6px 8px;border:1px solid ' + (finalizedMonths[i] ? '#1D9E75' : '#ddd') + ';border-radius:6px;background:' + (finalizedMonths[i] ? '#f0faf6' : 'white') + ';">' +
+    '<input type="checkbox" id="finalized_' + i + '" ' + (finalizedMonths[i] ? 'checked' : '') + ' style="accent-color:#1D9E75;" />' +
+    m + '</label>'
+  ).join('');
+  const grid = document.getElementById('notesMonthsGrid');
+  grid.innerHTML = months.map((m, i) => `
+    <div style="display:grid;grid-template-columns:80px 1fr;gap:8px;align-items:center;">
+      <span style="font-size:12px;color:#444;font-weight:500;">${m}</span>
+      <input type="text" id="notesMonth_${i}" value="${notesMonths[i] || ''}" placeholder="Note pour ce mois (optionnel)"
+        style="padding:7px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px;" />
+    </div>`).join('');
+  document.getElementById('notesModal').classList.add('open');
+  document.getElementById('notesSaveMsg').style.display = 'none';
+}
+
+function closeNotesModal() { document.getElementById('notesModal').classList.remove('open'); }
+
+function saveNotes() {
+  notesPermanent = document.getElementById('notesPermanentInput').value;
+  notesMonths = months.map((_, i) => document.getElementById(`notesMonth_${i}`).value);
+  finalizedMonths = months.map((_, i) => document.getElementById(`finalized_${i}`)?.checked || false);
+  localStorage.setItem('notesPermanent', notesPermanent);
+  localStorage.setItem('notesMonths', JSON.stringify(notesMonths));
+  localStorage.setItem('finalizedMonths2026', JSON.stringify(finalizedMonths));
+  document.getElementById('notesSaveMsg').style.display = 'block';
+  updateBanners();
+  setTimeout(closeNotesModal, 800);
+}
+
+function updateBanners(monthIndex) {
+  const perm = document.getElementById('bannerPermanent');
+  const permText = document.getElementById('bannerPermanentText');
+  const month = document.getElementById('bannerMonth');
+  const monthText = document.getElementById('bannerMonthText');
+  if (!perm || !permText || !month || !monthText) return;
+  if (notesPermanent.trim()) {
+    perm.style.display = 'flex';
+    permText.textContent = notesPermanent;
+  } else {
+    perm.style.display = 'none';
+  }
+  const idx = monthIndex !== undefined ? monthIndex : now.getMonth();
+  const note = notesMonths[idx] || '';
+  if (note.trim()) {
+    month.style.display = 'flex';
+    monthText.textContent = note;
+  } else {
+    month.style.display = 'none';
+  }
+}
+
+function openBudgetModal() {
+  const grid = document.getElementById('budgetGrid');
+  grid.innerHTML = `
+    <div style="grid-column:1/-1; display:grid; grid-template-columns: 80px 1fr 1fr 1fr; gap:8px; align-items:center; border-bottom:1px solid #e5e5e5; padding-bottom:8px; margin-bottom:4px;">
+      <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>
+      <span style="font-size:11px;color:#888;font-weight:600;text-align:center;">Total (k€)</span>
+      <span style="font-size:11px;color:#74A1D6;font-weight:600;text-align:center;">B2C (k€)</span>
+      <span style="font-size:11px;color:#1D9E75;font-weight:600;text-align:center;">B2B (k€)</span>
+    </div>
+    ${months.map((m, i) => `
+    <div style="grid-column:1/-1; display:grid; grid-template-columns: 80px 1fr 1fr 1fr; gap:8px; align-items:center;">
+      <span style="font-size:12px;color:#444;">${m}</span>
+      <input type="number" id="budget_${i}" value="${budget2026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center;" />
+      <input type="number" id="budgetB2C_${i}" value="${budgetB2C2026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #c5d9ef;border-radius:6px;font-size:13px;text-align:center;" />
+      <input type="number" id="budgetB2B_${i}" value="${budgetB2B2026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #a8dcc8;border-radius:6px;font-size:13px;text-align:center;" />
+    </div>`).join('')}`;
+  document.getElementById('budgetModal').classList.add('open');
+  document.getElementById('saveMsg').style.display = 'none';
+}
+
+function closeBudgetModal() { document.getElementById('budgetModal').classList.remove('open'); }
+
+function saveBudget() {
+  budget2026    = months.map((_, i) => parseFloat(document.getElementById(`budget_${i}`).value) || 0);
+  budgetB2C2026 = months.map((_, i) => parseFloat(document.getElementById(`budgetB2C_${i}`).value) || 0);
+  budgetB2B2026 = months.map((_, i) => parseFloat(document.getElementById(`budgetB2B_${i}`).value) || 0);
+  localStorage.setItem('budget2026',    JSON.stringify(budget2026));
+  localStorage.setItem('budgetB2C2026', JSON.stringify(budgetB2C2026));
+  localStorage.setItem('budgetB2B2026', JSON.stringify(budgetB2B2026));
+  document.getElementById('saveMsg').style.display = 'block';
+  setTimeout(() => {
+    closeBudgetModal();
+    if (lastCaData) applySegment(lastCaData);
+  }, 800);
+}
+
+// ============================================================
+// JAUGES ARC DE CERCLE (compteur)
+// ============================================================
+
+// Jours fériés FR (principaux, fixes)
+function joursFeries(year) {
+  return [
+    `${year}-01-01`, `${year}-05-01`, `${year}-05-08`,
+    `${year}-07-14`, `${year}-08-15`, `${year}-11-01`,
+    `${year}-11-11`, `${year}-12-25`
+  ];
+}
+
+// Compte les jours ouvrés (lun-ven hors fériés) entre deux dates incluses
+function countWorkdays(start, end) {
+  let count = 0;
+  const feries = joursFeries(start.getFullYear()).concat(
+    start.getFullYear() !== end.getFullYear() ? joursFeries(end.getFullYear()) : []
+  );
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    const dow = cursor.getDay();
+    const ds = `${cursor.getFullYear()}-${pad(cursor.getMonth()+1)}-${pad(cursor.getDate())}`;
+    if (dow !== 0 && dow !== 6 && !feries.includes(ds)) count++;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return count;
+}
+
+// Calcule le prorata temps écoulé selon le mode courant
+// Pour month : se base sur le mois sélectionné vs aujourd'hui
+// Pour today/week : se base sur les jours écoulés du mois en cours
+// useWorkdays=true → jours ouvrés (B2B), false → calendaires
+function getProratioForPeriod(useWorkdays) {
+  const dates = getDates();
+  if (!dates) return null;
+  const startDate = new Date(dates.dateStart + 'T12:00:00');
+  const endDate   = new Date(dates.dateEnd   + 'T12:00:00');
+  const today     = new Date();
+
+  // Pour le mode 'month' : mois sélectionné vs aujourd'hui
+  if (currentMode === 'month') {
+    if (startDate.getMonth() !== today.getMonth() || startDate.getFullYear() !== today.getFullYear()) return null;
+    const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const monthEnd   = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
+    const yesterday  = new Date(today); yesterday.setDate(today.getDate() - 1);
+    const elapsedEnd = yesterday < monthStart ? monthStart : (yesterday > monthEnd ? monthEnd : yesterday);
+    if (useWorkdays) {
+      const totalWD   = countWorkdays(monthStart, monthEnd);
+      const elapsedWD = countWorkdays(monthStart, elapsedEnd);
+      return totalWD > 0 ? elapsedWD / totalWD : null;
+    } else {
+      return elapsedEnd.getDate() / monthEnd.getDate();
+    }
+  }
+
+  // Pour 'today' : portion du jour dans le mois
+  if (currentMode === 'today') {
+    if (startDate.getFullYear() !== 2026) return null;
+    const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const monthEnd   = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
+    if (useWorkdays) {
+      const totalWD   = countWorkdays(monthStart, monthEnd);
+      const elapsedWD = countWorkdays(monthStart, startDate);
+      return totalWD > 0 ? elapsedWD / totalWD : null;
+    } else {
+      return startDate.getDate() / monthEnd.getDate();
+    }
+  }
+
+  // Pour 'week' : jours de la semaine écoulés dans le mois en cours
+  if (currentMode === 'week') {
+    if (endDate.getFullYear() !== 2026) return null;
+    // On prend la fin de semaine (ou aujourd'hui si semaine en cours) comme référence
+    const refDay = today < endDate ? today : endDate;
+    const monthStart = new Date(refDay.getFullYear(), refDay.getMonth(), 1);
+    const monthEnd   = new Date(refDay.getFullYear(), refDay.getMonth() + 1, 0);
+    if (useWorkdays) {
+      const totalWD   = countWorkdays(monthStart, monthEnd);
+      const elapsedWD = countWorkdays(monthStart, refDay);
+      return totalWD > 0 ? elapsedWD / totalWD : null;
+    } else {
+      return refDay.getDate() / monthEnd.getDate();
+    }
+  }
+
+  return null;
+}
+
+// Calcule le budget proratisé pour la période courante
+function getBudgetForCurrentPeriod(budgetArr) {
+  const dates = getDates();
+  if (!dates) return 0;
+  const { dateStart, dateEnd } = dates;
+  const startDate = new Date(dateStart + 'T12:00:00');
+  const endDate   = new Date(dateEnd   + 'T12:00:00');
+  if (startDate.getFullYear() !== 2026 && endDate.getFullYear() !== 2026) return 0;
+  if (currentMode === 'month' && startDate.getFullYear() === 2026) return budgetArr[startDate.getMonth()];
+  if (currentMode === 'ytd' && endDate.getFullYear() === 2026) {
+    let t = 0; for (let m = 0; m <= endDate.getMonth(); m++) t += budgetArr[m]; return t;
+  }
+  if (currentMode === 'today' && startDate.getFullYear() === 2026) {
+    const m = startDate.getMonth();
+    return Math.round(budgetArr[m] / new Date(2026, m+1, 0).getDate() * 10) / 10;
+  }
+  let t = 0;
+  const days = Math.round((endDate - startDate) / 86400000) + 1;
+  for (let d = 0; d < days; d++) {
+    const day = new Date(startDate); day.setDate(startDate.getDate() + d);
+    if (day.getFullYear() === 2026) { const m = day.getMonth(); t += budgetArr[m] / new Date(2026, m+1, 0).getDate(); }
+  }
+  return Math.round(t * 10) / 10;
+}
+
+// Dessine une jauge arc de cercle sur un canvas
+// realPct  : % réalisé (0-100+)
+// expectedPct : % attendu selon temps (0-100), null si pas dispo
+// color    : couleur de l'arc réalisé
+function drawArcGauge(canvasId, realPct, expectedPct, color, budgetKe, caEuros) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const cx = W / 2;
+  const cy = H * 0.85;
+  const r  = Math.min(W * 0.38, H * 0.72);
+  const lw = 11;
+
+  // Arc part: 180° de -π à 0 (gauche à droite, bas)
+  const startAngle = Math.PI;
+  const endAngle   = 2 * Math.PI;
+
+  // Fond gris
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, startAngle, endAngle);
+  ctx.strokeStyle = '#f0f0f0';
+  ctx.lineWidth = lw;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  // Arc réalisé
+  const realAngle = startAngle + (Math.min(realPct, 110) / 100) * Math.PI;
+  if (realPct > 0) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, startAngle, realAngle);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+
+  // Curseur attendu (trait + losange)
+  if (expectedPct !== null) {
+    const expAngle = startAngle + (Math.min(expectedPct, 100) / 100) * Math.PI;
+    const rx = cx + (r) * Math.cos(expAngle);
+    const ry = cy + (r) * Math.sin(expAngle);
+    // Ligne du curseur
+    const r1 = r - lw * 1.2, r2 = r + lw * 1.2;
+    const x1 = cx + r1 * Math.cos(expAngle), y1 = cy + r1 * Math.sin(expAngle);
+    const x2 = cx + r2 * Math.cos(expAngle), y2 = cy + r2 * Math.sin(expAngle);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'butt';
+    ctx.stroke();
+    // Petit losange au bout
+    ctx.beginPath();
+    ctx.arc(rx, ry, 3, 0, 2 * Math.PI);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fill();
+  }
+
+  // Texte central : % réalisé
+  ctx.textAlign = 'center';
+  ctx.fillStyle = realPct >= 100 ? '#1D9E75' : (realPct < (expectedPct || 50) - 5 ? '#D85A30' : '#1a1a1a');
+  ctx.font = `bold ${Math.round(r * 0.38)}px -apple-system, sans-serif`;
+  ctx.fillText(realPct + '%', cx, cy - r * 0.18);
+
+  // Budget en dessous
+  ctx.font = `${Math.round(r * 0.22)}px -apple-system, sans-serif`;
+  ctx.fillStyle = '#aaa';
+  ctx.fillText(budgetKe > 0 ? budgetKe.toLocaleString('fr-FR') + ' k€' : '', cx, cy - r * 0.18 + r * 0.32);
+
+  // Étiquettes 0% et 100% aux extrémités
+  ctx.font = `${Math.round(r * 0.19)}px -apple-system, sans-serif`;
+  ctx.fillStyle = '#ccc';
+  ctx.textAlign = 'left';
+  ctx.fillText('0%', cx - r - lw, cy + 14);
+  ctx.textAlign = 'right';
+  ctx.fillText('100%', cx + r + lw, cy + 14);
+}
+
+// Render une jauge arc + statut texte
+function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWorkdays, budgetLabelId, resteAFaireId) {
+  const budVal = getBudgetForCurrentPeriod(budgetArr);
+  const wrap = document.getElementById(wrapperId);
+  if (!wrap) return;
+
+  // Budget label (ex: "Budget : 1 722 k€")
+  const budLabelEl = budgetLabelId ? document.getElementById(budgetLabelId) : null;
+  const resteEl    = resteAFaireId ? document.getElementById(resteAFaireId) : null;
+
+  if (budVal <= 0) {
+    wrap.style.display = 'none';
+    if (budLabelEl) budLabelEl.textContent = '';
+    if (resteEl)    resteEl.textContent = '';
+    return;
+  }
+
+  wrap.style.display = 'block';
+  const pct = Math.round(((caVal / 1000) / budVal) * 100);
+  const ratio = getProratioForPeriod(useWorkdays);
+  const expectedPct = ratio !== null ? Math.round(ratio * 100) : null;
+  const fillColor = pct >= 100 ? '#1D9E75' : (expectedPct !== null && pct < expectedPct - 3 ? '#D85A30' : '#74A1D6');
+
+  drawArcGauge(canvasId, pct, expectedPct, fillColor, budVal, caVal);
+
+  // Label budget
+  // Affiche le % de temps écoulé plutôt que le budget
+  if (budLabelEl) {
+    const ratio = getProratioForPeriod(useWorkdays);
+    if (ratio !== null) {
+      const pctTemps = Math.round(ratio * 100);
+      const base = useWorkdays ? 'jours ouvrés' : 'jours calendaires';
+      budLabelEl.textContent = `Temps écoulé : ${pctTemps}% (${base})`;
+    } else {
+      budLabelEl.textContent = '';
+    }
+  }
+
+  // Reste à faire
+  if (resteEl) {
+    const budgetEuros = budVal * 1000;
+    const reste = budgetEuros - caVal;
+    if (reste > 0) {
+      resteEl.textContent = `Reste à faire : ${fmt(reste)}`;
+      resteEl.style.color = '#D85A30';
+    } else {
+      resteEl.textContent = `Objectif atteint ! ${fmt(Math.abs(reste))} au-delà`;
+      resteEl.style.color = '#1D9E75';
+    }
+  }
+
+  // Statut rythme
+  const statusEl = document.getElementById(statusId);
+  if (statusEl) {
+    if (expectedPct !== null) {
+      const expectedEuros = Math.round((budVal * 1000) * ratio);
+      const diffEuros = caVal - expectedEuros;
+      const diffAbs = Math.abs(diffEuros);
+      if (diffEuros >= 500) {
+        statusEl.textContent = `✓ En avance de ${fmt(diffAbs)}`;
+        statusEl.style.color = '#1D9E75';
+      } else if (diffEuros <= -500) {
+        statusEl.textContent = `↓ En retard de ${fmt(diffAbs)}`;
+        statusEl.style.color = '#D85A30';
+      } else {
+        statusEl.textContent = '≈ Dans les clous du budget écoulé';
+        statusEl.style.color = '#888';
+      }
+    } else {
+      statusEl.textContent = '';
+    }
+  }
+}
+
+function updateBudgetB2CB2BDisplay(caB2C, caB2B) {
+  renderArcGauge('budgetBarB2BWrap', 'gaugeB2B', 'budgetStatusB2B', caB2B, budgetB2B2026, true,  'mB2BBudgetLabel', 'mB2BResteAFaire');
+  renderArcGauge('budgetBarB2CWrap', 'gaugeB2C', 'budgetStatusB2C', caB2C, budgetB2C2026, false, 'mB2CBudgetLabel', 'mB2CResteAFaire');
+}
+
+function updateBudgetDisplay(totalCA, budgetArr) {
+  const arr = budgetArr || budget2026;
+  renderArcGauge('budgetBarWrap', 'gaugeTotal', 'budgetStatusTotal', totalCA, arr, false, null, 'mCAResteAFaire');
+}
+
+[document.getElementById('selYear'), document.getElementById('selYtdYear')].forEach(el => {
+  if (!el) return;
+  for(let y = now.getFullYear(); y >= 2015; y--) {
+    const opt = document.createElement('option');
+    opt.value = y; opt.textContent = y; el.appendChild(opt);
+  }
+});
+if (document.getElementById('selMonth')) document.getElementById('selMonth').value = now.getMonth();
+if (document.getElementById('selYtdMonth')) document.getElementById('selYtdMonth').value = now.getMonth();
+if (document.getElementById('dateFrom')) document.getElementById('dateFrom').value = todayStr;
+if (document.getElementById('dateTo')) document.getElementById('dateTo').value = todayStr;
+
+function setPeriod(mode) {
+  currentMode = mode;
+  ['today','week','month','ytd','custom'].forEach(m => {
+    const btn = document.getElementById('btn' + m.charAt(0).toUpperCase() + m.slice(1));
+    if(btn) btn.classList.toggle('active', m === mode);
+  });
+  document.getElementById('selectorsMonth').style.display = mode === 'month' ? 'flex' : 'none';
+  document.getElementById('selectorsYtd').style.display = mode === 'ytd' ? 'flex' : 'none';
+  document.getElementById('selectorsCustom').style.display = mode === 'custom' ? 'flex' : 'none';
+}
+
+function setStatus(state, msg) {
+  document.getElementById('statusDot').className = 'dot ' + state;
+  document.getElementById('statusText').textContent = msg;
+}
+
+function fmt(n) {
+  return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
+}
+
+function shiftYearBack(dateStart, dateEnd) {
+  const s = new Date(dateStart + 'T12:00:00');
+  const e = new Date(dateEnd + 'T12:00:00');
+  s.setFullYear(s.getFullYear() - 1); e.setFullYear(e.getFullYear() - 1);
+  return {
+    dateStart: `${s.getFullYear()}-${pad(s.getMonth()+1)}-${pad(s.getDate())}`,
+    dateEnd: `${e.getFullYear()}-${pad(e.getMonth()+1)}-${pad(e.getDate())}`,
+    year: s.getFullYear()
+  };
+}
+
+function getDates() {
+  if (currentMode === 'today') return { dateStart: todayStr, dateEnd: todayStr, label: `Aujourd'hui — ${now.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long', year:'numeric'})}` };
+  if (currentMode === 'week') {
+    const day = now.getDay() || 7;
+    const monday = new Date(now); monday.setDate(now.getDate() - day + 1);
+    const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+    const ds = `${monday.getFullYear()}-${pad(monday.getMonth()+1)}-${pad(monday.getDate())}`;
+    const de = `${sunday.getFullYear()}-${pad(sunday.getMonth()+1)}-${pad(sunday.getDate())}`;
+    return { dateStart: ds, dateEnd: de, label: `Cette semaine — du ${monday.toLocaleDateString('fr-FR')} au ${sunday.toLocaleDateString('fr-FR')}` };
+  }
+  if (currentMode === 'month') {
+    const month = parseInt(document.getElementById('selMonth').value);
+    const year = parseInt(document.getElementById('selYear').value);
+    const lastDay = new Date(year, month+1, 0).getDate();
+    return { dateStart: `${year}-${pad(month+1)}-01`, dateEnd: `${year}-${pad(month+1)}-${pad(lastDay)}`, label: `${months[month]} ${year}` };
+  }
+  if (currentMode === 'ytd') {
+    const month = parseInt(document.getElementById('selYtdMonth').value);
+    const year = parseInt(document.getElementById('selYtdYear').value);
+    const lastDay = new Date(year, month+1, 0).getDate();
+    return { dateStart: `${year}-01-01`, dateEnd: `${year}-${pad(month+1)}-${pad(lastDay)}`, label: `Cumul YTD — Janvier à ${months[month]} ${year}` };
+  }
+  if (currentMode === 'custom') {
+    const from = document.getElementById('dateFrom').value;
+    const to = document.getElementById('dateTo').value;
+    if (!from || !to) { alert('Veuillez sélectionner une date de début et de fin.'); return null; }
+    return { dateStart: from, dateEnd: to, label: `Du ${new Date(from+'T12:00:00').toLocaleDateString('fr-FR')} au ${new Date(to+'T12:00:00').toLocaleDateString('fr-FR')}` };
+  }
+}
+
+function renderPieChart(caB2C, caB2B) {
+  const ctx = document.getElementById('b2cPieChart').getContext('2d');
+  if (pieChartInstance) pieChartInstance.destroy();
+
+  const seg = currentSegment;
+  const caByType = (lastCaData && lastCaData._caByType) || {};
+
+  let labels, values, colors;
+
+  if (seg === 'b2b') {
+    const B2B_CATS = ['Pharmacie', 'Grand Compte', 'Monoprix'];
+    const filtered = B2B_CATS.filter(k => (caByType[k] || 0) > 0);
+    labels = filtered;
+    values = filtered.map(k => caByType[k] || 0);
+    colors = filtered.map(l => TYPE_CLIENT_COLORS[l] || '#aaa');
+  } else if (seg === 'b2c') {
+    const B2C_CATS = ['B2C', 'Outlet'];
+    const filtered = B2C_CATS.filter(k => (caByType[k] || 0) > 0);
+    labels = filtered;
+    values = filtered.map(k => caByType[k] || 0);
+    colors = filtered.map(l => TYPE_CLIENT_COLORS[l] || '#aaa');
+  } else {
+    const b2cTotal = (caByType['B2C'] || 0) + (caByType['Outlet'] || 0);
+    const b2bTotal = (caByType['Pharmacie'] || 0) + (caByType['Grand Compte'] || 0) + (caByType['Monoprix'] || 0);
+    const marketing = caByType['Marketing'] || 0;
+    const autre = caByType['Autre'] || 0;
+    const segments = [
+      { label: 'B2C', value: b2cTotal, color: '#74A1D6' },
+      { label: 'B2B', value: b2bTotal, color: '#1D9E75' },
+      { label: 'Marketing', value: marketing, color: '#9B59B6' },
+      { label: 'Autre', value: autre, color: '#F5A623' },
+    ].filter(s => s.value > 0);
+    labels = segments.map(s => s.label);
+    values = segments.map(s => s.value);
+    colors = segments.map(s => s.color);
+  }
+
+  const total = values.reduce((a, b) => a + b, 0);
+
+  pieChartInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }] },
+    options: {
+      responsive: false, cutout: '58%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmt(ctx.raw)} (${total > 0 ? Math.round((ctx.raw/total)*100) : 0}%)` } }
+      }
+    },
+    plugins: [{
+      id: 'pctOnSliceB2',
+      afterDatasetsDraw(chart) {
+        const { ctx, data } = chart;
+        const meta = chart.getDatasetMeta(0);
+        const vals = data.datasets[0].data;
+        const tot = vals.reduce((a,b) => a+b, 0);
+        meta.data.forEach((arc, i) => {
+          const pct = tot > 0 ? Math.round((vals[i] / tot) * 100) : 0;
+          if (pct < 5) return;
+          const angle = (arc.startAngle + arc.endAngle) / 2;
+          const r = (arc.outerRadius + arc.innerRadius) / 2;
+          const x = arc.x + Math.cos(angle) * r;
+          const y = arc.y + Math.sin(angle) * r;
+          ctx.save();
+          ctx.fillStyle = 'white';
+          ctx.font = 'bold 12px -apple-system, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(pct + '%', x, y);
+          ctx.restore();
+        });
+      }
+    }]
+  });
+
+  const dates = getDates();
+  const budB2C = dates ? getBudgetB2CForPeriod(dates.dateStart, dates.dateEnd) : 0;
+  const budB2B = dates ? getBudgetB2BForPeriod(dates.dateStart, dates.dateEnd) : 0;
+
+  function legendItem(label, val, color) {
+    const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+    let budText = '';
+    if (label === 'B2C' && budB2C > 0) {
+      const budPct = Math.round(((val / 1000) / budB2C) * 100);
+      const budColor = budPct >= 100 ? '#1D9E75' : '#D85A30';
+      budText = `<div style="font-size:11px;padding-left:20px;"><span style="color:${budColor};font-weight:600;">${budPct}% du budget</span></div>`;
+    } else if (label === 'B2B' && budB2B > 0) {
+      const budPct = Math.round(((val / 1000) / budB2B) * 100);
+      const budColor = budPct >= 100 ? '#1D9E75' : '#D85A30';
+      budText = `<div style="font-size:11px;padding-left:20px;"><span style="color:${budColor};font-weight:600;">${budPct}% du budget</span></div>`;
+    }
+    return `<div style="display:flex;flex-direction:column;gap:3px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="width:12px;height:12px;border-radius:3px;background:${color};display:inline-block;flex-shrink:0;"></span>
+        <span style="font-size:13px;font-weight:500;">${label}</span>
+        <span style="font-size:12px;color:#888;">${pct}% — ${fmt(val)}</span>
+      </div>
+      ${budText}
+    </div>`;
+  }
+
+  const legendEl = document.getElementById('b2cB2BLegend');
+  if (legendEl) {
+    legendEl.innerHTML = labels.map((l, i) => legendItem(l, values[i], colors[i])).join('');
+  }
+}
+
+function getBudgetB2CForPeriod(dateStart, dateEnd) {
+  const start = new Date(dateStart + 'T12:00:00');
+  const end = new Date(dateEnd + 'T12:00:00');
+  if (start.getFullYear() !== 2026 && end.getFullYear() !== 2026) return 0;
+  if (currentMode === 'month' && start.getFullYear() === 2026) return budgetB2C2026[start.getMonth()];
+  if (currentMode === 'ytd' && end.getFullYear() === 2026) {
+    let t = 0; for (let m = 0; m <= end.getMonth(); m++) t += budgetB2C2026[m]; return t;
+  }
+  let t = 0;
+  const days = Math.round((end - start) / 86400000) + 1;
+  for (let d = 0; d < days; d++) {
+    const day = new Date(start); day.setDate(start.getDate() + d);
+    if (day.getFullYear() === 2026) { const m = day.getMonth(); t += budgetB2C2026[m] / new Date(2026, m+1, 0).getDate(); }
+  }
+  return Math.round(t * 10) / 10;
+}
+
+function getBudgetB2BForPeriod(dateStart, dateEnd) {
+  const start = new Date(dateStart + 'T12:00:00');
+  const end = new Date(dateEnd + 'T12:00:00');
+  if (start.getFullYear() !== 2026 && end.getFullYear() !== 2026) return 0;
+  if (currentMode === 'month' && start.getFullYear() === 2026) return budgetB2B2026[start.getMonth()];
+  if (currentMode === 'ytd' && end.getFullYear() === 2026) {
+    let t = 0; for (let m = 0; m <= end.getMonth(); m++) t += budgetB2B2026[m]; return t;
+  }
+  let t = 0;
+  const days = Math.round((end - start) / 86400000) + 1;
+  for (let d = 0; d < days; d++) {
+    const day = new Date(start); day.setDate(start.getDate() + d);
+    if (day.getFullYear() === 2026) { const m = day.getMonth(); t += budgetB2B2026[m] / new Date(2026, m+1, 0).getDate(); }
+  }
+  return Math.round(t * 10) / 10;
+}
+
+const TYPE_CLIENT_COLORS = {
+  'Pharmacie':    '#1D9E75',
+  'Monoprix':     '#9B59B6',
+  'Marketing':    '#74A1D6',
+  'Grand Compte': '#D85A30',
+  'Outlet':       '#E67E22',
+  'Autre':        '#F5A623',
+  'Site':         '#bbb',
+  'B2C':          '#bbb'
+};
+const TYPE_CLIENT_DISPLAY = {
+  'B2C': 'Site',
+  'Site': 'Site'
+};
+function displayLabel(label) {
+  return TYPE_CLIENT_DISPLAY[label] || label;
+}
+
+const TYPE_CLIENT_BUDGET_CATS  = ['Pharmacie', 'Monoprix', 'Marketing', 'Grand Compte'];
+const TYPE_CLIENT_BUDGET_CATS2 = ['Site', 'Outlet', 'Autre'];
+let budgetTypeClient = {};
+TYPE_CLIENT_BUDGET_CATS.forEach(cat => { budgetTypeClient[cat] = Array(12).fill(0); });
+let budgetTypeClient2 = {};
+TYPE_CLIENT_BUDGET_CATS2.forEach(cat => { budgetTypeClient2[cat] = Array(12).fill(0); });
+
+function loadTypeClientBudget() {
+  try {
+    const saved = localStorage.getItem('budgetTypeClient');
+    if (saved) budgetTypeClient = JSON.parse(saved);
+    const saved2 = localStorage.getItem('budgetTypeClient2');
+    if (saved2) budgetTypeClient2 = JSON.parse(saved2);
+  } catch {}
+}
+loadTypeClientBudget();
+
+function saveTypeClientBudget() {
+  localStorage.setItem('budgetTypeClient', JSON.stringify(budgetTypeClient));
+  localStorage.setItem('budgetTypeClient2', JSON.stringify(budgetTypeClient2));
+}
+
+function getTypeClientBudgetForPeriod(cat) {
+  const budgetCat = cat === 'B2C' ? 'Site' : cat;
+  const map = TYPE_CLIENT_BUDGET_CATS2.includes(budgetCat) ? budgetTypeClient2 : budgetTypeClient;
+  const arr = map[budgetCat] || Array(12).fill(0);
+  const dates = getDates();
+  if (!dates) return 0;
+  const { dateStart, dateEnd } = dates;
+  const start = new Date(dateStart + 'T12:00:00');
+  const end = new Date(dateEnd + 'T12:00:00');
+  if (start.getFullYear() !== 2026 && end.getFullYear() !== 2026) return 0;
+  let total = 0;
+  if (currentMode === 'month' && start.getFullYear() === 2026) return arr[start.getMonth()];
+  if (currentMode === 'ytd' && end.getFullYear() === 2026) {
+    for (let m = 0; m <= end.getMonth(); m++) total += arr[m]; return total;
+  }
+  const days = Math.round((end - start) / 86400000) + 1;
+  for (let d = 0; d < days; d++) {
+    const day = new Date(start); day.setDate(start.getDate() + d);
+    if (day.getFullYear() === 2026) { const m = day.getMonth(); total += arr[m] / new Date(2026, m+1, 0).getDate(); }
+  }
+  return Math.round(total * 10) / 10;
+}
+
+function renderTypeClientPieChart(caByType) {
+  const ctx = document.getElementById('typeClientPieChart').getContext('2d');
+  if (window.typeClientPieInstance) window.typeClientPieInstance.destroy();
+
+  const labels = Object.keys(caByType).filter(k => (caByType[k] || 0) > 0);
+  const values = labels.map(k => caByType[k] || 0);
+  const total = values.reduce((a, b) => a + b, 0);
+  const colors = labels.map(l => TYPE_CLIENT_COLORS[l] || '#aaa');
+
+  window.typeClientPieInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }] },
+    options: {
+      responsive: false, cutout: '58%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmt(ctx.raw)} (${total > 0 ? Math.round((ctx.raw/total)*100) : 0}%)` } }
+      }
+    },
+    plugins: [{
+      id: 'pctOnSliceTC',
+      afterDatasetsDraw(chart) {
+        const { ctx, data } = chart;
+        const meta = chart.getDatasetMeta(0);
+        meta.data.forEach((arc, i) => {
+          const val = data.datasets[0].data[i];
+          const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+          if (pct < 5) return;
+          const angle = (arc.startAngle + arc.endAngle) / 2;
+          const r = (arc.outerRadius + arc.innerRadius) / 2;
+          const x = arc.x + Math.cos(angle) * r;
+          const y = arc.y + Math.sin(angle) * r;
+          ctx.save();
+          ctx.fillStyle = 'white';
+          ctx.font = 'bold 12px -apple-system, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(pct + '%', x, y);
+          ctx.restore();
+        });
+      }
+    }]
+  });
+
+  // B2C cats = jours calendaires, B2B = jours ouvrés
+  const B2C_CATS = ['B2C', 'Site', 'Outlet'];
+  const legendEl = document.getElementById('typeClientLegend');
+  legendEl.innerHTML = labels.map(cat => {
+    const val = caByType[cat] || 0;
+    const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+    const budgetVal = getTypeClientBudgetForPeriod(cat);
+    const budgetPct = budgetVal > 0 ? Math.round(((val / 1000) / budgetVal) * 100) : null;
+    const budgetColor = budgetPct === null ? '#888' : budgetPct >= 100 ? '#1D9E75' : '#D85A30';
+    const budgetText = budgetPct !== null
+      ? `<span style="color:${budgetColor};font-weight:600;">${budgetPct}% du budget</span>`
+      : `<span style="color:#bbb;">Pas de budget</span>`;
+
+    // Rythme attendu
+    const useWorkdays = !B2C_CATS.includes(cat);
+    const ratio = getProratioForPeriod(useWorkdays);
+    let rythmeText = '';
+    if (ratio !== null && budgetVal > 0) {
+      const expectedEuros = Math.round((budgetVal * 1000) * ratio);
+      const diffEuros = val - expectedEuros;
+      const diffAbs = Math.abs(diffEuros);
+      if (diffEuros >= 500) {
+        rythmeText = `<span style="color:#1D9E75;">✓ +${fmt(diffAbs)} vs budget écoulé</span>`;
+      } else if (diffEuros <= -500) {
+        rythmeText = `<span style="color:#D85A30;">↓ -${fmt(diffAbs)} vs budget écoulé</span>`;
+      } else {
+        rythmeText = `<span style="color:#888;">≈ Dans les clous du budget écoulé</span>`;
+      }
+    }
+
+    return `<div style="display:flex;flex-direction:column;gap:3px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="width:12px;height:12px;border-radius:3px;background:${TYPE_CLIENT_COLORS[cat] || '#aaa'};display:inline-block;flex-shrink:0;"></span>
+        <span style="font-size:13px;font-weight:500;">${displayLabel(cat)}</span>
+        <span style="font-size:12px;color:#888;">${pct}% — ${fmt(val)}</span>
+      </div>
+      <div style="font-size:11px;padding-left:20px;display:flex;gap:10px;">${budgetText}${rythmeText ? ' · ' + rythmeText : ''}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('typeClientSubtitle').textContent = 'Période sélectionnée';
+}
+
+function setVs(id, current, prev, prevYear) {
+  const el = document.getElementById(id);
+  if (!prev || prev === 0) { el.textContent = ''; el.className = 'metric-vs neutral'; return; }
+  const diff = ((current - prev) / prev) * 100;
+  const sign = diff >= 0 ? '+' : '';
+  el.textContent = `${sign}${diff.toFixed(1)}% vs ${prevYear}`;
+  el.className = `metric-vs ${diff >= 0 ? 'up' : 'down'}`;
+}
+
+async function loadMonthlyChart(year, upToMonth) {
+  document.getElementById('chartSubtitle').textContent = 'Chargement du graphique...';
+  const currentYearData = [], prevYearData = [], budgetData = [], labels = [];
+  const promises = [];
+  const todayForChart = new Date();
+  for (let m = 0; m <= upToMonth; m++) {
+    const lastDay = new Date(year, m+1, 0).getDate();
+    const ds = `${year}-${pad(m+1)}-01`, de = `${year}-${pad(m+1)}-${pad(lastDay)}`;
+
+    // Pour le mois en cours de l'année affichée : tronquer N-1 au même jour
+    const isCurrentMonth = (year === todayForChart.getFullYear() && m === todayForChart.getMonth());
+    let lastDayPrev;
+    if (isCurrentMonth) {
+      // Même jour qu'aujourd'hui mais l'année dernière
+      const prevLastDay = new Date(year-1, m+1, 0).getDate();
+      lastDayPrev = Math.min(todayForChart.getDate(), prevLastDay);
+    } else {
+      lastDayPrev = new Date(year-1, m+1, 0).getDate();
+    }
+    const dsPrev = `${year-1}-${pad(m+1)}-01`, dePrev = `${year-1}-${pad(m+1)}-${pad(lastDayPrev)}`;
+
+    labels.push(monthsShort[m]);
+    promises.push(
+      fetch(`/api/sellsy?dateStart=${ds}&dateEnd=${de}&mode=total`).then(r => r.json()),
+      fetch(`/api/sellsy?dateStart=${dsPrev}&dateEnd=${dePrev}&mode=total`).then(r => r.json())
+    );
+  }
+  const results = await Promise.all(promises);
+  for (let m = 0; m <= upToMonth; m++) {
+    const caByTypeN = results[m*2]._caByType || {};
+    const caByTypeP = results[m*2+1]._caByType || {};
+    let curVal, prevVal;
+    if (currentSegment === 'b2b') {
+      curVal  = (caByTypeN['Pharmacie']||0) + (caByTypeN['Grand Compte']||0) + (caByTypeN['Monoprix']||0);
+      prevVal = (caByTypeP['Pharmacie']||0) + (caByTypeP['Grand Compte']||0) + (caByTypeP['Monoprix']||0);
+    } else if (currentSegment === 'b2c') {
+      curVal  = (caByTypeN['B2C']||0) + (caByTypeN['Outlet']||0);
+      prevVal = (caByTypeP['B2C']||0) + (caByTypeP['Outlet']||0);
+    } else {
+      curVal  = results[m*2]._totalCA || 0;
+      prevVal = results[m*2+1]._totalCA || 0;
+    }
+    currentYearData.push(Math.round(curVal / 1000 * 10) / 10);
+    prevYearData.push(Math.round(prevVal / 1000 * 10) / 10);
+    if (year === 2026) budgetData.push(currentSegment === 'b2b' ? budgetB2B2026[m] : currentSegment === 'b2c' ? budgetB2C2026[m] : budget2026[m]);
+  }
+  renderChart(labels, currentYearData, prevYearData, budgetData, year);
+  document.getElementById('chartSubtitle').textContent = `CA mensuel en k€ — ${year} vs ${year-1}${year === 2026 ? ' vs Budget' : ''}`;
+  if (year === 2026) renderBudgetChart(labels, currentYearData, upToMonth);
+  else document.getElementById('budgetChartCard').style.display = 'none';
+}
+
+function renderChart(labels, currentData, prevData, budgetData, year) {
+  const ctx = document.getElementById('caChart').getContext('2d');
+  if (caChartInstance) caChartInstance.destroy();
+
+  // Calcul des % de réalisation vs budget pour les étiquettes
+  const activeBudget = currentSegment === 'b2b' ? budgetB2B2026 : currentSegment === 'b2c' ? budgetB2C2026 : budget2026;
+  const pctData = year === 2026 && budgetData.length > 0
+    ? labels.map((_, i) => activeBudget[i] > 0 ? Math.round((currentData[i] / activeBudget[i]) * 100) : null)
+    : [];
+
+  const datasets = [
+    { label: `${year}`, data: currentData, borderColor: '#1a1a1a', backgroundColor: 'rgba(26,26,26,0.05)', borderWidth: 2.5, pointRadius: 5, pointBackgroundColor: '#1a1a1a', tension: 0.3, fill: true },
+    { label: `${year-1}`, data: prevData, borderColor: '#aaa', backgroundColor: 'transparent', borderWidth: 1.5, borderDash: [5,4], pointRadius: 3, pointBackgroundColor: '#aaa', tension: 0.3, fill: false }
+  ];
+  if (year === 2026 && budgetData.length > 0) {
+    datasets.push({ label: 'Budget 2026', data: budgetData, borderColor: '#74A1D6', backgroundColor: 'transparent', borderWidth: 2, borderDash: [3,3], pointRadius: 3, pointBackgroundColor: '#74A1D6', tension: 0.3, fill: false });
+  }
+
+  // Plugin étiquettes % réalisation sur les points 2026
+  const pctLabelPlugin = {
+    id: 'pctLabels',
+
+    afterDatasetsDraw(chart) {
+      if (!pctData.length) return;
+      const { ctx } = chart;
+      const meta = chart.getDatasetMeta(0); // dataset 2026
+      meta.data.forEach((point, i) => {
+        const pct = pctData[i];
+        if (pct === null) return;
+        const color = pct >= 100 ? '#1D9E75' : '#D85A30';
+        const label = pct + '%';
+        ctx.save();
+        ctx.font = 'bold 11px -apple-system, sans-serif';
+        ctx.fillStyle = color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        // Fond blanc pour lisibilité
+        const tw = ctx.measureText(label).width + 6;
+        ctx.fillStyle = 'white';
+        ctx.fillRect(point.x - tw/2, point.y - 28, tw, 16);
+        ctx.fillStyle = color;
+        ctx.fillText(label, point.x, point.y - 14);
+        ctx.restore();
+      });
+    }
+  };
+
+  caChartInstance = new Chart(ctx, {
+    type: 'line', data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      layout: { padding: { top: 48 } },
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 12 }, boxWidth: 24, padding: 16 } },
+        tooltip: { callbacks: { label: ctx => {
+          const line = ` ${ctx.dataset.label} : ${ctx.parsed.y.toLocaleString('fr-FR')} k€`;
+          if (ctx.datasetIndex === 0 && pctData[ctx.dataIndex] !== null && pctData[ctx.dataIndex] !== undefined) {
+            return [line, ` Réalisation : ${pctData[ctx.dataIndex]}% du budget`];
+          }
+          return line;
+        }}}
+      },
+      scales: {
+        y: { beginAtZero: true, grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 }, callback: v => v + ' k€' } },
+        x: { grid: { display: false }, ticks: { font: { size: 12 } } }
+      }
+    },
+    plugins: [pctLabelPlugin]
+  });
+}
+
+function renderBudgetChart(labels, realDataKe, upToMonth) {
+  // Graphique barres désactivé — les % sont maintenant dans le graphique courbes
+  document.getElementById('budgetChartCard').style.display = 'none';
+  if (budgetChartInstance) { budgetChartInstance.destroy(); budgetChartInstance = null; }
+}
+
+function renderTop30(top30, totalCAB2B) {
+  const card = document.getElementById('top30Card');
+  const tbody = document.getElementById('top30Body');
+  if (!top30 || top30.length === 0) { card.style.display = 'none'; return; }
+  card.style.display = 'block';
+  tbody.innerHTML = top30.map((client, i) => {
+    const pct = totalCAB2B > 0 ? ((client.ca / totalCAB2B) * 100).toFixed(1) : 0;
+    const bg = i % 2 === 0 ? '#fafafa' : 'white';
+    return `<tr style="border-bottom:1px solid #f0f0f0; background:${bg};">
+      <td style="padding:8px 12px; color:#888;">${i + 1}</td>
+      <td style="padding:8px 12px; font-weight:500;">${client.name}</td>
+      <td style="padding:8px 12px; text-align:right;">${new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(client.ca)}</td>
+      <td style="padding:8px 12px; text-align:right; color:#888;">${client.nbFactures}</td>
+      <td style="padding:8px 12px; text-align:right;">
+        <span style="background:#f0f0f0; border-radius:4px; padding:2px 8px; font-size:12px;">${pct}%</span>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+async function loadData() {
+  const dates = getDates();
+  if (!dates) return;
+  const { dateStart, dateEnd, label } = dates;
+  const prevDates = shiftYearBack(dateStart, dateEnd);
+  const prevYear = prevDates.year;
+
+  document.getElementById('errorBox').style.display = 'none';
+  document.getElementById('periodLabel').textContent = label;
+  document.getElementById('mCAVs').textContent = '';
+  document.getElementById('budgetBarWrap').style.display = 'none';
+  setStatus('spin', 'Chargement...');
+  ['mCA','mCAB2C','mCAB2B','mAvgB2C','mAvgB2B'].forEach(id => document.getElementById(id).textContent = '...');
+  ['mCAB2CVs','mCAB2BVs','mAvgB2CVs','mAvgB2BVs'].forEach(id => {
+    document.getElementById(id).textContent = '⏳';
+    document.getElementById(id).className = 'metric-vs neutral';
+  });
+  currentTotalCA = 0;
+  document.getElementById('top30Body').innerHTML = '';
+  document.getElementById('top30Card').style.display = 'none';
+  document.getElementById('pharmacyBreakdownCard').style.display = 'none';
+  document.getElementById('b2cBreakdownRow').style.display = 'none';
+
+  try {
+    const caResp = await fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=total`);
+    if (!caResp.ok) throw new Error('Erreur API');
+    const caData = await caResp.json();
+
+    lastCaData = caData;
+    applySegment(caData);
+
+    const caByTypeRaw2 = caData._caByType || {};
+    const caB2C = (caByTypeRaw2['B2C'] || 0) + (caByTypeRaw2['Outlet'] || 0);
+    const caB2B = (caByTypeRaw2['Pharmacie'] || 0)
+                + (caByTypeRaw2['Grand Compte'] || 0)
+                + (caByTypeRaw2['Monoprix'] || 0);
+    const panierB2C = caData._panierMoyenB2C || 0;
+    const panierB2B = caData._panierMoyenB2B || 0;
+
+    const t = new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    document.getElementById('lastUpdate').textContent = 'Mis à jour le ' + t;
+    setStatus('spin', 'Chargement graphique...');
+
+    const vsEl = document.getElementById('mCAVs');
+    vsEl.textContent = '⏳ vs N-1...';
+    vsEl.className = 'metric-vs neutral';
+
+    fetch(`/api/sellsy?dateStart=${prevDates.dateStart}&dateEnd=${prevDates.dateEnd}&mode=total`)
+      .then(r => r.json())
+      .then(prev => {
+        const seg = currentSegment;
+        const prevByType = prev._caByType || {};
+        const prevB2C = (prevByType['B2C']||0) + (prevByType['Outlet']||0);
+        const prevB2B = (prevByType['Pharmacie']||0) + (prevByType['Grand Compte']||0) + (prevByType['Monoprix']||0);
+        const prevTotal = prev._totalCA || 0;
+        const prevPanierB2C = prev._panierMoyenB2C || 0;
+        const prevPanierB2B = prev._panierMoyenB2B || 0;
+
+        const curCA   = seg === 'b2b' ? caB2B : seg === 'b2c' ? caB2C : (caData._totalCA || 0);
+        const prevCA  = seg === 'b2b' ? prevB2B : seg === 'b2c' ? prevB2C : prevTotal;
+
+        if (prevCA > 0) {
+          const diff = ((curCA - prevCA) / prevCA) * 100;
+          const sign = diff >= 0 ? '+' : '';
+          vsEl.textContent = `${sign}${diff.toFixed(1)}% vs ${prevYear} (${fmt(prevCA)})`;
+          vsEl.className = `metric-vs ${diff >= 0 ? 'up' : 'down'}`;
+        } else { vsEl.textContent = 'Pas de données N-1'; }
+
+        setVs('mCAB2CVs', caB2C, prevB2C, prevYear);
+        setVs('mCAB2BVs', caB2B, prevB2B, prevYear);
+        setVs('mAvgB2CVs', panierB2C, prevPanierB2C, prevYear);
+        setVs('mAvgB2BVs', panierB2B, prevPanierB2B, prevYear);
+      })
+      .catch(() => {
+        vsEl.textContent = '';
+        ['mCAB2CVs','mCAB2BVs','mAvgB2CVs','mAvgB2BVs'].forEach(id => { document.getElementById(id).textContent = ''; });
+      });
+
+    const endDate = new Date(dateEnd + 'T12:00:00');
+    updateBanners(new Date(dateStart + 'T12:00:00').getMonth());
+    await loadMonthlyChart(endDate.getFullYear(), endDate.getMonth());
+    setStatus('ok', 'Données à jour');
+
+  } catch(e) {
+    setStatus('err', 'Erreur');
+    document.getElementById('errorBox').style.display = 'block';
+    document.getElementById('errorBox').textContent = 'Erreur : ' + e.message;
+  }
+}
+
+let finLineChartInstance = null;
+let finBarChartInstance = null;
+
+async function loadFinancierCharts(year, upToMonth) {
+  const labels = [];
+  const cm1Data = [], cm2Data = [], ebitdaData = [];
+  const budCM1Data = [], budCM2Data = [], budEBITDAData = [];
+  const promises = [];
+
+  for (let m = 0; m <= upToMonth; m++) {
+    if (year === 2026 && !finalizedMonths[m]) continue;
+    const lastDay = new Date(year, m+1, 0).getDate();
+    const ds = `${year}-${pad(m+1)}-01`;
+    const de = `${year}-${pad(m+1)}-${pad(lastDay)}`;
+    labels.push(monthsShort[m]);
+    promises.push({ m, ds, de });
+  }
+
+  const results = await Promise.all(promises.map(({ ds, de }) =>
+    fetch(`/api/pennylane?dateStart=${ds}&dateEnd=${de}`).then(r => r.json()).catch(() => ({}))
+  ));
+
+  for (let i = 0; i < promises.length; i++) {
+    const { m } = promises[i];
+    const d = results[i];
+    cm1Data.push(Math.round((d._cm1 || 0) / 1000 * 10) / 10);
+    cm2Data.push(Math.round((d._cm2 || 0) / 1000 * 10) / 10);
+    ebitdaData.push(Math.round((d._ebitda || 0) / 1000 * 10) / 10);
+    if (year === 2026) {
+      budCM1Data.push(budgetCM12026[m] || 0);
+      budCM2Data.push(budgetCM22026[m] || 0);
+      budEBITDAData.push(budgetEBITDA2026[m] || 0);
+    }
+  }
+
+  const ctx1 = document.getElementById('finLineChart').getContext('2d');
+  if (finLineChartInstance) finLineChartInstance.destroy();
+  const datasets = [
+    { label: 'CM1', data: cm1Data, borderColor: '#74A1D6', backgroundColor: 'rgba(116,161,214,0.05)', borderWidth: 2.5, pointRadius: 5, tension: 0.3, fill: false },
+    { label: 'CM2', data: cm2Data, borderColor: '#1D9E75', backgroundColor: 'transparent', borderWidth: 2.5, pointRadius: 5, tension: 0.3, fill: false },
+    { label: 'EBITDA', data: ebitdaData, borderColor: '#D85A30', backgroundColor: 'transparent', borderWidth: 2.5, pointRadius: 5, tension: 0.3, fill: false },
+  ];
+  finLineChartInstance = new Chart(ctx1, {
+    type: 'line', data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { font: { size: 12 }, boxWidth: 24 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label} : ${ctx.parsed.y.toLocaleString('fr-FR')} k€` } }
+      },
+      scales: {
+        y: { grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 }, callback: v => v + ' k€' } },
+        x: { grid: { display: false }, ticks: { font: { size: 12 } } }
+      }
+    }
+  });
+  document.getElementById('finChartCard').style.display = 'block';
+
+  if (year === 2026 && budEBITDAData.some(v => v > 0)) {
+    const ctx2 = document.getElementById('finBarChart').getContext('2d');
+    if (finBarChartInstance) finBarChartInstance.destroy();
+    const pctEBITDA = labels.map((_, i) => budEBITDAData[i] > 0 ? Math.round((ebitdaData[i] / budEBITDAData[i]) * 100) : null);
+    finBarChartInstance = new Chart(ctx2, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: '% EBITDA vs Budget', data: pctEBITDA, backgroundColor: pctEBITDA.map(p => p >= 100 ? '#1D9E75' : '#D85A30'), borderRadius: 4 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ` EBITDA : ${ctx.parsed.y}%` } }
+        },
+        scales: {
+          y: { beginAtZero: true, grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 }, callback: v => v + '%' } },
+          x: { grid: { display: false }, ticks: { font: { size: 12 } } }
+        }
+      }
+    });
+    document.getElementById('finBudgetChartCard').style.display = 'block';
+  } else {
+    document.getElementById('finBudgetChartCard').style.display = 'none';
+  }
+}
+
+let finalizedMonths = Array(12).fill(false);
+
+function loadFinalizedMonths() {
+  try {
+    const saved = localStorage.getItem('finalizedMonths2026');
+    if (saved) finalizedMonths = JSON.parse(saved);
+  } catch {}
+}
+loadFinalizedMonths();
+
+function isMonthFinalized(dateStart) {
+  const d = new Date(dateStart + 'T12:00:00');
+  if (d.getFullYear() !== 2026) return true;
+  return finalizedMonths[d.getMonth()] === true;
+}
+
+function loadFinancierChecked() {
+  const dates = getFinDates();
+  if (!dates) return;
+  const lockMsg = document.getElementById('finLockMsg');
+
+  if (!isMonthFinalized(dates.dateEnd)) {
+    lockMsg.style.display = 'block';
+    lockMsg.textContent = '🔒 Ce mois n\'est pas encore finalisé dans Pennylane.';
+    updateBanners(dates.monthIndex);
+    return;
+  }
+  lockMsg.style.display = 'none';
+
+  updateBanners(dates.monthIndex);
+  loadFinancier(dates);
+}
+
+let currentView = 'business';
+
+function switchView(view) {
+  currentView = view;
+  document.getElementById('businessView').style.display = view === 'business' ? 'block' : 'none';
+  document.getElementById('financierView').style.display = view === 'financier' ? 'block' : 'none';
+  document.getElementById('navBusiness').style.background = view === 'business' ? '#1a1a1a' : 'transparent';
+  document.getElementById('navBusiness').style.color = view === 'business' ? 'white' : '#666';
+  document.getElementById('navFinancier').style.background = view === 'financier' ? '#1a1a1a' : 'transparent';
+  document.getElementById('navFinancier').style.color = view === 'financier' ? 'white' : '#666';
+}
+
+let finCurrentMode = 'month';
+
+const DEFAULT_BUDGET_CM1    = [0,0,0,0,0,0,0,0,0,0,0,0];
+const DEFAULT_BUDGET_CM2    = [0,0,0,0,0,0,0,0,0,0,0,0];
+const DEFAULT_BUDGET_EBITDA = [0,0,0,0,0,0,0,0,0,0,0,0];
+let budgetCM12026    = [...DEFAULT_BUDGET_CM1];
+let budgetCM22026    = [...DEFAULT_BUDGET_CM2];
+let budgetEBITDA2026 = [...DEFAULT_BUDGET_EBITDA];
+
+function loadFinBudgetLocal() {
+  try {
+    const s1 = localStorage.getItem('budgetCM12026');    if (s1) budgetCM12026    = JSON.parse(s1);
+    const s2 = localStorage.getItem('budgetCM22026');    if (s2) budgetCM22026    = JSON.parse(s2);
+    const s3 = localStorage.getItem('budgetEBITDA2026'); if (s3) budgetEBITDA2026 = JSON.parse(s3);
+  } catch {}
+}
+loadFinBudgetLocal();
+
+function openBudgetModalWithFin() {
+  openBudgetModal();
+  const grid = document.getElementById('budgetGrid');
+
+  const finSection = document.createElement('div');
+  finSection.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
+  finSection.innerHTML = '<p style="font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px;">💰 Budgets Financier (k€)</p>' +
+    '<div style="display:grid;grid-template-columns:80px 1fr 1fr 1fr;gap:8px;align-items:center;border-bottom:1px solid #e5e5e5;padding-bottom:8px;margin-bottom:4px;">' +
+    '<span style="font-size:11px;color:#888;font-weight:600;">Mois</span>' +
+    '<span style="font-size:11px;color:#74A1D6;font-weight:600;text-align:center;">CM1 (k€)</span>' +
+    '<span style="font-size:11px;color:#1D9E75;font-weight:600;text-align:center;">CM2 (k€)</span>' +
+    '<span style="font-size:11px;color:#D85A30;font-weight:600;text-align:center;">EBITDA (k€)</span>' +
+    '</div>' +
+    months.map((m, i) =>
+      '<div style="display:grid;grid-template-columns:80px 1fr 1fr 1fr;gap:8px;align-items:center;margin-bottom:4px;">' +
+      '<span style="font-size:12px;color:#444;">' + m + '</span>' +
+      '<input type="number" id="budgetCM1_' + i + '" value="' + budgetCM12026[i] + '" placeholder="0" style="padding:6px 8px;border:1px solid #c5d9ef;border-radius:6px;font-size:13px;text-align:center;" />' +
+      '<input type="number" id="budgetCM2_' + i + '" value="' + budgetCM22026[i] + '" placeholder="0" style="padding:6px 8px;border:1px solid #a8dcc8;border-radius:6px;font-size:13px;text-align:center;" />' +
+      '<input type="number" id="budgetEBITDA_' + i + '" value="' + budgetEBITDA2026[i] + '" placeholder="0" style="padding:6px 8px;border:1px solid #f0b8a0;border-radius:6px;font-size:13px;text-align:center;" />' +
+      '</div>'
+    ).join('');
+  grid.appendChild(finSection);
+
+  const pharmSection = document.createElement('div');
+  pharmSection.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
+  const pharmCols = PHARMACY_CATS.map(c => `<span style="font-size:11px;color:${PHARMACY_COLORS[c]};font-weight:600;text-align:center;">${c} (k€)</span>`).join('');
+  const pharmInputs = months.map((m, i) =>
+    `<div style="display:grid;grid-template-columns:80px ${PHARMACY_CATS.map(() => '1fr').join(' ')};gap:8px;align-items:center;margin-bottom:4px;">
+      <span style="font-size:12px;color:#444;">${m}</span>
+      ${PHARMACY_CATS.map(cat => `<input type="number" id="budgetPharmacy_${cat}_${i}" value="${(budgetPharmacy[cat] || [])[i] || 0}" placeholder="0" style="padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center;" />`).join('')}
+    </div>`
+  ).join('');
+  pharmSection.innerHTML = `<p style="font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px;">💊 Budget Pharmacies par catégorie (k€)</p>
+    <div style="display:grid;grid-template-columns:80px ${PHARMACY_CATS.map(() => '1fr').join(' ')};gap:8px;align-items:center;border-bottom:1px solid #e5e5e5;padding-bottom:8px;margin-bottom:4px;">
+      <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>${pharmCols}
+    </div>${pharmInputs}`;
+  grid.appendChild(pharmSection);
+
+  const tcSection = document.createElement('div');
+  tcSection.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
+  const tcCols = TYPE_CLIENT_BUDGET_CATS.map(c => `<span style="font-size:11px;color:${TYPE_CLIENT_COLORS[c]};font-weight:600;text-align:center;">${c} (k€)</span>`).join('');
+  const tcInputs = months.map((m, i) =>
+    `<div style="display:grid;grid-template-columns:80px ${TYPE_CLIENT_BUDGET_CATS.map(() => '1fr').join(' ')};gap:8px;align-items:center;margin-bottom:4px;">
+      <span style="font-size:12px;color:#444;">${m}</span>
+      ${TYPE_CLIENT_BUDGET_CATS.map(cat => `<input type="number" id="budgetTC_${cat}_${i}" value="${(budgetTypeClient[cat] || [])[i] || 0}" placeholder="0" style="padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center;" />`).join('')}
+    </div>`
+  ).join('');
+  tcSection.innerHTML = `<p style="font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px;">🏪 Budget par type de client B2B (k€)</p>
+    <div style="display:grid;grid-template-columns:80px ${TYPE_CLIENT_BUDGET_CATS.map(() => '1fr').join(' ')};gap:8px;align-items:center;border-bottom:1px solid #e5e5e5;padding-bottom:8px;margin-bottom:4px;">
+      <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>${tcCols}
+    </div>${tcInputs}`;
+  grid.appendChild(tcSection);
+
+  const tc2Section = document.createElement('div');
+  tc2Section.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
+  const tc2Cols = TYPE_CLIENT_BUDGET_CATS2.map(c => `<span style="font-size:11px;color:${TYPE_CLIENT_COLORS[c] || '#888'};font-weight:600;text-align:center;">${c === 'B2C' ? 'Site' : c} (k€)</span>`).join('');
+  const tc2Inputs = months.map((m, i) =>
+    `<div style="display:grid;grid-template-columns:80px ${TYPE_CLIENT_BUDGET_CATS2.map(() => '1fr').join(' ')};gap:8px;align-items:center;margin-bottom:4px;">
+      <span style="font-size:12px;color:#444;">${m}</span>
+      ${TYPE_CLIENT_BUDGET_CATS2.map(cat => `<input type="number" id="budgetTC2_${cat}_${i}" value="${(budgetTypeClient2[cat] || [])[i] || 0}" placeholder="0" style="padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center;" />`).join('')}
+    </div>`
+  ).join('');
+  tc2Section.innerHTML = `<p style="font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px;">🌐 Budget Site / Outlet / Autre (k€)</p>
+    <div style="display:grid;grid-template-columns:80px ${TYPE_CLIENT_BUDGET_CATS2.map(() => '1fr').join(' ')};gap:8px;align-items:center;border-bottom:1px solid #e5e5e5;padding-bottom:8px;margin-bottom:4px;">
+      <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>${tc2Cols}
+    </div>${tc2Inputs}`;
+  grid.appendChild(tc2Section);
+}
+
+function saveBudgetWithFin() {
+  saveBudget();
+  budgetCM12026    = months.map((_, i) => parseFloat(document.getElementById(`budgetCM1_${i}`)?.value) || 0);
+  budgetCM22026    = months.map((_, i) => parseFloat(document.getElementById(`budgetCM2_${i}`)?.value) || 0);
+  budgetEBITDA2026 = months.map((_, i) => parseFloat(document.getElementById(`budgetEBITDA_${i}`)?.value) || 0);
+  localStorage.setItem('budgetCM12026',    JSON.stringify(budgetCM12026));
+  localStorage.setItem('budgetCM22026',    JSON.stringify(budgetCM22026));
+  localStorage.setItem('budgetEBITDA2026', JSON.stringify(budgetEBITDA2026));
+  PHARMACY_CATS.forEach(cat => {
+    budgetPharmacy[cat] = months.map((_, i) => parseFloat(document.getElementById(`budgetPharmacy_${cat}_${i}`)?.value) || 0);
+  });
+  savePharmacyBudget();
+  TYPE_CLIENT_BUDGET_CATS.forEach(cat => {
+    budgetTypeClient[cat] = months.map((_, i) => parseFloat(document.getElementById(`budgetTC_${cat}_${i}`)?.value) || 0);
+  });
+  TYPE_CLIENT_BUDGET_CATS2.forEach(cat => {
+    budgetTypeClient2[cat] = months.map((_, i) => parseFloat(document.getElementById(`budgetTC2_${cat}_${i}`)?.value) || 0);
+  });
+  saveTypeClientBudget();
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  ['finSelYear','finSelYtdYear'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    for(let y = now.getFullYear(); y >= 2025; y--) {
+      const opt = document.createElement('option');
+      opt.value = y; opt.textContent = y; el.appendChild(opt);
+    }
+  });
+  if (document.getElementById('finSelMonth'))    document.getElementById('finSelMonth').value    = now.getMonth();
+  if (document.getElementById('finSelYtdMonth')) document.getElementById('finSelYtdMonth').value = now.getMonth();
+  if (document.getElementById('finDateFrom'))    document.getElementById('finDateFrom').value    = todayStr;
+  if (document.getElementById('finDateTo'))      document.getElementById('finDateTo').value      = todayStr;
+});
+
+function setFinPeriod(mode) {
+  finCurrentMode = mode;
+  ['month','ytd','custom'].forEach(m => {
+    const btn = document.getElementById('finBtn' + m.charAt(0).toUpperCase() + m.slice(1));
+    if (btn) btn.classList.toggle('active', m === mode);
+  });
+  document.getElementById('finSelectorsMonth').style.display  = mode === 'month'  ? 'flex' : 'none';
+  document.getElementById('finSelectorsYtd').style.display    = mode === 'ytd'    ? 'flex' : 'none';
+  document.getElementById('finSelectorsCustom').style.display = mode === 'custom' ? 'flex' : 'none';
+}
+
+function getFinDates() {
+  if (finCurrentMode === 'month') {
+    const month = parseInt(document.getElementById('finSelMonth').value);
+    const year  = parseInt(document.getElementById('finSelYear').value);
+    const lastDay = new Date(year, month+1, 0).getDate();
+    return { dateStart: `${year}-${pad(month+1)}-01`, dateEnd: `${year}-${pad(month+1)}-${pad(lastDay)}`, label: `${months[month]} ${year}`, monthIndex: month };
+  }
+  if (finCurrentMode === 'ytd') {
+    const month = parseInt(document.getElementById('finSelYtdMonth').value);
+    const year  = parseInt(document.getElementById('finSelYtdYear').value);
+    const lastDay = new Date(year, month+1, 0).getDate();
+    return { dateStart: `${year}-01-01`, dateEnd: `${year}-${pad(month+1)}-${pad(lastDay)}`, label: `Cumul YTD — Janvier à ${months[month]} ${year}`, monthIndex: month };
+  }
+  if (finCurrentMode === 'custom') {
+    const from = document.getElementById('finDateFrom').value;
+    const to   = document.getElementById('finDateTo').value;
+    if (!from || !to) { alert('Veuillez sélectionner une date de début et de fin.'); return null; }
+    return { dateStart: from, dateEnd: to, label: `Du ${new Date(from+'T12:00:00').toLocaleDateString('fr-FR')} au ${new Date(to+'T12:00:00').toLocaleDateString('fr-FR')}`, monthIndex: new Date(from+'T12:00:00').getMonth() };
+  }
+}
+
+function showFinBudgetBar(wrapperId, labelId, pctId, fillId, value, budgetVal, label) {
+  if (budgetVal <= 0) { document.getElementById(wrapperId).style.display = 'none'; return; }
+  const pct = Math.round(((value / 1000) / budgetVal) * 100);
+  document.getElementById(wrapperId).style.display = 'block';
+  document.getElementById(labelId).textContent = `${label} : ${budgetVal.toLocaleString('fr-FR')} k€`;
+  document.getElementById(pctId).textContent = `${pct}% atteint`;
+  const fill = document.getElementById(fillId);
+  fill.style.width = Math.min(pct, 100) + '%';
+  fill.className = `budget-bar-fill ${pct >= 100 ? 'over' : 'ok'}`;
+}
+
+let tresorerieVisible = false;
+let tresorerieValue = null;
+
+function toggleTresorerie() {
+  tresorerieVisible = !tresorerieVisible;
+  const el  = document.getElementById('tresorerieResult');
+  const btn = document.getElementById('tresorerieToggleBtn');
+  const detail = document.getElementById('tresorerieDetail');
+  if (tresorerieVisible && tresorerieValue !== null) {
+    el.style.filter = 'none';
+    el.textContent = fmt(tresorerieValue);
+    detail.style.display = 'block';
+    btn.textContent = '🙈 Masquer';
+  } else {
+    el.style.filter = 'blur(6px)';
+    el.textContent = '——————';
+    detail.style.display = 'none';
+    btn.textContent = '👁 Afficher';
+  }
+}
+
+async function loadTresorerie() {
+  const resultEl = document.getElementById('tresorerieResult');
+  const detailEl = document.getElementById('tresorerieDetail');
+  tresorerieVisible = false;
+  resultEl.style.filter = 'blur(6px)';
+  resultEl.textContent = '...';
+  document.getElementById('tresorerieToggleBtn').textContent = '👁 Afficher';
+  try {
+    const today = todayStr;
+    const resp = await fetch(`/api/pennylane?dateStart=${today}&dateEnd=${today}&mode=tresorerie`);
+    const data = await resp.json();
+    tresorerieValue = data._soldeTresorerie || 0;
+    resultEl.textContent = '——————';
+    if (data._detailComptes && data._detailComptes.length > 0) {
+      detailEl.innerHTML = data._detailComptes.map(c => `${c.label} : ${fmt(c.solde)}`).join(' &nbsp;·&nbsp; ');
+    }
+  } catch(e) {
+    tresorerieValue = null;
+    resultEl.style.filter = 'none';
+    resultEl.textContent = 'Erreur';
+  }
+}
+
+async function loadFinancier(datesOverride) {
+  const dates = datesOverride || getFinDates();
+  if (!dates) return;
+  const { dateStart, dateEnd, label, monthIndex } = dates;
+
+  document.getElementById('finErrorBox').style.display = 'none';
+  document.getElementById('finPeriodLabel').textContent = label;
+  document.getElementById('finStatusDot').className = 'dot spin';
+  document.getElementById('finStatusText').textContent = 'Chargement...';
+  ['finCA','finCM1','finCM2','finEBITDA'].forEach(id => document.getElementById(id).textContent = '...');
+
+  try {
+    const resp = await fetch(`/api/pennylane?dateStart=${dateStart}&dateEnd=${dateEnd}`);
+    if (!resp.ok) throw new Error('Erreur API Pennylane');
+    const data = await resp.json();
+
+    document.getElementById('finCA').textContent       = fmt(data._caComptable || 0);
+    document.getElementById('finCM1').textContent      = fmt(data._cm1 || 0);
+    document.getElementById('finTauxCM1').textContent  = `Taux : ${(data._tauxCm1 || 0).toFixed(1)}%`;
+    document.getElementById('finCM2').textContent      = fmt(data._cm2 || 0);
+    document.getElementById('finTauxCM2').textContent  = `Taux : ${(data._tauxCm2 || 0).toFixed(1)}%`;
+    document.getElementById('finEBITDA').textContent   = fmt(data._ebitda || 0);
+    document.getElementById('finTauxEBITDA').textContent = `Taux : ${(data._tauxEbitda || 0).toFixed(1)}%`;
+
+    const ebitdaEl = document.getElementById('finEBITDA');
+    ebitdaEl.style.color = (data._ebitda || 0) >= 0 ? '#1D9E75' : '#D85A30';
+
+    const year = new Date(dateStart + 'T12:00:00').getFullYear();
+    if (year === 2026) {
+      let budCM1 = 0, budCM2 = 0, budEBITDA = 0;
+      if (finCurrentMode === 'month') {
+        budCM1    = budgetCM12026[monthIndex];
+        budCM2    = budgetCM22026[monthIndex];
+        budEBITDA = budgetEBITDA2026[monthIndex];
+      } else if (finCurrentMode === 'ytd') {
+        for (let m = 0; m <= monthIndex; m++) {
+          budCM1    += budgetCM12026[m];
+          budCM2    += budgetCM22026[m];
+          budEBITDA += budgetEBITDA2026[m];
+        }
+      }
+      showFinBudgetBar('finBudgetCM1Wrap',    'finBudgetCM1Label',    'finBudgetCM1Pct',    'finBudgetCM1Fill',    data._cm1||0,    budCM1,    'Budget CM1');
+      showFinBudgetBar('finBudgetCM2Wrap',    'finBudgetCM2Label',    'finBudgetCM2Pct',    'finBudgetCM2Fill',    data._cm2||0,    budCM2,    'Budget CM2');
+      showFinBudgetBar('finBudgetEBITDAWrap', 'finBudgetEBITDALabel', 'finBudgetEBITDAPct', 'finBudgetEBITDAFill', data._ebitda||0, budEBITDA, 'Budget EBITDA');
+    }
+
+    document.getElementById('finStatusDot').className  = 'dot ok';
+    document.getElementById('finStatusText').textContent = `Données à jour${data._fromCache ? ' (cache)' : ''}`;
+
+    const endDateObj = new Date(dateEnd + 'T12:00:00');
+    await loadFinancierCharts(endDateObj.getFullYear(), endDateObj.getMonth());
+
+  } catch(e) {
+    document.getElementById('finStatusDot').className  = 'dot err';
+    document.getElementById('finStatusText').textContent = 'Erreur';
+    document.getElementById('finErrorBox').style.display = 'block';
+    document.getElementById('finErrorBox').textContent = 'Erreur : ' + e.message;
+  }
+}
+</script>
+</body>
+</html>
