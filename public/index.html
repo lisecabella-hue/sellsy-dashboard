@@ -209,15 +209,15 @@
     <p class="period-label" id="periodLabel"></p>
 
     <!-- Ligne de jauges style compteur : Total + B2B + B2C -->
-    <div id="gaugesRow" class="chart-card" style="margin-bottom:16px;padding:20px 28px;">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border-radius:8px;overflow:hidden;">
+    <div id="gaugesRow" class="chart-card" style="margin-bottom:16px;padding:0;border-radius:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.06);">
+      <div style="display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:0;border-radius:12px;overflow:hidden;">
 
         <!-- TOTAL -->
-        <div id="blockTotal" style="padding:16px 24px;border-right:1px solid #e5e5e5;">
-          <p style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#1a1a1a;margin-bottom:12px;">CA Total HT</p>
+        <div id="blockTotal" style="padding:24px 28px;border-right:1px solid #e5e5e5;">
+          <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:14px;">CA Total HT</p>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
             <div>
-              <p style="font-size:26px;font-weight:500;line-height:1;" id="mCA">—</p>
+              <p style="font-size:36px;font-weight:500;line-height:1;" id="mCA">—</p>
               <p style="font-size:12px;margin-top:6px;" id="mCAVs"></p>
               <p style="font-size:12px;margin-top:4px;color:#aaa;" id="mCABudgetLabel"></p>
               <p style="font-size:13px;font-weight:600;color:#D85A30;margin-top:4px;" id="mCAResteAFaire"></p>
@@ -235,8 +235,8 @@
         </div>
 
         <!-- B2B -->
-        <div id="blockB2B" style="padding:16px 24px;border-right:1px solid #e5e5e5;background:linear-gradient(to bottom, #f0faf6, #f8fdfb);">
-          <p style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#1D9E75;margin-bottom:12px;">Dont CA B2B</p>
+        <div id="blockB2B" style="padding:24px 22px;border-right:1px solid #e5e5e5;background:linear-gradient(135deg, #edf8f3 0%, #f8fdfb 100%);">
+          <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#1D9E75;margin-bottom:14px;">Dont CA B2B</p>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
             <div>
               <p style="font-size:26px;font-weight:500;line-height:1;" id="mCAB2B">—</p>
@@ -252,8 +252,8 @@
         </div>
 
         <!-- B2C -->
-        <div id="blockB2C" style="padding:16px 24px;background:linear-gradient(to bottom, #f0f5fc, #f7fafd);">
-          <p style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:#74A1D6;margin-bottom:12px;">Dont CA B2C</p>
+        <div id="blockB2C" style="padding:24px 22px;background:linear-gradient(135deg, #edf3fb 0%, #f7fafd 100%);">
+          <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#74A1D6;margin-bottom:14px;">Dont CA B2C</p>
           <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
             <div>
               <p style="font-size:26px;font-weight:500;line-height:1;" id="mCAB2C">—</p>
@@ -308,7 +308,7 @@
     </div>
 
     <!-- Répartition par type de client -->
-    <div class="chart-card" id="typeClientRow" style="margin-bottom:24px;">
+    <div class="chart-card" id="typeClientRow" style="margin-bottom:24px;display:none;">
       <div class="chart-header">
         <div>
           <p class="chart-title">Répartition CA par type de client</p>
