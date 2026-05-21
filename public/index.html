@@ -319,7 +319,7 @@
           <p class="chart-subtitle" style="margin-top:2px;">% = taux de réalisation vs budget</p>
         </div>
       </div>
-      <div class="chart-container"><canvas id="caChart"></canvas></div>
+      <div class="chart-container" style="height:320px;"><canvas id="caChart"></canvas></div>
     </div>
 
     <div class="chart-card" id="budgetChartCard" style="display:none;">
@@ -1795,7 +1795,7 @@ function renderChart(labels, currentData, prevData, budgetData, year) {
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
-      layout: { padding: { top: 32 } },
+      layout: { padding: { top: 48 } },
       plugins: {
         legend: { position: 'top', labels: { font: { size: 12 }, boxWidth: 24 } },
         tooltip: { callbacks: { label: ctx => {
