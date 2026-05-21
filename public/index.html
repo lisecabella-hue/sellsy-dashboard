@@ -1545,11 +1545,11 @@ function getBudgetB2BForPeriod(dateStart, dateEnd) {
 }
 
 const TYPE_CLIENT_COLORS = {
-  'Pharmacie':    '#1a1a1a',
-  'Monoprix':     '#1D9E75',
+  'Pharmacie':    '#1D9E75',
+  'Monoprix':     '#9B59B6',
   'Marketing':    '#74A1D6',
   'Grand Compte': '#D85A30',
-  'Outlet':       '#9B59B6',
+  'Outlet':       '#E67E22',
   'Autre':        '#F5A623',
   'Site':         '#bbb',
   'B2C':          '#bbb'
@@ -1743,6 +1743,36 @@ function renderChart(labels, currentData, prevData, budgetData, year) {
   // Plugin étiquettes % réalisation sur les points 2026
   const pctLabelPlugin = {
     id: 'pctLabels',
+    afterDraw(chart) {
+      // Ajouter légende "Taux de réalisation" à côté des items existants
+      if (!pctData.length) return;
+      const { ctx, chartArea } = chart;
+      const legendItems = chart.legend.legendItems;
+      if (!legendItems || !legendItems.length) return;
+      const lastItem = legendItems[legendItems.length - 1];
+      if (!lastItem) return;
+      // Position après le dernier item de légende
+      const legendBox = chart.legend;
+      const top = legendBox.top + legendBox.height / 2;
+      const lastX = (legendBox.left + legendBox.right) / 2 + 120;
+      ctx.save();
+      // Pastille verte
+      ctx.beginPath();
+      ctx.arc(lastX + 8, top, 5, 0, 2 * Math.PI);
+      ctx.fillStyle = '#1D9E75';
+      ctx.fill();
+      // Pastille rouge
+      ctx.beginPath();
+      ctx.arc(lastX + 20, top, 5, 0, 2 * Math.PI);
+      ctx.fillStyle = '#D85A30';
+      ctx.fill();
+      ctx.font = '11px -apple-system, sans-serif';
+      ctx.fillStyle = '#888';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('% réalisation vs budget', lastX + 28, top);
+      ctx.restore();
+    },
     afterDatasetsDraw(chart) {
       if (!pctData.length) return;
       const { ctx } = chart;
@@ -1760,9 +1790,9 @@ function renderChart(labels, currentData, prevData, budgetData, year) {
         // Fond blanc pour lisibilité
         const tw = ctx.measureText(label).width + 6;
         ctx.fillStyle = 'white';
-        ctx.fillRect(point.x - tw/2, point.y - 22, tw, 16);
+        ctx.fillRect(point.x - tw/2, point.y - 28, tw, 16);
         ctx.fillStyle = color;
-        ctx.fillText(label, point.x, point.y - 8);
+        ctx.fillText(label, point.x, point.y - 14);
         ctx.restore();
       });
     }
@@ -1773,9 +1803,31 @@ function renderChart(labels, currentData, prevData, budgetData, year) {
     options: {
       responsive: true, maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
-      layout: { padding: { top: 24 } },
+      layout: { padding: { top: 32 } },
       plugins: {
-        legend: { position: 'top', labels: { font: { size: 12 }, boxWidth: 24 } },
+        legend: {
+          position: 'top',
+          labels: {
+            font: { size: 12 }, boxWidth: 24,
+            generateLabels(chart) {
+              const base = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+              if (pctData.length > 0) {
+                base.push({
+                  text: 'Taux de réalisation',
+                  fillStyle: 'transparent',
+                  strokeStyle: 'transparent',
+                  lineWidth: 0,
+                  hidden: false,
+                  index: -1,
+                  fontColor: '#888',
+                  pointStyle: 'circle',
+                  // custom render handled by plugin
+                });
+              }
+              return base;
+            }
+          }
+        },
         tooltip: { callbacks: { label: ctx => {
           const line = ` ${ctx.dataset.label} : ${ctx.parsed.y.toLocaleString('fr-FR')} k€`;
           if (ctx.datasetIndex === 0 && pctData[ctx.dataIndex] !== null && pctData[ctx.dataIndex] !== undefined) {
