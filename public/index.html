@@ -1272,7 +1272,17 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
   drawArcGauge(canvasId, pct, expectedPct, fillColor, budVal, caVal);
 
   // Label budget
-  if (budLabelEl) budLabelEl.textContent = `Budget : ${budVal.toLocaleString('fr-FR')} k€`;
+  // Affiche le % de temps écoulé plutôt que le budget
+  if (budLabelEl) {
+    const ratio = getProratioForPeriod(useWorkdays);
+    if (ratio !== null) {
+      const pctTemps = Math.round(ratio * 100);
+      const base = useWorkdays ? 'jours ouvrés' : 'jours calendaires';
+      budLabelEl.textContent = `Temps écoulé : ${pctTemps}% (${base})`;
+    } else {
+      budLabelEl.textContent = '';
+    }
+  }
 
   // Reste à faire
   if (resteEl) {
