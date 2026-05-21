@@ -1312,7 +1312,7 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
         statusEl.textContent = `↓ En retard de ${fmt(diffAbs)}`;
         statusEl.style.color = '#D85A30';
       } else {
-        statusEl.textContent = '≈ Dans les clous';
+        statusEl.textContent = '≈ Dans les clous du budget écoulé';
         statusEl.style.color = '#888';
       }
     } else {
@@ -1674,11 +1674,11 @@ function renderTypeClientPieChart(caByType) {
       const diffEuros = val - expectedEuros;
       const diffAbs = Math.abs(diffEuros);
       if (diffEuros >= 500) {
-        rythmeText = `<span style="color:#1D9E75;">✓ +${fmt(diffAbs)} vs rythme</span>`;
+        rythmeText = `<span style="color:#1D9E75;">✓ +${fmt(diffAbs)} vs budget écoulé</span>`;
       } else if (diffEuros <= -500) {
-        rythmeText = `<span style="color:#D85A30;">↓ -${fmt(diffAbs)} vs rythme</span>`;
+        rythmeText = `<span style="color:#D85A30;">↓ -${fmt(diffAbs)} vs budget écoulé</span>`;
       } else {
-        rythmeText = `<span style="color:#888;">≈ Dans les clous</span>`;
+        rythmeText = `<span style="color:#888;">≈ Dans les clous du budget écoulé</span>`;
       }
     }
 
