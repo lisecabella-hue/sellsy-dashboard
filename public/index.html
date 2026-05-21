@@ -1807,7 +1807,7 @@ function renderChart(labels, currentData, prevData, budgetData, year) {
         }}}
       },
       scales: {
-        y: { beginAtZero: false, grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 }, callback: v => v + ' k€' } },
+        y: { beginAtZero: false, grace: '15%', grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 }, callback: v => v + ' k€' } },
         x: { grid: { display: false }, ticks: { font: { size: 12 } } }
       }
     },
