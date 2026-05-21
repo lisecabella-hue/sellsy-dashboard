@@ -213,19 +213,11 @@
         <p class="metric-label">Chiffre d'affaires HT (brut)</p>
         <p class="metric-value" id="mCA">—</p>
         <p class="metric-vs neutral" id="mCAVs"></p>
-        <div class="budget-bar-wrap" id="budgetBarWrap" style="display:none;">
-          <div class="budget-bar-label">
-            <span id="budgetBarLabel">vs Budget</span>
-            <span id="budgetBarPct"></span>
-          </div>
-          <div class="budget-bar-bg">
-            <div class="budget-bar-fill ok" id="budgetBarFill" style="width:0%"></div>
-            <div class="budget-bar-expected" id="budgetBarExpected" style="left:0%;display:none;"></div>
-          </div>
-          <p class="budget-status" id="budgetStatusTotal"></p>
+        <div id="budgetBarWrap" style="display:none;margin-top:10px;">
+          <canvas id="gaugeTotal" width="180" height="100" style="display:block;margin:0 auto;"></canvas>
+          <p id="budgetStatusTotal" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;"></p>
         </div>
-        <p class="metric-sub">Total de la période</p>
-        <p class="metric-sub" id="mAvoirsKpi" style="margin-top:8px;"></p>
+        <p class="metric-sub" id="mAvoirsKpi" style="display:none;"></p>
       </div>
     </div>
 
@@ -246,32 +238,18 @@
           <p class="metric-label">CA B2C (Site + Outlet)</p>
           <p class="metric-value" id="mCAB2C">—</p>
           <p class="metric-vs neutral" id="mCAB2CVs">⏳</p>
-          <div class="budget-bar-wrap" id="budgetBarB2CWrap" style="display:none;">
-            <div class="budget-bar-label">
-              <span id="budgetBarB2CLabel">vs Budget B2C</span>
-              <span id="budgetBarB2CPct"></span>
-            </div>
-            <div class="budget-bar-bg">
-              <div class="budget-bar-fill ok" id="budgetBarB2CFill" style="width:0%"></div>
-              <div class="budget-bar-expected" id="budgetBarB2CExpected" style="left:0%;display:none;"></div>
-            </div>
-            <p class="budget-status" id="budgetStatusB2C"></p>
+          <div id="budgetBarB2CWrap" style="display:none;margin-top:10px;">
+            <canvas id="gaugeB2C" width="160" height="90" style="display:block;margin:0 auto;"></canvas>
+            <p id="budgetStatusB2C" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;"></p>
           </div>
         </div>
         <div class="metric-card b2b">
           <p class="metric-label">CA B2B</p>
           <p class="metric-value" id="mCAB2B">—</p>
           <p class="metric-vs neutral" id="mCAB2BVs">⏳</p>
-          <div class="budget-bar-wrap" id="budgetBarB2BWrap" style="display:none;">
-            <div class="budget-bar-label">
-              <span id="budgetBarB2BLabel">vs Budget B2B</span>
-              <span id="budgetBarB2BPct"></span>
-            </div>
-            <div class="budget-bar-bg">
-              <div class="budget-bar-fill ok" id="budgetBarB2BFill" style="width:0%"></div>
-              <div class="budget-bar-expected" id="budgetBarB2BExpected" style="left:0%;display:none;"></div>
-            </div>
-            <p class="budget-status" id="budgetStatusB2B"></p>
+          <div id="budgetBarB2BWrap" style="display:none;margin-top:10px;">
+            <canvas id="gaugeB2B" width="160" height="90" style="display:block;margin:0 auto;"></canvas>
+            <p id="budgetStatusB2B" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;"></p>
           </div>
         </div>
         <div class="metric-card b2c">
@@ -871,15 +849,8 @@ function applySegment(caData) {
   document.getElementById('mAvgB2C').textContent = fmt(panierB2C);
   document.getElementById('mAvgB2B').textContent = fmt(panierB2B);
 
-  const tauxAvoirs = caData._tauxAvoirs || 0;
-  const totalAvoirs = caData._totalAvoirs || 0;
   const avoirsEl = document.getElementById('mAvoirsKpi');
-  if (avoirsEl && seg === 'total') {
-    const avoirsColor = tauxAvoirs > 2 ? '#D85A30' : '#1D9E75';
-    avoirsEl.innerHTML = `Avoirs : <span style="font-weight:600;color:${avoirsColor}">${tauxAvoirs.toFixed(2)}%</span> (${fmt(totalAvoirs)})`;
-  } else if (avoirsEl) {
-    avoirsEl.innerHTML = '';
-  }
+  if (avoirsEl) avoirsEl.innerHTML = ''; // avoirs masqués
 
   renderPieChart(caB2C, caB2B);
   currentTotalCA = ca;
@@ -1096,95 +1067,7 @@ function saveBudget() {
 }
 
 // ============================================================
-// NOUVELLE FONCTION : double jauge avec curseur "attendu"
-// ============================================================
-function updateBudgetB2CB2BDisplay(caB2C, caB2B) {
-  const dates = getDates();
-  if (!dates) return;
-  const { dateStart, dateEnd } = dates;
-  const startDate = new Date(dateStart + 'T12:00:00');
-  const endDate = new Date(dateEnd + 'T12:00:00');
-
-  function getBudgetForPeriod(budgetArr) {
-    if (startDate.getFullYear() !== 2026 && endDate.getFullYear() !== 2026) return 0;
-    if (currentMode === 'month' && startDate.getFullYear() === 2026) return budgetArr[startDate.getMonth()];
-    if (currentMode === 'ytd' && endDate.getFullYear() === 2026) {
-      let t = 0; for (let m = 0; m <= endDate.getMonth(); m++) t += budgetArr[m]; return t;
-    }
-    if (currentMode === 'today' && startDate.getFullYear() === 2026) {
-      const m = startDate.getMonth();
-      return Math.round(budgetArr[m] / new Date(2026, m+1, 0).getDate() * 10) / 10;
-    }
-    let t = 0;
-    const days = Math.round((endDate - startDate) / 86400000) + 1;
-    for (let d = 0; d < days; d++) {
-      const day = new Date(startDate); day.setDate(startDate.getDate() + d);
-      if (day.getFullYear() === 2026) { const m = day.getMonth(); t += budgetArr[m] / new Date(2026, m+1, 0).getDate(); }
-    }
-    return Math.round(t * 10) / 10;
-  }
-
-  function renderBar(wrapperId, labelId, pctId, fillId, expectedId, statusId, caVal, budgetArr, label, useWorkdays) {
-    const budVal = getBudgetForPeriod(budgetArr);
-    if (budVal <= 0) {
-      document.getElementById(wrapperId).style.display = 'none';
-      return;
-    }
-
-    const pct = Math.round(((caVal / 1000) / budVal) * 100);
-    document.getElementById(wrapperId).style.display = 'block';
-    document.getElementById(labelId).textContent = `${label} : ${budVal.toLocaleString('fr-FR')} k€`;
-    document.getElementById(pctId).textContent = `${pct}% réalisé`;
-
-    const fill = document.getElementById(fillId);
-    fill.style.width = Math.min(pct, 100) + '%';
-    fill.className = `budget-bar-fill ${pct >= 100 ? 'over' : 'ok'}`;
-
-    // Curseur "attendu" — uniquement sur le mois en cours
-    const ratio = getProratioForCurrentMonth(useWorkdays);
-    const expectedEl = document.getElementById(expectedId);
-    const statusEl   = document.getElementById(statusId);
-
-    if (ratio !== null) {
-      const expectedPct   = Math.round(ratio * 100);
-      const expectedEuros = Math.round((budVal * 1000) * ratio);
-      const diffEuros     = caVal - expectedEuros;
-      const diffAbs       = Math.abs(diffEuros);
-      const base          = useWorkdays ? 'jours ouvrés' : 'jours calendaires';
-
-      expectedEl.style.display = 'block';
-      expectedEl.style.left = Math.min(expectedPct, 100) + '%';
-
-      if (diffEuros >= 500) {
-        statusEl.textContent = `✓ En avance de ${fmt(diffAbs)} — attendu ${expectedPct}% (${base})`;
-        statusEl.className = 'budget-status ahead';
-      } else if (diffEuros <= -500) {
-        statusEl.textContent = `↓ En retard de ${fmt(diffAbs)} — attendu ${expectedPct}% (${base})`;
-        statusEl.className = 'budget-status behind';
-      } else {
-        statusEl.textContent = `≈ Dans les clous — attendu ${expectedPct}% (${base})`;
-        statusEl.className = 'budget-status inline';
-      }
-    } else {
-      if (expectedEl) expectedEl.style.display = 'none';
-      if (statusEl) statusEl.textContent = '';
-    }
-  }
-
-  // B2C → jours calendaires
-  renderBar(
-    'budgetBarB2CWrap', 'budgetBarB2CLabel', 'budgetBarB2CPct', 'budgetBarB2CFill',
-    'budgetBarB2CExpected', 'budgetStatusB2C',
-    caB2C, budgetB2C2026, 'Budget B2C', false
-  );
-
-  // B2B → jours ouvrés
-  renderBar(
-    'budgetBarB2BWrap', 'budgetBarB2BLabel', 'budgetBarB2BPct', 'budgetBarB2BFill',
-    'budgetBarB2BExpected', 'budgetStatusB2B',
-    caB2B, budgetB2B2026, 'Budget B2B', true
-  );
-}
+// JAUGES ARC DE CERCLE (compteur)
 // ============================================================
 
 // Jours fériés FR (principaux, fixes)
@@ -1212,101 +1095,218 @@ function countWorkdays(start, end) {
   return count;
 }
 
-// Retourne le ratio temps écoulé pour le mois en cours uniquement
-// useWorkdays=true → jours ouvrés (B2B), false → jours calendaires (B2C/Total)
-function getProratioForCurrentMonth(useWorkdays) {
-  if (currentMode !== 'month') return null;
+// Calcule le prorata temps écoulé selon le mode courant
+// Pour month : se base sur le mois sélectionné vs aujourd'hui
+// Pour today/week : se base sur les jours écoulés du mois en cours
+// useWorkdays=true → jours ouvrés (B2B), false → calendaires
+function getProratioForPeriod(useWorkdays) {
   const dates = getDates();
   if (!dates) return null;
   const startDate = new Date(dates.dateStart + 'T12:00:00');
-  const today = new Date();
-  if (startDate.getMonth() !== today.getMonth() || startDate.getFullYear() !== today.getFullYear()) return null;
+  const endDate   = new Date(dates.dateEnd   + 'T12:00:00');
+  const today     = new Date();
 
-  const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-  const monthEnd   = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
-  // Hier = dernier jour complet (les données du jour en cours sont partielles)
-  const yesterday  = new Date(today); yesterday.setDate(today.getDate() - 1);
-  const elapsedEnd = yesterday < monthStart ? monthStart : (yesterday > monthEnd ? monthEnd : yesterday);
-
-  if (useWorkdays) {
-    const totalWD   = countWorkdays(monthStart, monthEnd);
-    const elapsedWD = countWorkdays(monthStart, elapsedEnd);
-    return totalWD > 0 ? elapsedWD / totalWD : null;
-  } else {
-    const totalDays   = monthEnd.getDate();
-    const elapsedDays = elapsedEnd.getDate();
-    return totalDays > 0 ? elapsedDays / totalDays : null;
+  // Pour le mode 'month' : mois sélectionné vs aujourd'hui
+  if (currentMode === 'month') {
+    if (startDate.getMonth() !== today.getMonth() || startDate.getFullYear() !== today.getFullYear()) return null;
+    const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const monthEnd   = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
+    const yesterday  = new Date(today); yesterday.setDate(today.getDate() - 1);
+    const elapsedEnd = yesterday < monthStart ? monthStart : (yesterday > monthEnd ? monthEnd : yesterday);
+    if (useWorkdays) {
+      const totalWD   = countWorkdays(monthStart, monthEnd);
+      const elapsedWD = countWorkdays(monthStart, elapsedEnd);
+      return totalWD > 0 ? elapsedWD / totalWD : null;
+    } else {
+      return elapsedEnd.getDate() / monthEnd.getDate();
+    }
   }
+
+  // Pour 'today' : portion du jour dans le mois
+  if (currentMode === 'today') {
+    if (startDate.getFullYear() !== 2026) return null;
+    const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const monthEnd   = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
+    if (useWorkdays) {
+      const totalWD   = countWorkdays(monthStart, monthEnd);
+      const elapsedWD = countWorkdays(monthStart, startDate);
+      return totalWD > 0 ? elapsedWD / totalWD : null;
+    } else {
+      return startDate.getDate() / monthEnd.getDate();
+    }
+  }
+
+  // Pour 'week' : jours de la semaine écoulés dans le mois en cours
+  if (currentMode === 'week') {
+    if (endDate.getFullYear() !== 2026) return null;
+    // On prend la fin de semaine (ou aujourd'hui si semaine en cours) comme référence
+    const refDay = today < endDate ? today : endDate;
+    const monthStart = new Date(refDay.getFullYear(), refDay.getMonth(), 1);
+    const monthEnd   = new Date(refDay.getFullYear(), refDay.getMonth() + 1, 0);
+    if (useWorkdays) {
+      const totalWD   = countWorkdays(monthStart, monthEnd);
+      const elapsedWD = countWorkdays(monthStart, refDay);
+      return totalWD > 0 ? elapsedWD / totalWD : null;
+    } else {
+      return refDay.getDate() / monthEnd.getDate();
+    }
+  }
+
+  return null;
+}
+
+// Calcule le budget proratisé pour la période courante
+function getBudgetForCurrentPeriod(budgetArr) {
+  const dates = getDates();
+  if (!dates) return 0;
+  const { dateStart, dateEnd } = dates;
+  const startDate = new Date(dateStart + 'T12:00:00');
+  const endDate   = new Date(dateEnd   + 'T12:00:00');
+  if (startDate.getFullYear() !== 2026 && endDate.getFullYear() !== 2026) return 0;
+  if (currentMode === 'month' && startDate.getFullYear() === 2026) return budgetArr[startDate.getMonth()];
+  if (currentMode === 'ytd' && endDate.getFullYear() === 2026) {
+    let t = 0; for (let m = 0; m <= endDate.getMonth(); m++) t += budgetArr[m]; return t;
+  }
+  if (currentMode === 'today' && startDate.getFullYear() === 2026) {
+    const m = startDate.getMonth();
+    return Math.round(budgetArr[m] / new Date(2026, m+1, 0).getDate() * 10) / 10;
+  }
+  let t = 0;
+  const days = Math.round((endDate - startDate) / 86400000) + 1;
+  for (let d = 0; d < days; d++) {
+    const day = new Date(startDate); day.setDate(startDate.getDate() + d);
+    if (day.getFullYear() === 2026) { const m = day.getMonth(); t += budgetArr[m] / new Date(2026, m+1, 0).getDate(); }
+  }
+  return Math.round(t * 10) / 10;
+}
+
+// Dessine une jauge arc de cercle sur un canvas
+// realPct  : % réalisé (0-100+)
+// expectedPct : % attendu selon temps (0-100), null si pas dispo
+// color    : couleur de l'arc réalisé
+function drawArcGauge(canvasId, realPct, expectedPct, color, budgetKe, caEuros) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const cx = W / 2;
+  const cy = H * 0.88;
+  const r  = Math.min(W, H * 2) * 0.42;
+  const lw = 10;
+
+  // Arc part: 180° de -π à 0 (gauche à droite, bas)
+  const startAngle = Math.PI;
+  const endAngle   = 2 * Math.PI;
+
+  // Fond gris
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, startAngle, endAngle);
+  ctx.strokeStyle = '#f0f0f0';
+  ctx.lineWidth = lw;
+  ctx.lineCap = 'round';
+  ctx.stroke();
+
+  // Arc réalisé
+  const realAngle = startAngle + (Math.min(realPct, 110) / 100) * Math.PI;
+  if (realPct > 0) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, startAngle, realAngle);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = lw;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+
+  // Curseur attendu (trait + losange)
+  if (expectedPct !== null) {
+    const expAngle = startAngle + (Math.min(expectedPct, 100) / 100) * Math.PI;
+    const rx = cx + (r) * Math.cos(expAngle);
+    const ry = cy + (r) * Math.sin(expAngle);
+    // Ligne du curseur
+    const r1 = r - lw * 1.2, r2 = r + lw * 1.2;
+    const x1 = cx + r1 * Math.cos(expAngle), y1 = cy + r1 * Math.sin(expAngle);
+    const x2 = cx + r2 * Math.cos(expAngle), y2 = cy + r2 * Math.sin(expAngle);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'butt';
+    ctx.stroke();
+    // Petit losange au bout
+    ctx.beginPath();
+    ctx.arc(rx, ry, 3, 0, 2 * Math.PI);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fill();
+  }
+
+  // Texte central : % réalisé
+  ctx.textAlign = 'center';
+  ctx.fillStyle = realPct >= 100 ? '#1D9E75' : (realPct < (expectedPct || 50) - 5 ? '#D85A30' : '#1a1a1a');
+  ctx.font = `bold ${Math.round(r * 0.38)}px -apple-system, sans-serif`;
+  ctx.fillText(realPct + '%', cx, cy - r * 0.18);
+
+  // Budget en dessous
+  ctx.font = `${Math.round(r * 0.22)}px -apple-system, sans-serif`;
+  ctx.fillStyle = '#aaa';
+  ctx.fillText(budgetKe > 0 ? budgetKe.toLocaleString('fr-FR') + ' k€' : '', cx, cy - r * 0.18 + r * 0.32);
+
+  // Étiquettes 0% et 100% aux extrémités
+  ctx.font = `${Math.round(r * 0.19)}px -apple-system, sans-serif`;
+  ctx.fillStyle = '#ccc';
+  ctx.textAlign = 'left';
+  ctx.fillText('0%', cx - r - lw, cy + 14);
+  ctx.textAlign = 'right';
+  ctx.fillText('100%', cx + r + lw, cy + 14);
+}
+
+// Render une jauge arc + statut texte
+function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWorkdays) {
+  const budVal = getBudgetForCurrentPeriod(budgetArr);
+  const wrap = document.getElementById(wrapperId);
+  if (!wrap) return;
+  if (budVal <= 0) { wrap.style.display = 'none'; return; }
+
+  wrap.style.display = 'block';
+  const pct = Math.round(((caVal / 1000) / budVal) * 100);
+  const ratio = getProratioForPeriod(useWorkdays);
+  const expectedPct = ratio !== null ? Math.round(ratio * 100) : null;
+  const fillColor = pct >= 100 ? '#1D9E75' : (expectedPct !== null && pct < expectedPct - 3 ? '#D85A30' : '#74A1D6');
+
+  drawArcGauge(canvasId, pct, expectedPct, fillColor, budVal, caVal);
+
+  const statusEl = document.getElementById(statusId);
+  if (statusEl) {
+    if (expectedPct !== null) {
+      const expectedEuros = Math.round((budVal * 1000) * ratio);
+      const diffEuros = caVal - expectedEuros;
+      const diffAbs = Math.abs(diffEuros);
+      if (diffEuros >= 500) {
+        statusEl.textContent = `✓ En avance de ${fmt(diffAbs)}`;
+        statusEl.style.color = '#1D9E75';
+      } else if (diffEuros <= -500) {
+        statusEl.textContent = `↓ En retard de ${fmt(diffAbs)}`;
+        statusEl.style.color = '#D85A30';
+      } else {
+        statusEl.textContent = '≈ Dans les clous';
+        statusEl.style.color = '#888';
+      }
+    } else {
+      statusEl.textContent = '';
+    }
+  }
+}
+
+function updateBudgetB2CB2BDisplay(caB2C, caB2B) {
+  renderArcGauge('budgetBarB2CWrap', 'gaugeB2C', 'budgetStatusB2C', caB2C, budgetB2C2026, false);
+  renderArcGauge('budgetBarB2BWrap', 'gaugeB2B', 'budgetStatusB2B', caB2B, budgetB2B2026, true);
 }
 
 function updateBudgetDisplay(totalCA, budgetArr) {
   const arr = budgetArr || budget2026;
-  const dates = getDates();
-  if (!dates) return;
-  const { dateStart, dateEnd } = dates;
-  const startDate = new Date(dateStart + 'T12:00:00');
-  const endDate = new Date(dateEnd + 'T12:00:00');
-  if (startDate.getFullYear() !== 2026 && endDate.getFullYear() !== 2026) {
-    document.getElementById('budgetBarWrap').style.display = 'none'; return;
-  }
-  let budgetTotal = 0;
-  if (currentMode === 'today' && startDate.getFullYear() === 2026) {
-    const m = startDate.getMonth();
-    budgetTotal = Math.round(arr[m] / new Date(2026, m+1, 0).getDate() * 10) / 10;
-  } else if (currentMode === 'week' && endDate.getFullYear() === 2026) {
-    const days = Math.round((endDate - startDate) / 86400000) + 1;
-    for (let d = 0; d < days; d++) {
-      const day = new Date(startDate); day.setDate(startDate.getDate() + d);
-      if (day.getFullYear() === 2026) { const m = day.getMonth(); budgetTotal += arr[m] / new Date(2026, m+1, 0).getDate(); }
-    }
-    budgetTotal = Math.round(budgetTotal * 10) / 10;
-  } else if (currentMode === 'month' && startDate.getFullYear() === 2026) {
-    budgetTotal = arr[startDate.getMonth()];
-  } else if (currentMode === 'ytd' && endDate.getFullYear() === 2026) {
-    for (let m = 0; m <= endDate.getMonth(); m++) budgetTotal += arr[m];
-  } else if (currentMode === 'custom' && endDate.getFullYear() === 2026) {
-    const days = Math.round((endDate - startDate) / 86400000) + 1;
-    for (let d = 0; d < days; d++) {
-      const day = new Date(startDate); day.setDate(startDate.getDate() + d);
-      if (day.getFullYear() === 2026) { const m = day.getMonth(); budgetTotal += arr[m] / new Date(2026, m+1, 0).getDate(); }
-    }
-    budgetTotal = Math.round(budgetTotal * 10) / 10;
-  }
-  if (budgetTotal <= 0) { document.getElementById('budgetBarWrap').style.display = 'none'; return; }
-
-  const pct = Math.round(((totalCA / 1000) / budgetTotal) * 100);
-  document.getElementById('budgetBarWrap').style.display = 'block';
-  document.getElementById('budgetBarLabel').textContent = `Budget : ${budgetTotal.toLocaleString('fr-FR')} k€`;
-  document.getElementById('budgetBarPct').textContent = `${pct}% réalisé`;
-  const fillEl = document.getElementById('budgetBarFill');
-  fillEl.style.width = Math.min(pct, 100) + '%';
-  fillEl.className = `budget-bar-fill ${pct >= 100 ? 'over' : 'ok'}`;
-
-  // Curseur attendu sur le mois en cours (jours calendaires pour le total)
-  const ratio = getProratioForCurrentMonth(false);
-  const expectedEl = document.getElementById('budgetBarExpected');
-  const statusEl   = document.getElementById('budgetStatusTotal');
-  if (ratio !== null && expectedEl && statusEl) {
-    const expectedPct = Math.round(ratio * 100);
-    const expectedEuros = Math.round((budgetTotal * 1000) * ratio);
-    const diffEuros = totalCA - expectedEuros;
-    const diffAbs = Math.abs(diffEuros);
-    expectedEl.style.display = 'block';
-    expectedEl.style.left = Math.min(expectedPct, 100) + '%';
-    if (diffEuros >= 500) {
-      statusEl.textContent = `✓ En avance de ${fmt(diffAbs)} vs rythme attendu (${expectedPct}%)`;
-      statusEl.className = 'budget-status ahead';
-    } else if (diffEuros <= -500) {
-      statusEl.textContent = `↓ En retard de ${fmt(diffAbs)} vs rythme attendu (${expectedPct}%)`;
-      statusEl.className = 'budget-status behind';
-    } else {
-      statusEl.textContent = `≈ Dans les clous — rythme attendu ${expectedPct}%`;
-      statusEl.className = 'budget-status inline';
-    }
-  } else {
-    if (expectedEl) expectedEl.style.display = 'none';
-    if (statusEl) statusEl.textContent = '';
-  }
+  renderArcGauge('budgetBarWrap', 'gaugeTotal', 'budgetStatusTotal', totalCA, arr, false);
 }
 
 [document.getElementById('selYear'), document.getElementById('selYtdYear')].forEach(el => {
