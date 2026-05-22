@@ -345,7 +345,7 @@
       <div style="text-align:center;margin-bottom:20px;">
         <span style="font-size:12px;color:#888;">Parc actif : </span>
         <span style="font-size:15px;font-weight:600;" id="pharmacyNbActif">—</span>
-        <span style="font-size:12px;color:#888;"> pharmacies distinctes ayant commandé sur la période</span>
+        <span style="font-size:12px;color:#888;"> pharmacies distinctes facturées depuis janvier 2026</span>
       </div>
 
       <!-- Ligne 2 : Bloc Réassort + Bloc Implantation -->
@@ -585,7 +585,7 @@ let pharmacyChartN = null;
 const PHARMACY_COLORS = {
   'Implantation': '#1a1a1a',
   'Précommandes': '#74A1D6',
-  'Réassort': '#1D9E75',
+  'Réassort': '#9B59B6',
   'Coffres': '#D85A30'
 };
 
@@ -716,8 +716,13 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
       N.nbPharmaImplantation !== undefined ? N.nbPharmaImplantation : '—';
     document.getElementById('pharmacyPanierImplantation').textContent =
       N.panierMoyenImplantation !== undefined ? fmt(N.panierMoyenImplantation) : '—';
+    // Parc actif : requête séparée depuis janvier 2026
+    const yearStart = new Date().getFullYear();
+    const parcResp = await fetch(`/api/pharmacy-breakdown?dateStart=${yearStart}-01-01&dateEnd=${dateEnd}`);
+    const parcData = await parcResp.json();
+    const parcN = parcData.N || {};
     document.getElementById('pharmacyNbActif').textContent =
-      N.nbPharmaTotal !== undefined ? N.nbPharmaTotal : '—';
+      parcN.nbPharmaTotal !== undefined ? parcN.nbPharmaTotal : (N.nbPharmaTotal !== undefined ? N.nbPharmaTotal : '—');
 
     pharmacyChartN = renderPharmacyDonut('pharmacyDonutN', montants, pharmacyChartN, N.totalPharmacyInvoices);
 
