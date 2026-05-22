@@ -1367,6 +1367,20 @@ function shiftYearBack(dateStart, dateEnd) {
   const s = new Date(dateStart + 'T12:00:00');
   const e = new Date(dateEnd + 'T12:00:00');
   s.setFullYear(s.getFullYear() - 1); e.setFullYear(e.getFullYear() - 1);
+
+  // Pour le mois en cours : tronquer N-1 au même jour qu aujourd hui
+  const today = new Date();
+  const origEnd = new Date(dateEnd + 'T12:00:00');
+  const isCurrentMonth = currentMode === 'month'
+    && origEnd.getMonth() === today.getMonth()
+    && origEnd.getFullYear() === today.getFullYear();
+
+  if (isCurrentMonth) {
+    const maxDay = new Date(e.getFullYear(), e.getMonth() + 1, 0).getDate();
+    const truncDay = Math.min(today.getDate(), maxDay);
+    e.setDate(truncDay);
+  }
+
   return {
     dateStart: `${s.getFullYear()}-${pad(s.getMonth()+1)}-${pad(s.getDate())}`,
     dateEnd: `${e.getFullYear()}-${pad(e.getMonth()+1)}-${pad(e.getDate())}`,
