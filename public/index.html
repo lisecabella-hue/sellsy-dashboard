@@ -726,6 +726,29 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
 
     pharmacyChartN = renderPharmacyDonut('pharmacyDonutN', montants, pharmacyChartN, N.totalPharmacyInvoices);
 
+    // Budget écoulé pour Réassort et Implantation (jours ouvrés)
+    const ratio = getProratioForPeriod(true); // jours ouvrés
+    ['Réassort', 'Implantation'].forEach(cat => {
+      const elId = cat === 'Réassort' ? 'pharmacyReassortBudgetStatus' : 'pharmacyImplantationBudgetStatus';
+      const el = document.getElementById(elId);
+      if (!el) return;
+      const caVal = montants[cat] || 0;
+      const budgetVal = getPharmacyBudgetForPeriod(cat, dateStart, dateEnd);
+      if (budgetVal <= 0) { el.textContent = 'Pas de budget'; el.style.color = '#bbb'; return; }
+      const pct = Math.round(((caVal / 1000) / budgetVal) * 100);
+      el.textContent = pct + '% du budget';
+      el.style.color = pct >= 100 ? '#1D9E75' : '#D85A30';
+      if (ratio !== null) {
+        const expectedPct = Math.round(ratio * 100);
+        const expectedEuros = Math.round((budgetVal * 1000) * ratio);
+        const diffEuros = caVal - expectedEuros;
+        const diffAbs = Math.abs(diffEuros);
+        const sign = diffEuros >= 500 ? '✓ +' : diffEuros <= -500 ? '↓ -' : '≈ ';
+        const color = diffEuros >= 500 ? '#1D9E75' : diffEuros <= -500 ? '#D85A30' : '#888';
+        el.innerHTML = `<span style="color:${color};">${sign}${diffEuros === 0 || Math.abs(diffEuros) < 500 ? 'Dans les clous' : fmt(diffAbs) + ' vs budget écoulé'}</span><br><span style="color:#aaa;font-size:10px;font-weight:400;">${pct}% réalisé · attendu ${expectedPct}% (j. ouvrés)</span>`;
+      }
+    });
+
     const total = Object.values(montants).reduce((a, b) => a + b, 0);
     const legend = document.getElementById('pharmacyLegend');
     legend.innerHTML = Object.keys(PHARMACY_COLORS).filter(cat => cat !== 'Coffres').map(cat => {
