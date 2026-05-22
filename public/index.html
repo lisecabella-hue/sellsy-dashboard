@@ -1855,7 +1855,9 @@ function renderTop30(top30, totalCAB2B) {
   const tbody = document.getElementById('top30Body');
   if (!top30 || top30.length === 0) { card.style.display = 'none'; return; }
   card.style.display = 'block';
-  tbody.innerHTML = top30.map((client, i) => {
+  // Exclure Monoprix de l affichage uniquement
+  const filtered = top30.filter(c => !c.name.toLowerCase().includes('monoprix'));
+  tbody.innerHTML = filtered.map((client, i) => {
     const pct = totalCAB2B > 0 ? ((client.ca / totalCAB2B) * 100).toFixed(1) : 0;
     const bg = i % 2 === 0 ? '#fafafa' : 'white';
     return `<tr style="border-bottom:1px solid #f0f0f0; background:${bg};">
