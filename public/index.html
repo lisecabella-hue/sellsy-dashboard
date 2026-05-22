@@ -206,7 +206,10 @@
     </div>
 
     <div class="error-box" id="errorBox"></div>
-    <p class="period-label" id="periodLabel"></p>
+    <div style="display:flex;align-items:baseline;gap:16px;margin-bottom:20px;">
+      <p class="period-label" style="margin-bottom:0;" id="periodLabel"></p>
+      <p id="tempsEcouleLabel" style="font-size:13px;color:#888;font-weight:400;"></p>
+    </div>
 
     <!-- Ligne de jauges style compteur : Total + B2B + B2C -->
     <div id="gaugesRow" style="display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:14px;margin-bottom:16px;">
@@ -1938,6 +1941,27 @@ async function loadData() {
 
   document.getElementById('errorBox').style.display = 'none';
   document.getElementById('periodLabel').textContent = label;
+  const b2bEl = document.getElementById('tempsEcouleB2B');
+  const b2cEl = document.getElementById('tempsEcouleB2C');
+  if (b2bEl && b2cEl) {
+    const ratioB2B = getProratioForPeriod(true);
+    const ratioB2C = getProratioForPeriod(false);
+    b2bEl.textContent = ratioB2B !== null ? `⏱ B2B : ${Math.round(ratioB2B * 100)}% écoulé (j. ouvrés)` : '';
+    b2cEl.textContent = ratioB2C !== null ? `⏱ B2C : ${Math.round(ratioB2C * 100)}% écoulé (j. calendaires)` : '';
+    b2bEl.style.display = ratioB2B !== null ? '' : 'none';
+    b2cEl.style.display = ratioB2C !== null ? '' : 'none';
+  }
+  // Temps écoulé en jours ouvrés
+  const tempsEl = document.getElementById('tempsEcouleLabel');
+  if (tempsEl) {
+    const ratio = getProratioForPeriod(true);
+    if (ratio !== null) {
+      const pct = Math.round(ratio * 100);
+      tempsEl.textContent = `⏱ ${pct}% du mois écoulé (jours ouvrés)`;
+    } else {
+      tempsEl.textContent = '';
+    }
+  }
   document.getElementById('mCAVs').textContent = '';
   document.getElementById('budgetBarWrap').style.display = 'none';
   setStatus('spin', 'Chargement...');
