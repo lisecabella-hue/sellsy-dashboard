@@ -1714,7 +1714,7 @@ function setVs(id, current, prev, prevYear) {
   if (!prev || prev === 0) { el.textContent = ''; el.className = 'metric-vs neutral'; return; }
   const diff = ((current - prev) / prev) * 100;
   const sign = diff >= 0 ? '+' : '';
-  el.textContent = `${sign}${diff.toFixed(1)}% vs ${prevYear}`;
+  el.textContent = `${sign}${diff.toFixed(1)}% vs ${prevYear} (${fmt(prev)})`;
   el.className = `metric-vs ${diff >= 0 ? 'up' : 'down'}`;
 }
 
@@ -1807,9 +1807,11 @@ function renderChart(labels, currentData, prevData, budgetData, year) {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'bottom';
         // Fond blanc pour lisibilité
-        const tw = ctx.measureText(label).width + 6;
-        ctx.fillStyle = 'white';
-        ctx.fillRect(point.x - tw/2, point.y - 28, tw, 16);
+        // Contour blanc pour lisibilité sans fond
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 3;
+        ctx.lineJoin = 'round';
+        ctx.strokeText(label, point.x, point.y - 14);
         ctx.fillStyle = color;
         ctx.fillText(label, point.x, point.y - 14);
         ctx.restore();
@@ -1834,7 +1836,7 @@ function renderChart(labels, currentData, prevData, budgetData, year) {
         }}}
       },
       scales: {
-        y: { beginAtZero: true, grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 }, callback: v => v + ' k€' } },
+        y: { beginAtZero: true, suggestedMax: undefined, grid: { color: '#f0f0f0' }, ticks: { font: { size: 11 }, callback: v => v + ' k€' } },
         x: { grid: { display: false }, ticks: { font: { size: 12 } } }
       }
     },
