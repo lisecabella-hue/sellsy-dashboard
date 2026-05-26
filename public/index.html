@@ -874,6 +874,17 @@ function setSegment(seg) {
       btn.style.color = s === seg ? 'white' : '#666';
     }
   });
+  // Mettre à jour les badges temps écoulé
+  const b2bEl = document.getElementById('tempsEcouleB2B');
+  const b2cEl = document.getElementById('tempsEcouleB2C');
+  if (b2bEl && b2cEl) {
+    const ratioB2B = getProratioForPeriod(true);
+    const ratioB2C = getProratioForPeriod(false);
+    const showB2B = (seg === 'total' || seg === 'b2b') && ratioB2B !== null;
+    const showB2C = (seg === 'total' || seg === 'b2c') && ratioB2C !== null;
+    b2bEl.style.display = showB2B ? 'inline' : 'none';
+    b2cEl.style.display = showB2C ? 'inline' : 'none';
+  }
   if (lastCaData) {
     applySegment(lastCaData);
     const dates = getDates();
@@ -1157,8 +1168,7 @@ function getProratioForPeriod(useWorkdays) {
     if (startDate.getMonth() !== today.getMonth() || startDate.getFullYear() !== today.getFullYear()) return null;
     const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
     const monthEnd   = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
-    const yesterday  = new Date(today); yesterday.setDate(today.getDate() - 1);
-    const elapsedEnd = yesterday < monthStart ? monthStart : (yesterday > monthEnd ? monthEnd : yesterday);
+    const elapsedEnd = today < monthStart ? monthStart : (today > monthEnd ? monthEnd : today);
     if (useWorkdays) {
       const totalWD   = countWorkdays(monthStart, monthEnd);
       const elapsedWD = countWorkdays(monthStart, elapsedEnd);
@@ -1946,20 +1956,15 @@ async function loadData() {
   const b2bEl = document.getElementById('tempsEcouleB2B');
   const b2cEl = document.getElementById('tempsEcouleB2C');
   if (b2bEl && b2cEl) {
-    const ratioB2B = getProratioForPeriod(true);   // jours ouvrés
-    const ratioB2C = getProratioForPeriod(false);  // jours calendaires
-    if (ratioB2B !== null) {
-      b2bEl.textContent = `⏱ B2B : ${Math.round(ratioB2B * 100)}% écoulé (j. ouvrés)`;
-      b2bEl.style.display = 'inline';
-    } else {
-      b2bEl.style.display = 'none';
-    }
-    if (ratioB2C !== null) {
-      b2cEl.textContent = `⏱ B2C : ${Math.round(ratioB2C * 100)}% écoulé (j. calendaires)`;
-      b2cEl.style.display = 'inline';
-    } else {
-      b2cEl.style.display = 'none';
-    }
+    const ratioB2B = getProratioForPeriod(true);
+    const ratioB2C = getProratioForPeriod(false);
+    // Afficher uniquement le badge correspondant au segment actif
+    const showB2B = (currentSegment === 'total' || currentSegment === 'b2b') && ratioB2B !== null;
+    const showB2C = (currentSegment === 'total' || currentSegment === 'b2c') && ratioB2C !== null;
+    b2bEl.textContent = showB2B ? `⏱ B2B : ${Math.round(ratioB2B * 100)}% écoulé (j. ouvrés)` : '';
+    b2cEl.textContent = showB2C ? `⏱ B2C : ${Math.round(ratioB2C * 100)}% écoulé (j. calendaires)` : '';
+    b2bEl.style.display = showB2B ? 'inline' : 'none';
+    b2cEl.style.display = showB2C ? 'inline' : 'none';
   }
   document.getElementById('mCAVs').textContent = '';
   document.getElementById('budgetBarWrap').style.display = 'none';
