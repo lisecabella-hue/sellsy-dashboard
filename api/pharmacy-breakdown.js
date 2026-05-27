@@ -39,7 +39,27 @@ export default async function handler(req, res) {
     if (s.includes('preco')) return 'Précommandes';
     if (s.includes('reassort') || s.includes('ug')) return 'Réassort';
     if (s.includes('dotation') || s.includes('marketing') || s.includes('seminaire') || s.includes('animation')) return 'Coffres';
-    return 'Précommandes';
+    return 'Réassort'; // fallback → Réassort plutôt que Précommandes
+  }
+
+  function isPharmacy(inv, companyTypeMap) {
+    const name = (inv.company_name || '').toLowerCase();
+    const companyId = inv.related?.[0]?.id ? String(inv.related[0].id) : null;
+
+    // 1. Jamais B2C
+    if (inv.rate_category_id === 215340) return false;
+    // 2. Exclusions explicites
+    if (name.includes('blissim') || name.includes('bradery')) return false;
+    if (name.includes('printemps') || name.includes('samaritaine')) return false;
+    if (name.includes('figaro') || name.includes('media ')) return false;
+    // 3. Monoprix → pas pharmacie
+    if (companyId && companyTypeMap[companyId] === 'Monoprix') return false;
+    // 4. Détection par nom EN PRIORITÉ (même logique que sellsy.js)
+    if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco')) return true;
+    // 5. Champ type client = Pharmacie
+    if (companyId && companyTypeMap[companyId] === 'Pharmacie') return true;
+
+    return false;
   }
 
   function getCacheTTL(dateStart, dateEnd) {
@@ -63,8 +83,8 @@ export default async function handler(req, res) {
     const prevDateStart = dateStart.replace(String(currentYear), String(prevYear));
     const prevDateEnd = dateEnd.replace(String(currentYear), String(prevYear));
 
-    // v14 : ajout panierMoyenImplantation
-    const cacheKey = `sellsy:pharmacy-breakdown:v14:${dateStart}:${dateEnd}`;
+    // v15 : fix classification pharmacies (même logique que sellsy.js)
+    const cacheKey = `sellsy:pharmacy-breakdown:v15:${dateStart}:${dateEnd}`;
     const ttl = getCacheTTL(dateStart, dateEnd);
     const cached = await cacheGet(cacheKey);
     if (cached) return res.status(200).json({ ...cached, _fromCache: true });
@@ -93,7 +113,7 @@ export default async function handler(req, res) {
         const lastDay = new Date(year, month + 1, 0).getDate();
         const mStart = `${year}-${pad(month + 1)}-01`;
         const mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
-        const monthData = await cacheGet(`sellsy:pharmacy-breakdown:v14:${mStart}:${mEnd}`);
+        const monthData = await cacheGet(`sellsy:pharmacy-breakdown:v15:${mStart}:${mEnd}`);
         if (!monthData) { allFoundInCache = false; break; }
         cachedMonths.push(monthData);
       }
@@ -198,20 +218,8 @@ export default async function handler(req, res) {
         const items = data?.data || [];
 
         for (const inv of items) {
-          const relatedId = inv.related?.[0]?.id;
-          const companyId = relatedId ? String(relatedId) : null;
-          const name = (inv.company_name || '').toLowerCase();
-
-          let clientType;
-          if (inv.rate_category_id === 215340) clientType = 'B2C';
-          else if (name.includes('blissim') || name.includes('bradery')) clientType = 'Outlet';
-          else if (name.includes('printemps') || name.includes('samaritaine')) clientType = 'Grand Compte';
-          else if (name.includes('figaro') || name.includes('media ')) clientType = 'Marketing';
-          else if (companyId && companyTypeMap[companyId]) clientType = companyTypeMap[companyId];
-          else if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco')) clientType = 'Pharmacie';
-          else clientType = 'Autre';
-
-          if (clientType !== 'Pharmacie') continue;
+          // ✅ Même logique de classification que sellsy.js
+          if (!isPharmacy(inv, companyTypeMap)) continue;
 
           totalPharmacyInvoices++;
           const cat = categorize(inv.subject);
@@ -219,6 +227,7 @@ export default async function handler(req, res) {
           totals[cat] += amount;
           counts[cat]++;
 
+          const relatedId = inv.related?.[0]?.id;
           if (relatedId) {
             pharmacyIds.add(String(relatedId));
             if (cat === 'Réassort') reassortPharmacyIds.add(String(relatedId));
