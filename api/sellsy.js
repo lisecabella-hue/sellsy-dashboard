@@ -46,7 +46,12 @@ export default async function handler(req, res) {
     const endYear = endDate.getFullYear();
     const endMonth = endDate.getMonth() + 1;
     if (dateStart === dateEnd) return 0;
-    if (endYear === currentYear && endMonth === currentMonth) return 3600;
+    if (endYear === currentYear && endMonth === currentMonth) {
+      const startDate = new Date(dateStart);
+      const diffDays = Math.round((endDate - startDate) / 86400000);
+      if (diffDays <= 6) return 0; // aujourd'hui et cette semaine : temps réel
+      return 900; // 15 min pour le mois en cours
+    }
     if (endDate < now) return 60 * 60 * 24 * 30;
     return 0;
   }
