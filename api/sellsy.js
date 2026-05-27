@@ -296,19 +296,19 @@ export default async function handler(req, res) {
     const B2C_CATEGORY_ID = 215340;
 
     function classifyClient(inv) {
-      // 1. B2C via tarif
+      // 1. B2C via tarif — priorité absolue
       if (inv.rate_category_id === B2C_CATEGORY_ID) return 'B2C';
       const name = (inv.company_name || '').toLowerCase();
       const companyId = inv.related?.[0]?.id;
-      // 2. Exceptions explicites par nom (priorité absolue)
-      if (name.includes('blissim') || name.includes('bradery')) return 'Outlet';
-      if (name.includes('printemps') || name.includes('samaritaine')) return 'Grand Compte';
-      if (name.includes('figaro') || name.includes('media ')) return 'Marketing';
-      if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco')) return 'Pharmacie';
-      // 3. Type client Sellsy
+      // 2. Type client Sellsy en priorité (sauf Autre)
       if (companyId && companyTypeMap[companyId] && companyTypeMap[companyId] !== 'Autre') {
         return companyTypeMap[companyId];
       }
+      // 3. Règles nom en fallback (clients sans type renseigné dans Sellsy)
+      if (name.includes('blissim') || name.includes('bradery')) return 'Outlet';
+      if (name.includes('printemps') || name.includes('samaritaine')) return 'Grand Compte';
+      if (name.includes('figaro') || name.includes('media ')) return 'Marketing';
+      if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco') || name.includes('dhygietal')) return 'Pharmacie';
       // 4. Sinon Autre
       return 'Autre';
     }
