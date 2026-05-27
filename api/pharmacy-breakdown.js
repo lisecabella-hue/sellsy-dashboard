@@ -30,7 +30,8 @@ export default async function handler(req, res) {
   const sleep = ms => new Promise(r => setTimeout(r, ms));
 
   function categorize(subject) {
-    const s = (subject || '').toLowerCase();
+    const s = (subject || '').trim().toLowerCase();
+    if (!s) return 'Non classifié'; // objet vide
     if (s.includes('sav implant')) return 'Implantation';
     if (s.includes('sav preco')) return 'Précommandes';
     if (s.includes('sav')) return 'Réassort';
@@ -39,7 +40,7 @@ export default async function handler(req, res) {
     if (s.includes('preco')) return 'Précommandes';
     if (s.includes('reassort') || s.includes('ug')) return 'Réassort';
     if (s.includes('dotation') || s.includes('marketing') || s.includes('seminaire') || s.includes('animation')) return 'Coffres';
-    return 'Réassort'; // fallback → Réassort plutôt que Précommandes
+    return 'Non classifié'; // objet non reconnu
   }
 
   function isPharmacy(inv, companyTypeMap) {
@@ -121,8 +122,8 @@ export default async function handler(req, res) {
       if (allFoundInCache && cachedMonths.length > 0) {
         const aggregated = {
           currentYear, prevYear,
-          N: { montants: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, counts: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, panierMoyen: {}, totalPharmacyInvoices: 0, nbPharmaTotal: 0, nbPharmaReassort: 0, nbPharmaImplantation: 0 },
-          N1: { montants: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, counts: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, panierMoyen: {}, totalPharmacyInvoices: 0, nbPharmaTotal: 0, nbPharmaReassort: 0, nbPharmaImplantation: 0 },
+          N: { montants: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0, 'Non classifié': 0 }, counts: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0, 'Non classifié': 0 }, panierMoyen: {}, totalPharmacyInvoices: 0, nbPharmaTotal: 0, nbPharmaReassort: 0, nbPharmaImplantation: 0 },
+          N1: { montants: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0, 'Non classifié': 0 }, counts: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0, 'Non classifié': 0 }, panierMoyen: {}, totalPharmacyInvoices: 0, nbPharmaTotal: 0, nbPharmaReassort: 0, nbPharmaImplantation: 0 },
           dateStart, dateEnd, prevDateStart, prevDateEnd
         };
 
@@ -138,7 +139,7 @@ export default async function handler(req, res) {
             const src = m[period];
             const dst = aggregated[period];
             if (!src) continue;
-            for (const cat of ['Implantation', 'Précommandes', 'Réassort', 'Coffres']) {
+            for (const cat of ['Implantation', 'Précommandes', 'Réassort', 'Coffres', 'Non classifié']) {
               dst.montants[cat] = Math.round(((dst.montants[cat] || 0) + (src.montants?.[cat] || 0)) * 100) / 100;
               dst.counts[cat] = (dst.counts[cat] || 0) + (src.counts?.[cat] || 0);
             }
@@ -159,7 +160,7 @@ export default async function handler(req, res) {
           const rIds = period === 'N' ? allReassortIdsN : allReassortIdsN1;
           const iIds = period === 'N' ? allImplantIdsN : allImplantIdsN1;
 
-          for (const cat of ['Implantation', 'Précommandes', 'Réassort', 'Coffres']) {
+          for (const cat of ['Implantation', 'Précommandes', 'Réassort', 'Coffres', 'Non classifié']) {
             dst.panierMoyen[cat] = dst.counts[cat] > 0 ? Math.round((dst.montants[cat] / dst.counts[cat]) * 100) / 100 : 0;
           }
           dst.nbPharmaTotal = ids.size;
@@ -190,8 +191,8 @@ export default async function handler(req, res) {
     const companyTypeMap = await cacheGet('sellsy:companies:type_client:v2') || {};
 
     async function fetchAndAggregate(start, end) {
-      const totals = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 };
-      const counts = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 };
+      const totals = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0, 'Non classifié': 0 };
+      const counts = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0, 'Non classifié': 0 };
 
       const pharmacyIds = new Set();
       const reassortPharmacyIds = new Set();
@@ -260,6 +261,7 @@ export default async function handler(req, res) {
           Précommandes: Math.round(totals.Précommandes * 100) / 100,
           Réassort: Math.round(totals.Réassort * 100) / 100,
           Coffres: Math.round(totals.Coffres * 100) / 100,
+          'Non classifié': Math.round((totals['Non classifié'] || 0) * 100) / 100,
         },
         counts,
         panierMoyen,
@@ -277,7 +279,7 @@ export default async function handler(req, res) {
     }
 
     const N = await fetchAndAggregate(dateStart, dateEnd);
-    const N1 = { montants: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, counts: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0 }, panierMoyen: {}, totalPharmacyInvoices: 0, nbPharmaTotal: 0, nbPharmaReassort: 0, nbPharmaImplantation: 0, tauxReassort: 0, panierMoyenReassort: 0, panierMoyenImplantation: 0, pharmacyIdsArray: [], reassortIdsArray: [], implantIdsArray: [] };
+    const N1 = { montants: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0, 'Non classifié': 0 }, counts: { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0, 'Non classifié': 0 }, panierMoyen: {}, totalPharmacyInvoices: 0, nbPharmaTotal: 0, nbPharmaReassort: 0, nbPharmaImplantation: 0, tauxReassort: 0, panierMoyenReassort: 0, panierMoyenImplantation: 0, pharmacyIdsArray: [], reassortIdsArray: [], implantIdsArray: [] };
 
     const result = { currentYear, prevYear, N, N1, dateStart, dateEnd, prevDateStart, prevDateEnd };
     if (N.totalPharmacyInvoices > 0) {
