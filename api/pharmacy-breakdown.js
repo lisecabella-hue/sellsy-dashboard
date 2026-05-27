@@ -49,16 +49,16 @@ export default async function handler(req, res) {
 
     // 1. Jamais B2C
     if (inv.rate_category_id === 215340) return false;
-    // 2. Exclusions explicites
+    // 2. Exclusions explicites par nom
     if (name.includes('blissim') || name.includes('bradery')) return false;
-    if (name.includes('printemps') || name.includes('samaritaine')) return false;
     if (name.includes('figaro') || name.includes('media ')) return false;
-    // 3. Monoprix → pas pharmacie
-    if (companyId && companyTypeMap[companyId] === 'Monoprix') return false;
-    // 4. Détection par nom EN PRIORITÉ (même logique que sellsy.js)
-    if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco')) return true;
-    // 5. Champ type client = Pharmacie
-    if (companyId && companyTypeMap[companyId] === 'Pharmacie') return true;
+    // 3. Type client Sellsy en priorité
+    if (companyId && companyTypeMap[companyId] && companyTypeMap[companyId] !== 'Autre') {
+      return companyTypeMap[companyId] === 'Pharmacie';
+    }
+    // 4. Règles nom en fallback
+    if (name.includes('printemps') || name.includes('samaritaine')) return false; // Grand Compte
+    if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco') || name.includes('dhygietal')) return true;
 
     return false;
   }
@@ -70,7 +70,7 @@ export default async function handler(req, res) {
     const currentMonth = now.getMonth() + 1;
     const endYear = endDate.getFullYear();
     const endMonth = endDate.getMonth() + 1;
-    if (endYear === currentYear && endMonth === currentMonth) return 3600;
+    if (endYear === currentYear && endMonth === currentMonth) return 900; // 15 min
     if (endDate < now) return 60 * 60 * 24 * 30;
     return 3600;
   }
