@@ -296,17 +296,20 @@ export default async function handler(req, res) {
     const B2C_CATEGORY_ID = 215340;
 
     function classifyClient(inv) {
+      // 1. B2C via tarif
       if (inv.rate_category_id === B2C_CATEGORY_ID) return 'B2C';
       const name = (inv.company_name || '').toLowerCase();
+      const companyId = inv.related?.[0]?.id;
+      // 2. Type client Sellsy en priorité (tous les types sauf Autre)
+      if (companyId && companyTypeMap[companyId] && companyTypeMap[companyId] !== 'Autre') {
+        return companyTypeMap[companyId];
+      }
+      // 3. Règles sur le nom en fallback
       if (name.includes('blissim') || name.includes('bradery')) return 'Outlet';
       if (name.includes('printemps') || name.includes('samaritaine')) return 'Grand Compte';
       if (name.includes('figaro') || name.includes('media ')) return 'Marketing';
-      const companyId = inv.related?.[0]?.id;
-      if (companyId && companyTypeMap[companyId]) {
-        const type = companyTypeMap[companyId];
-        if (type === 'Pharmacie' || type === 'Monoprix') return type;
-      }
       if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco')) return 'Pharmacie';
+      // 4. Sinon Autre
       return 'Autre';
     }
 
