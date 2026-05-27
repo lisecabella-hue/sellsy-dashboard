@@ -722,7 +722,11 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
       N.panierMoyenImplantation !== undefined ? fmt(N.panierMoyenImplantation) : '—';
     // Parc actif : requête séparée depuis janvier 2026 avec cache 1h en mémoire
     const yearStart = new Date().getFullYear();
-    const parcCacheKey = `parcActif:${yearStart}:${dateEnd}`;
+    // Toujours prendre du 1er jan au dernier jour du mois en cours
+    const parcToday = new Date();
+    const parcEndMonth = new Date(parcToday.getFullYear(), parcToday.getMonth() + 1, 0);
+    const parcEnd = `${parcEndMonth.getFullYear()}-${pad(parcEndMonth.getMonth()+1)}-${pad(parcEndMonth.getDate())}`;
+    const parcCacheKey = `parcActif:${yearStart}:${parcEnd}`;
     const parcCacheExpiry = `${parcCacheKey}:expiry`;
     const now = Date.now();
     const cachedParc = sessionStorage.getItem(parcCacheKey);
@@ -732,7 +736,7 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
       nbParcActif = cachedParc;
     } else {
       try {
-        const parcResp = await fetch(`/api/pharmacy-breakdown?dateStart=${yearStart}-01-01&dateEnd=${dateEnd}`);
+        const parcResp = await fetch(`/api/pharmacy-breakdown?dateStart=${yearStart}-01-01&dateEnd=${parcEnd}`);
         const parcData = await parcResp.json();
         const parcN = parcData.N || {};
         nbParcActif = parcN.nbPharmaTotal !== undefined ? parcN.nbPharmaTotal : null;
