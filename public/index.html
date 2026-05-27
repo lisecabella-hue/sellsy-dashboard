@@ -590,10 +590,11 @@ const PHARMACY_COLORS = {
   'Implantation': '#1a1a1a',
   'Précommandes': '#74A1D6',
   'Réassort': '#9B59B6',
-  'Coffres': '#D85A30'
+  'Coffres': '#D85A30',
+  'Non classifié': '#bbb'
 };
 
-const PHARMACY_CATS = ['Implantation', 'Précommandes', 'Réassort', 'Coffres'];
+const PHARMACY_CATS = ['Implantation', 'Précommandes', 'Réassort', 'Coffres', 'Non classifié'];
 let budgetPharmacy = {};
 PHARMACY_CATS.forEach(cat => { budgetPharmacy[cat] = Array(12).fill(0); });
 
