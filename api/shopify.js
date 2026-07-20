@@ -19,7 +19,7 @@ export default async function handler(req, res) {
   const { dateStart, dateEnd } = req.query;
   if (!dateStart || !dateEnd) return res.status(400).json({ error: 'dateStart and dateEnd required' });
 
-  const CACHE_VERSION = 'shopify_v1';
+  const CACHE_VERSION = 'shopify_v3';
   const cacheKey = `shopify:${CACHE_VERSION}:${dateStart}:${dateEnd}`;
   const API_VERSION = '2026-07';
 
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // ─── 1. Authentification Shopify (client_credentials, comme cron.js pour Sellsy) ───
+    // ─── 1. Authentification Shopify (client_credentials) ───
     const tokenResp = await fetch(`https://${storeDomain}/admin/oauth/access_token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -69,7 +69,7 @@ export default async function handler(req, res) {
     }
     const { access_token } = await tokenResp.json();
 
-    // ─── 2. Récupérer les commandes payées sur la période (pagination GraphQL) ───
+    // ─── 2. Récupérer TOUTES les commandes de la période (tous statuts, pour calculer les taux) ───
     let orders = [];
     let cursor = null;
     let hasNextPage = true;
@@ -78,9 +78,9 @@ export default async function handler(req, res) {
       const query = `
         query getOrders($cursor: String) {
           orders(
-            first: 100
+            first: 50
             after: $cursor
-            query: "created_at:>='${dateStart}' AND created_at:<='${dateEnd}' AND financial_status:paid"
+            query: "created_at:>='${dateStart}' AND created_at:<='${dateEnd}'"
           ) {
             edges {
               cursor
@@ -88,13 +88,31 @@ export default async function handler(req, res) {
                 id
                 createdAt
                 cancelledAt
+                displayFinancialStatus
                 totalPriceSet { shopMoney { amount currencyCode } }
-                lineItems(first: 50) {
+                totalTaxSet { shopMoney { amount } }
+                lineItems(first: 20) {
                   edges {
                     node {
                       title
                       quantity
                       originalTotalSet { shopMoney { amount } }
+                    }
+                  }
+                }
+                fulfillments(first: 3) {
+                  createdAt
+                }
+                refunds(first: 5) {
+                  totalRefundedSet { shopMoney { amount } }
+                }
+                totalDiscountsSet { shopMoney { amount } }
+                discountApplications(first: 3) {
+                  edges {
+                    node {
+                      ... on DiscountCodeApplication {
+                        code
+                      }
                     }
                   }
                 }
@@ -125,35 +143,122 @@ export default async function handler(req, res) {
       cursor = edges.length > 0 ? edges[edges.length - 1].cursor : null;
 
       if (edges.length === 0) break;
-      if (hasNextPage) await new Promise(r => setTimeout(r, 200)); // pause anti rate-limit
+      if (hasNextPage) await new Promise(r => setTimeout(r, 250)); // pause anti rate-limit
     }
 
-    // ─── 3. Calculs ───
-    const validOrders = orders.filter(o => !o.cancelledAt);
-    const totalCA = validOrders.reduce((sum, o) => sum + parseFloat(o.totalPriceSet.shopMoney.amount), 0);
+    // ─── 3. Calculs (tout en HT) ───
+    const totalOrdersCount = orders.length;
+    const cancelledOrders = orders.filter(o => !!o.cancelledAt);
+    const tauxAnnulation = totalOrdersCount > 0
+      ? Math.round((cancelledOrders.length / totalOrdersCount) * 10000) / 100
+      : 0;
+
+    // Commandes "valides" pour le CA = non annulées ET payées (au moins partiellement)
+    const validOrders = orders.filter(o =>
+      !o.cancelledAt &&
+      (o.displayFinancialStatus === 'PAID' || o.displayFinancialStatus === 'PARTIALLY_PAID' || o.displayFinancialStatus === 'PARTIALLY_REFUNDED' || o.displayFinancialStatus === 'REFUNDED')
+    );
+
+    function htFromOrder(o) {
+      const ttc = parseFloat(o.totalPriceSet.shopMoney.amount);
+      const taxe = parseFloat(o.totalTaxSet?.shopMoney?.amount || 0);
+      return ttc - taxe;
+    }
+
+    const totalCA = validOrders.reduce((sum, o) => sum + htFromOrder(o), 0);
     const orderCount = validOrders.length;
     const panierMoyen = orderCount > 0 ? totalCA / orderCount : 0;
 
-    const productRevenue = {};
+    // ─── Top produits : par CA (HT) et par quantité ───
+    const productStats = {}; // { title: { revenue, quantity } }
     validOrders.forEach(order => {
+      const ttcOrder = parseFloat(order.totalPriceSet.shopMoney.amount);
+      const taxeOrder = parseFloat(order.totalTaxSet?.shopMoney?.amount || 0);
+      const ratioHT = ttcOrder > 0 ? (ttcOrder - taxeOrder) / ttcOrder : 1;
       order.lineItems.edges.forEach(({ node: item }) => {
-        const amount = parseFloat(item.originalTotalSet.shopMoney.amount);
-        productRevenue[item.title] = (productRevenue[item.title] || 0) + amount;
+        const amountTTC = parseFloat(item.originalTotalSet.shopMoney.amount);
+        const amountHT = amountTTC * ratioHT;
+        if (!productStats[item.title]) productStats[item.title] = { revenue: 0, quantity: 0 };
+        productStats[item.title].revenue += amountHT;
+        productStats[item.title].quantity += item.quantity;
       });
     });
-    const topProducts = Object.entries(productRevenue)
-      .sort((a, b) => b[1] - a[1])
+
+    const topProductsByRevenue = Object.entries(productStats)
+      .sort((a, b) => b[1].revenue - a[1].revenue)
       .slice(0, 10)
-      .map(([title, revenue]) => ({ title, revenue: Math.round(revenue * 100) / 100 }));
+      .map(([title, s]) => ({ title, revenue: Math.round(s.revenue * 100) / 100, quantity: s.quantity }));
+
+    const topProductsByQuantity = Object.entries(productStats)
+      .sort((a, b) => b[1].quantity - a[1].quantity)
+      .slice(0, 10)
+      .map(([title, s]) => ({ title, revenue: Math.round(s.revenue * 100) / 100, quantity: s.quantity }));
+
+    // ─── Taux de remboursement (en montant, sur les commandes valides) ───
+    let totalRembourse = 0;
+    let nbCommandesRemboursees = 0;
+    validOrders.forEach(o => {
+      const refundTotal = (o.refunds || []).reduce((s, r) => s + parseFloat(r.totalRefundedSet?.shopMoney?.amount || 0), 0);
+      if (refundTotal > 0) {
+        totalRembourse += refundTotal;
+        nbCommandesRemboursees++;
+      }
+    });
+    const tauxRemboursementMontant = totalCA > 0 ? Math.round((totalRembourse / totalCA) * 10000) / 100 : 0;
+    const tauxRemboursementCommandes = orderCount > 0 ? Math.round((nbCommandesRemboursees / orderCount) * 10000) / 100 : 0;
+
+    // ─── Délai moyen de traitement (création commande → première expédition), en heures ───
+    const delais = [];
+    validOrders.forEach(o => {
+      if (o.fulfillments && o.fulfillments.length > 0) {
+        const created = new Date(o.createdAt).getTime();
+        const fulfilled = new Date(o.fulfillments[0].createdAt).getTime();
+        const diffH = (fulfilled - created) / (1000 * 60 * 60);
+        if (diffH >= 0) delais.push(diffH);
+      }
+    });
+    const delaiMoyenHeures = delais.length > 0
+      ? Math.round((delais.reduce((a, b) => a + b, 0) / delais.length) * 10) / 10
+      : null;
+
+    // ─── Codes promo : nombre d'utilisations + montant remisé (approximatif) ───
+    const promoStats = {}; // { code: { count, montantRemise } }
+    validOrders.forEach(order => {
+      const codes = (order.discountApplications?.edges || [])
+        .map(e => e.node?.code)
+        .filter(Boolean);
+      if (codes.length === 0) return;
+      const totalDiscount = parseFloat(order.totalDiscountsSet?.shopMoney?.amount || 0);
+      const discountPerCode = totalDiscount / codes.length;
+      codes.forEach(code => {
+        if (!promoStats[code]) promoStats[code] = { count: 0, montantRemise: 0 };
+        promoStats[code].count++;
+        promoStats[code].montantRemise += discountPerCode;
+      });
+    });
+    const topCodesPromo = Object.entries(promoStats)
+      .sort((a, b) => b[1].count - a[1].count)
+      .slice(0, 10)
+      .map(([code, s]) => ({ code, nbUtilisations: s.count, montantRemise: Math.round(s.montantRemise * 100) / 100 }));
 
     const result = {
       _caEcommerce: Math.round(totalCA * 100) / 100,
       _orderCount: orderCount,
       _panierMoyen: Math.round(panierMoyen * 100) / 100,
-      _topProducts: topProducts,
+      _topProducts: topProductsByRevenue,
+      _topProductsByRevenue: topProductsByRevenue,
+      _topProductsByQuantity: topProductsByQuantity,
+      _tauxAnnulation: tauxAnnulation,
+      _nbCommandesAnnulees: cancelledOrders.length,
+      _tauxRemboursementMontant: tauxRemboursementMontant,
+      _tauxRemboursementCommandes: tauxRemboursementCommandes,
+      _nbCommandesRemboursees: nbCommandesRemboursees,
+      _delaiMoyenTraitementHeures: delaiMoyenHeures,
+      _topCodesPromo: topCodesPromo,
       _currency: validOrders[0]?.totalPriceSet.shopMoney.currencyCode || 'EUR',
       _dateStart: dateStart,
-      _dateEnd: dateEnd
+      _dateEnd: dateEnd,
+      _tva: 'HT (taxe déduite)'
     };
 
     if (kvUrl && kvToken) await cacheSet(cacheKey, result, ttl);
