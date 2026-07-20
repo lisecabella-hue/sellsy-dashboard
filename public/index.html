@@ -297,6 +297,32 @@
       </div>
     </div>
 
+    <!-- Détails Shopify (segment B2C uniquement) -->
+    <div class="chart-card" id="shopifyDetailCard" style="display:none;margin-bottom:24px;">
+      <div class="chart-header">
+        <div>
+          <p class="chart-title">🛍️ Détails Shopify — indicateurs e-commerce</p>
+          <p class="chart-subtitle" id="shopifySubtitle">Panier moyen et top produits propres à Shopify (le CA est déjà compté dans le B2C ci-dessus)</p>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+        <div style="background:linear-gradient(145deg,#edf3fb 0%,#f7fafd 100%);border-radius:14px;padding:20px;border:1px solid #c5d9f0;">
+          <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#74A1D6;margin-bottom:8px;">Panier moyen Shopify</p>
+          <p style="font-size:26px;font-weight:600;" id="shopifyPanierMoyen">—</p>
+          <p style="font-size:11px;color:#aaa;margin-top:4px;" id="shopifyOrderCountNote"></p>
+        </div>
+        <div style="background:#fafafa;border-radius:14px;padding:20px;border:1px solid #e5e5e5;">
+          <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:8px;">Commandes Shopify</p>
+          <p style="font-size:26px;font-weight:600;" id="shopifyOrderCount">—</p>
+          <p style="font-size:11px;color:#aaa;margin-top:4px;">Commandes payées sur la période</p>
+        </div>
+      </div>
+      <p style="font-size:13px;font-weight:600;margin-bottom:12px;">🏆 Top 10 produits (CA)</p>
+      <div id="shopifyTopProducts" style="display:flex;flex-direction:column;gap:8px;">
+        <span style="color:#aaa;font-size:13px;">En attente de données...</span>
+      </div>
+    </div>
+
     <!-- Répartition par type de client -->
     <div class="chart-card" id="typeClientRow" style="margin-bottom:24px;">
       <div class="chart-header">
@@ -806,6 +832,44 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
   }
 }
 
+async function loadShopifyDetails(dateStart, dateEnd) {
+  const card = document.getElementById('shopifyDetailCard');
+  card.style.display = 'block';
+  document.getElementById('shopifySubtitle').textContent = 'Chargement...';
+  try {
+    const resp = await fetch(`/api/shopify?dateStart=${dateStart}&dateEnd=${dateEnd}`);
+    const data = await resp.json();
+
+    document.getElementById('shopifyPanierMoyen').textContent = fmt(data._panierMoyen || 0);
+    document.getElementById('shopifyOrderCount').textContent = (data._orderCount || 0).toLocaleString('fr-FR');
+    document.getElementById('shopifyOrderCountNote').textContent = `sur ${data._orderCount || 0} commandes`;
+
+    const top = data._topProducts || [];
+    const maxRevenue = top.length > 0 ? top[0].revenue : 1;
+    const listEl = document.getElementById('shopifyTopProducts');
+    if (top.length === 0) {
+      listEl.innerHTML = '<span style="color:#aaa;font-size:13px;">Aucune donnée produit sur cette période</span>';
+    } else {
+      listEl.innerHTML = top.map((p, i) => {
+        const pct = Math.round((p.revenue / maxRevenue) * 100);
+        return `<div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-size:12px;color:#888;width:18px;">${i+1}</span>
+          <span style="font-size:13px;flex:0 0 220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.title}</span>
+          <div style="flex:1;background:#f0f0f0;border-radius:4px;height:10px;">
+            <div style="width:${pct}%;background:#74A1D6;height:10px;border-radius:4px;"></div>
+          </div>
+          <span style="font-size:13px;font-weight:500;width:90px;text-align:right;">${fmt(p.revenue)}</span>
+        </div>`;
+      }).join('');
+    }
+
+    document.getElementById('shopifySubtitle').textContent =
+      `Panier moyen et top produits propres à Shopify${data._fromCache ? ' (cache)' : ''}`;
+  } catch (e) {
+    document.getElementById('shopifySubtitle').textContent = 'Erreur de chargement';
+  }
+}
+
 // Donut B2C Site vs Outlet
 function renderB2CBreakdownPieChart(caByType) {
   const B2C_CATS = ['B2C', 'Outlet'];
@@ -984,10 +1048,14 @@ function applySegment(caData) {
       if (typeClientRow) typeClientRow.style.display = 'none';
       if (b2cBreakRow)   b2cBreakRow.style.display   = '';
       if (caData._caByType) renderB2CBreakdownPieChart(caData._caByType);
+      const datesForShopify = getDates();
+      if (datesForShopify) loadShopifyDetails(datesForShopify.dateStart, datesForShopify.dateEnd);
     } else {
       if (pieCard)    pieCard.style.display     = '';
       if (typeClientRow) typeClientRow.style.display = '';
       if (b2cBreakRow)   b2cBreakRow.style.display   = 'none';
+      const shopifyCard = document.getElementById('shopifyDetailCard');
+      if (shopifyCard) shopifyCard.style.display = 'none';
     }
   }
 
