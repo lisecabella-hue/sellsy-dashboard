@@ -103,6 +103,7 @@ export default async function handler(req, res) {
           _count: 0,
           _countAvoirs: 0,
           _caByType: {},
+          _caB2BGeo: { France: 0, DomTom: 0 },
           _top30B2B: {},
           pagination: { total: 0 }
         };
@@ -115,6 +116,8 @@ export default async function handler(req, res) {
           aggregated._totalCAB2B += m._totalCAB2B || 0;
           aggregated._totalCAB2CNet += m._totalCAB2CNet || 0;
           aggregated._totalCAB2BNet += m._totalCAB2BNet || 0;
+          aggregated._caB2BGeo.France += m._caB2BGeo?.France || 0;
+          aggregated._caB2BGeo.DomTom += m._caB2BGeo?.DomTom || 0;
           aggregated._countB2C += m._countB2C || 0;
           aggregated._countB2B += m._countB2B || 0;
           aggregated._count += m._count || 0;
@@ -143,6 +146,8 @@ export default async function handler(req, res) {
         aggregated._totalCAB2B = Math.round(aggregated._totalCAB2B * 100) / 100;
         aggregated._totalCAB2CNet = Math.round(aggregated._totalCAB2CNet * 100) / 100;
         aggregated._totalCAB2BNet = Math.round(aggregated._totalCAB2BNet * 100) / 100;
+        aggregated._caB2BGeo.France = Math.round(aggregated._caB2BGeo.France * 100) / 100;
+        aggregated._caB2BGeo.DomTom = Math.round(aggregated._caB2BGeo.DomTom * 100) / 100;
         aggregated._tauxAvoirs = aggregated._totalCA > 0
           ? Math.round((aggregated._totalAvoirs / aggregated._totalCA) * 10000) / 100
           : 0;
@@ -269,6 +274,12 @@ export default async function handler(req, res) {
       // 4. Sinon Autre
       return 'Autre';
     }
+    // Sous-classification géographique des pharmacies DOM-TOM (n'affecte pas le type client)
+    function isDomTomClient(companyName) {
+      const n = (companyName || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      return (n.includes('sanisco') && (n.includes('caraibes') || n.includes('pacifique') || n.includes('polynesie') || n.includes('guyane') || n.includes('groupe')))
+        || (n.includes('marques') && n.includes('beaute'));
+    }
     const caByType = {};
     for (const inv of filteredInvoices) {
       const typeClient = classifyClient(inv);
@@ -289,6 +300,11 @@ export default async function handler(req, res) {
       acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
     const totalCAB2B = invoicesB2BNew.reduce((acc, inv) =>
       acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
+    // Répartition géographique B2B : France vs DOM-TOM (sous-ensemble de Pharmacie, classification inchangée)
+    const totalCAB2BDomTom = invoicesB2BNew
+      .filter(inv => isDomTomClient(inv.company_name))
+      .reduce((acc, inv) => acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
+    const totalCAB2BFrance = totalCAB2B - totalCAB2BDomTom;
     const b2bByClient = {};
     for (const inv of invoicesB2BNew) {
       const name = inv.company_name || 'Inconnu';
@@ -360,6 +376,10 @@ export default async function handler(req, res) {
       _totalCAB2B: Math.round(totalCAB2B * 100) / 100,
       _totalCAB2CNet: Math.round((totalCAB2C - totalAvoirsB2C) * 100) / 100,
       _totalCAB2BNet: Math.round((totalCAB2B - totalAvoirsB2B) * 100) / 100,
+      _caB2BGeo: {
+        France: Math.round(totalCAB2BFrance * 100) / 100,
+        DomTom: Math.round(totalCAB2BDomTom * 100) / 100
+      },
       _countB2C: invoicesB2CNew.length,
       _countB2B: invoicesB2BNew.length,
       _panierMoyenB2C: invoicesB2CNew.length > 0 ? Math.round((totalCAB2C / invoicesB2CNew.length) * 100) / 100 : 0,
