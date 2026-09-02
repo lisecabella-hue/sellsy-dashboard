@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   }
   const { dateStart, dateEnd } = req.query;
   if (!dateStart || !dateEnd) return res.status(400).json({ error: 'dateStart and dateEnd required' });
-  const CACHE_VERSION = 'shopify_v4';
+  const CACHE_VERSION = 'shopify_v5_debug';
   const cacheKey = `shopify:${CACHE_VERSION}:${dateStart}:${dateEnd}`;
   const API_VERSION = '2026-07';
   // Calcule l'offset UTC de la boutique (Europe/Paris, gère automatiquement l'heure d'été/hiver)
@@ -163,6 +163,21 @@ export default async function handler(req, res) {
       !o.cancelledAt &&
       (o.displayFinancialStatus === 'PAID' || o.displayFinancialStatus === 'PARTIALLY_PAID' || o.displayFinancialStatus === 'PARTIALLY_REFUNDED' || o.displayFinancialStatus === 'REFUNDED')
     );
+    // ─── DEBUG temporaire : comprendre l'écart avec les rapports natifs Shopify ───
+    const statusBreakdown = {};
+    orders.forEach(o => {
+      const key = o.cancelledAt ? `CANCELLED (${o.displayFinancialStatus})` : o.displayFinancialStatus;
+      statusBreakdown[key] = (statusBreakdown[key] || 0) + 1;
+    });
+    const debugInfo = {
+      _debugTotalOrdersRawQuery: totalOrdersCount,
+      _debugStatusBreakdown: statusBreakdown,
+      _debugValidOrdersCount: validOrders.length,
+      _debugSumTTCAllOrders: Math.round(orders.reduce((s, o) => s + parseFloat(o.currentTotalPriceSet?.shopMoney?.amount ?? o.totalPriceSet.shopMoney.amount), 0) * 100) / 100,
+      _debugSumTTCValidOrders: Math.round(validOrders.reduce((s, o) => s + parseFloat(o.currentTotalPriceSet?.shopMoney?.amount ?? o.totalPriceSet.shopMoney.amount), 0) * 100) / 100,
+      _debugCreatedAtStart: createdAtStart,
+      _debugCreatedAtEnd: createdAtEnd
+    };
     // On utilise les montants "current" (après remboursements/avoirs), pas les montants
     // d'origine à la commande, pour correspondre au calcul "ventes nettes" natif de Shopify.
     function htFromOrder(o) {
@@ -256,7 +271,8 @@ export default async function handler(req, res) {
       _currency: validOrders[0]?.totalPriceSet.shopMoney.currencyCode || 'EUR',
       _dateStart: dateStart,
       _dateEnd: dateEnd,
-      _tva: 'HT (taxe déduite)'
+      _tva: 'HT (taxe déduite)',
+      ...debugInfo
     };
     if (kvUrl && kvToken) await cacheSet(cacheKey, result, ttl);
     return res.status(200).json(result);
