@@ -1308,13 +1308,15 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
     if (resteEl) {
       const budgetEuros = budVal * 1000;
       const reste = budgetEuros - caVal;
-      if (reste > 0) {
-        resteEl.textContent = `Reste à faire : ${fmt(reste)}`;
-        resteEl.style.color = '#D85A30';
-      } else {
-        resteEl.textContent = `Objectif atteint ! ${fmt(Math.abs(reste))} au-delà`;
-        resteEl.style.color = '#1D9E75';
-      }
+      const resteColor = reste > 0 ? '#D85A30' : '#1D9E75';
+      const resteLabel = reste > 0 ? 'Reste à faire' : 'Objectif atteint';
+      const resteValue = reste > 0 ? fmt(reste) : `+${fmt(Math.abs(reste))}`;
+      resteEl.style.color = '';
+      resteEl.innerHTML = `
+        <div style="display:flex;justify-content:space-between;font-weight:400;color:#888;padding:2px 0;"><span>CA du jour</span><span style="font-weight:600;color:#1a1a1a;">${fmt(caVal)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-weight:400;color:#888;padding:2px 0;"><span>Budget du jour</span><span style="font-weight:600;color:#1a1a1a;">${fmt(budgetEuros)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-weight:600;color:${resteColor};padding:2px 0;border-top:1px solid #eee;margin-top:2px;"><span>${resteLabel}</span><span>${resteValue}</span></div>
+      `;
     }
     return;
   }
