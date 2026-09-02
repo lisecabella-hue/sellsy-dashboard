@@ -1321,7 +1321,7 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
       const periodDates = getDates();
       const periodEnded = currentMode === 'month' && periodDates && new Date(periodDates.dateEnd + 'T23:59:59') < new Date();
       if (reste > 0) {
-        const label = periodEnded ? 'Retard sur le mois' : 'Reste à faire';
+        const label = periodEnded ? 'Retard sur le mois' : 'Reste à faire vs Budget';
         resteEl.textContent = `${label} : ${fmt(reste)}`;
         resteEl.style.color = '#D85A30';
       } else {
