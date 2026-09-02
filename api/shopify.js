@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   }
   const { dateStart, dateEnd } = req.query;
   if (!dateStart || !dateEnd) return res.status(400).json({ error: 'dateStart and dateEnd required' });
-  const CACHE_VERSION = 'shopify_v6_debug';
+  const CACHE_VERSION = 'shopify_v7_debug';
   const cacheKey = `shopify:${CACHE_VERSION}:${dateStart}:${dateEnd}`;
   const API_VERSION = '2026-07';
   // Calcule l'offset UTC de la boutique (Europe/Paris, gère automatiquement l'heure d'été/hiver)
@@ -102,8 +102,6 @@ export default async function handler(req, res) {
                 totalTaxSet { shopMoney { amount } }
                 currentTotalPriceSet { shopMoney { amount currencyCode } }
                 currentTotalTaxSet { shopMoney { amount } }
-                subtotalPriceSet { shopMoney { amount currencyCode } }
-                currentSubtotalPriceSet { shopMoney { amount currencyCode } }
                 lineItems(first: 20) {
                   edges {
                     node {
@@ -180,14 +178,10 @@ export default async function handler(req, res) {
       _debugCreatedAtStart: createdAtStart,
       _debugCreatedAtEnd: createdAtEnd
     };
-    // Shopify calcule sa "valeur moyenne des commandes" sur les ventes nettes : sous-total
-    // après remises, hors frais de port, hors taxe, net des remboursements/éditions
-    // (currentSubtotalPriceSet). Le total TTC (currentTotalPriceSet) inclut en plus la
-    // livraison et la taxe, ce qui gonflait notre chiffre par rapport au rapport Shopify.
+    // D'après la doc Shopify, currentSubtotalPriceSet inclut en fait encore la taxe
+    // (contrairement à ce que son nom suggère) : l'utiliser directement gonflait le panier
+    // moyen. On revient donc à total TTC (net des remboursements) moins la taxe.
     function htFromOrder(o) {
-      const subtotal = o.currentSubtotalPriceSet?.shopMoney?.amount ?? o.subtotalPriceSet?.shopMoney?.amount;
-      if (subtotal !== undefined && subtotal !== null) return parseFloat(subtotal);
-      // Repli si les champs subtotal ne sont pas disponibles
       const ttc = parseFloat(o.currentTotalPriceSet?.shopMoney?.amount ?? o.totalPriceSet.shopMoney.amount);
       const taxe = parseFloat(o.currentTotalTaxSet?.shopMoney?.amount ?? o.totalTaxSet?.shopMoney?.amount ?? 0);
       return ttc - taxe;
