@@ -78,7 +78,6 @@
   </style>
 </head>
 <body>
-
   <!-- Login overlay -->
   <div id="loginOverlay" style="position:fixed;inset:0;background:#f5f5f5;z-index:99999;display:flex;align-items:center;justify-content:center;">
     <div style="background:white;border-radius:16px;padding:40px;width:380px;max-width:90vw;border:1px solid #e5e5e5;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
@@ -92,9 +91,7 @@
       </button>
     </div>
   </div>
-
   <div id="app" style="display:none;">
-
   <div class="modal-overlay" id="notesModal">
     <div class="modal">
       <p class="modal-title">📝 Messages du dashboard</p>
@@ -120,7 +117,6 @@
       <p class="save-msg" id="notesSaveMsg">✓ Notes enregistrées !</p>
     </div>
   </div>
-
   <!-- Bandeau messages -->
   <div id="bannerPermanent" style="display:none;background:#1a1a1a;color:white;padding:10px 32px;font-size:13px;align-items:center;gap:8px;">
     <span>📌</span><span id="bannerPermanentText"></span>
@@ -128,7 +124,6 @@
   <div id="bannerMonth" style="display:none;background:#FFF8E1;border-bottom:1px solid #FFE082;padding:10px 32px;font-size:13px;color:#7B5E00;align-items:center;gap:8px;">
     <span>⚠️</span><span id="bannerMonthText"></span>
   </div>
-
   <div class="modal-overlay" id="budgetModal">
     <div class="modal">
       <p class="modal-title">Budget 2026 mensuel</p>
@@ -141,7 +136,6 @@
       <p class="save-msg" id="saveMsg">✓ Budget enregistré !</p>
     </div>
   </div>
-
   <div class="header">
     <div style="display:flex;align-items:center;gap:24px;">
       <h1>📊 Cockpit CEO</h1>
@@ -159,9 +153,7 @@
       <button class="btn-settings" onclick="openNotesModal()">📝 Notes</button>
     </div>
   </div>
-
   <div class="container">
-
     <div id="businessView">
     <div class="controls-bar">
       <div class="period-btns">
@@ -197,24 +189,20 @@
       <button class="btn btn-primary" onclick="loadData()">↻ Voir</button>
       <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">En attente</span></div>
     </div>
-
     <!-- Onglets segment -->
     <div style="display:flex;gap:4px;background:#f5f5f5;border-radius:10px;padding:4px;width:fit-content;margin-bottom:20px;">
       <button id="segTotal" onclick="setSegment('total')" style="font-size:13px;padding:7px 18px;border-radius:7px;border:none;cursor:pointer;background:#1a1a1a;color:white;font-weight:500;">Total</button>
       <button id="segB2B" onclick="setSegment('b2b')" style="font-size:13px;padding:7px 18px;border-radius:7px;border:none;cursor:pointer;background:transparent;color:#666;font-weight:500;">B2B</button>
       <button id="segB2C" onclick="setSegment('b2c')" style="font-size:13px;padding:7px 18px;border-radius:7px;border:none;cursor:pointer;background:transparent;color:#666;font-weight:500;">B2C</button>
     </div>
-
     <div class="error-box" id="errorBox"></div>
     <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
       <p class="period-label" style="margin-bottom:0;" id="periodLabel"></p>
       <span id="tempsEcouleB2B" style="display:none;font-size:12px;color:#1D9E75;font-weight:500;background:#f0faf6;padding:3px 10px;border-radius:20px;border:1px solid #c8eadb;"></span>
       <span id="tempsEcouleB2C" style="display:none;font-size:12px;color:#74A1D6;font-weight:500;background:#f0f5fc;padding:3px 10px;border-radius:20px;border:1px solid #c5d9f0;"></span>
     </div>
-
     <!-- Ligne de jauges style compteur : Total + B2B + B2C -->
     <div id="gaugesRow" style="display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:14px;margin-bottom:16px;">
-
         <!-- TOTAL -->
         <div id="blockTotal" class="metric-card" style="padding:24px 28px;border-radius:16px;border:1px solid #e5e5e5;">
           <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#888;margin-bottom:12px;">CA Total HT</p>
@@ -232,7 +220,6 @@
           </div>
           <p id="mAvoirsKpi" style="display:none;"></p>
         </div>
-
         <!-- B2B -->
         <div id="blockB2B" class="metric-card" style="padding:24px 24px;border-radius:16px;border:1px solid #c8eadb;background:linear-gradient(145deg, #edf8f3 0%, #f8fdfb 100%);">
           <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#1D9E75;margin-bottom:12px;">Dont CA B2B</p>
@@ -245,7 +232,6 @@
             <p id="budgetStatusB2B" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;color:#1D9E75;"></p>
           </div>
         </div>
-
         <!-- B2C -->
         <div id="blockB2C" class="metric-card" style="padding:24px 24px;border-radius:16px;border:1px solid #c5d9f0;background:linear-gradient(145deg, #edf3fb 0%, #f7fafd 100%);">
           <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#74A1D6;margin-bottom:12px;">Dont CA B2C</p>
@@ -258,9 +244,7 @@
             <p id="budgetStatusB2C" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;color:#74A1D6;"></p>
           </div>
         </div>
-
     </div>
-
     <!-- Camembert répartition (conservé) -->
     <div style="display:none;">
       <div class="chart-card" style="margin-bottom:0;display:none;">
@@ -278,7 +262,6 @@
         <!-- placeholder pour garder la grille équilibrée -->
       </div>
     </div>
-
     <!-- Répartition B2C Site vs Outlet -->
     <div class="chart-card" id="b2cBreakdownRow" style="display:none;margin-bottom:24px;">
       <div class="chart-header">
@@ -296,33 +279,23 @@
         </div>
       </div>
     </div>
-
-    <!-- Détails Shopify (segment B2C uniquement) -->
-    <div class="chart-card" id="shopifyDetailCard" style="display:none;margin-bottom:24px;">
+    <!-- Répartition B2B France vs DOM-TOM -->
+    <div class="chart-card" id="b2bGeoRow" style="display:none;margin-bottom:24px;">
       <div class="chart-header">
         <div>
-          <p class="chart-title">🛍️ Détails Shopify — indicateurs e-commerce</p>
-          <p class="chart-subtitle" id="shopifySubtitle">Panier moyen et top produits propres à Shopify (le CA est déjà compté dans le B2C ci-dessus)</p>
+          <p class="chart-title">Répartition B2B — France vs DOM-TOM</p>
+          <p class="chart-subtitle" id="b2bGeoSubtitle">Période sélectionnée</p>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
-        <div style="background:linear-gradient(145deg,#edf3fb 0%,#f7fafd 100%);border-radius:14px;padding:20px;border:1px solid #c5d9f0;">
-          <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#74A1D6;margin-bottom:8px;">Panier moyen Shopify</p>
-          <p style="font-size:26px;font-weight:600;" id="shopifyPanierMoyen">—</p>
-          <p style="font-size:11px;color:#aaa;margin-top:4px;" id="shopifyOrderCountNote"></p>
+      <div style="display:flex;align-items:center;justify-content:center;gap:48px;flex-wrap:wrap;padding:8px 0;">
+        <div style="position:relative;width:220px;height:220px;flex-shrink:0;">
+          <canvas id="b2bGeoPieChart" width="220" height="220"></canvas>
         </div>
-        <div style="background:#fafafa;border-radius:14px;padding:20px;border:1px solid #e5e5e5;">
-          <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:8px;">Commandes Shopify</p>
-          <p style="font-size:26px;font-weight:600;" id="shopifyOrderCount">—</p>
-          <p style="font-size:11px;color:#aaa;margin-top:4px;">Commandes payées sur la période</p>
+        <div id="b2bGeoLegend" style="display:flex;flex-direction:column;gap:14px;min-width:220px;">
+          <span style="color:#aaa;font-size:13px;">En attente de données...</span>
         </div>
-      </div>
-      <p style="font-size:13px;font-weight:600;margin-bottom:12px;">🏆 Top 10 produits (CA)</p>
-      <div id="shopifyTopProducts" style="display:flex;flex-direction:column;gap:8px;">
-        <span style="color:#aaa;font-size:13px;">En attente de données...</span>
       </div>
     </div>
-
     <!-- Répartition par type de client -->
     <div class="chart-card" id="typeClientRow" style="margin-bottom:24px;">
       <div class="chart-header">
@@ -340,7 +313,6 @@
         </div>
       </div>
     </div>
-
     <div class="chart-card">
       <div class="chart-header">
         <div>
@@ -351,7 +323,6 @@
       </div>
       <div class="chart-container" style="height:320px;"><canvas id="caChart"></canvas></div>
     </div>
-
     <div class="chart-card" id="budgetChartCard" style="display:none;">
       <div class="chart-header">
         <div>
@@ -361,7 +332,6 @@
       </div>
       <div class="chart-container" style="height:320px;"><canvas id="budgetChart"></canvas></div>
     </div>
-
     <!-- GRAPHIQUE PHARMACIES PAR OBJET -->
     <div class="chart-card" id="pharmacyBreakdownCard" style="display:none;">
       <div class="chart-header" style="margin-bottom:16px;">
@@ -370,17 +340,14 @@
           <p class="chart-subtitle" id="pharmacyBreakdownSubtitle"></p>
         </div>
       </div>
-
       <!-- Ligne 1 : Parc actif centré -->
       <div style="text-align:center;margin-bottom:20px;">
         <span style="font-size:12px;color:#888;">Parc actif : </span>
         <span style="font-size:15px;font-weight:600;" id="pharmacyNbActif">—</span>
         <span style="font-size:12px;color:#888;"> pharmacies distinctes facturées depuis janvier 2026</span>
       </div>
-
       <!-- Ligne 2 : Bloc Réassort + Bloc Implantation -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
-
         <!-- RÉASSORT -->
         <div style="background:linear-gradient(135deg,#f3eeff,#faf7ff);border-radius:14px;padding:20px;border:1px solid #d8c8f5;">
           <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#7B4FD4;margin-bottom:16px;">♻️ Réassort</p>
@@ -401,7 +368,6 @@
             </div>
           </div>
         </div>
-
         <!-- IMPLANTATION -->
         <div style="background:linear-gradient(135deg,#f2f2f2,#fafafa);border-radius:14px;padding:20px;border:1px solid #d0d0d0;">
           <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#444;margin-bottom:16px;">🏪 Implantation</p>
@@ -422,9 +388,7 @@
             </div>
           </div>
         </div>
-
       </div>
-
       <!-- Ligne 3 : Donut + légende -->
       <div style="display:flex;align-items:center;justify-content:center;gap:48px;flex-wrap:wrap;padding:8px 0;">
         <div style="position:relative;width:220px;height:220px;flex-shrink:0;">
@@ -433,7 +397,6 @@
         <div id="pharmacyLegend" style="display:flex;flex-direction:column;gap:14px;min-width:220px;"></div>
       </div>
     </div>
-
     <div class="chart-card" id="top30Card" style="display:none;">
       <div class="chart-header">
         <div>
@@ -454,9 +417,7 @@
         <tbody id="top30Body"></tbody>
       </table>
     </div>
-
     </div><!-- end businessView -->
-
     <!-- VUE FINANCIER -->
     <div id="financierView" style="display:none;">
       <div class="controls-bar">
@@ -494,7 +455,6 @@
       <div id="finLockMsg" style="display:none;background:#fff0f0;border:1px solid #fcc;border-radius:8px;padding:12px 16px;font-size:13px;color:#c00;margin-bottom:16px;">
         🔒 Ce mois n'est pas encore finalisé dans Pennylane.
       </div>
-
       <!-- Solde de trésorerie -->
       <div class="chart-card" style="margin-bottom:24px;">
         <div class="chart-header" style="margin-bottom:16px;">
@@ -510,10 +470,8 @@
           <div id="tresorerieDetail" style="font-size:12px;color:#888;display:none;"></div>
         </div>
       </div>
-
       <div class="error-box" id="finErrorBox"></div>
       <p class="period-label" id="finPeriodLabel"></p>
-
       <div class="metric-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
         <div class="metric-card" style="border-left:3px solid #1a1a1a;">
           <p class="metric-label">CA Comptable</p>
@@ -548,7 +506,6 @@
           </div>
         </div>
       </div>
-
       <div class="chart-card" id="finChartCard" style="display:none;margin-top:24px;">
         <div class="chart-header">
           <div>
@@ -558,7 +515,6 @@
         </div>
         <div class="chart-container" style="height:300px;"><canvas id="finLineChart"></canvas></div>
       </div>
-
       <div class="chart-card" id="finBudgetChartCard" style="display:none;margin-top:24px;">
         <div class="chart-header">
           <div>
@@ -568,12 +524,9 @@
         </div>
         <div class="chart-container" style="height:300px;"><canvas id="finBarChart"></canvas></div>
       </div>
-
     </div><!-- end financierView -->
-
     </div><!-- end container -->
     </div><!-- end app -->
-
 <script>
 const PASSWORD = 'DashboardCEO';
 function checkPassword() {
@@ -598,7 +551,6 @@ window.addEventListener('DOMContentLoaded', () => {
     updateBanners();
   }
 });
-
 const now = new Date();
 const pad = n => String(n).padStart(2,'0');
 const todayStr = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}`;
@@ -609,9 +561,9 @@ let caChartInstance = null;
 let budgetChartInstance = null;
 let pieChartInstance = null;
 let b2cBreakdownPieInstance = null;
+let b2bGeoPieInstance = null;
 let currentTotalCA = 0;
 let pharmacyChartN = null;
-
 const PHARMACY_COLORS = {
   'Implantation': '#1a1a1a',
   'Précommandes': '#74A1D6',
@@ -619,11 +571,9 @@ const PHARMACY_COLORS = {
   'Coffres': '#D85A30',
   'Non classifié': '#bbb'
 };
-
 const PHARMACY_CATS = ['Implantation', 'Précommandes', 'Réassort', 'Coffres', 'Non classifié'];
 let budgetPharmacy = {};
 PHARMACY_CATS.forEach(cat => { budgetPharmacy[cat] = Array(12).fill(0); });
-
 function loadPharmacyBudget() {
   try {
     const saved = localStorage.getItem('budgetPharmacy');
@@ -631,11 +581,9 @@ function loadPharmacyBudget() {
   } catch {}
 }
 loadPharmacyBudget();
-
 function savePharmacyBudget() {
   localStorage.setItem('budgetPharmacy', JSON.stringify(budgetPharmacy));
 }
-
 function getPharmacyBudgetForPeriod(cat, dateStart, dateEnd) {
   const arr = budgetPharmacy[cat] || Array(12).fill(0);
   const start = new Date(dateStart + 'T12:00:00');
@@ -653,7 +601,6 @@ function getPharmacyBudgetForPeriod(cat, dateStart, dateEnd) {
   }
   return Math.round(total * 10) / 10;
 }
-
 function renderPharmacyDonut(canvasId, data, existingChart, totalInvoices) {
   const ctx = document.getElementById(canvasId).getContext('2d');
   if (existingChart) existingChart.destroy();
@@ -661,7 +608,6 @@ function renderPharmacyDonut(canvasId, data, existingChart, totalInvoices) {
   const values = labels.map(k => data[k] || 0);
   const total = values.reduce((a, b) => a + b, 0);
   const colors = labels.map(l => PHARMACY_COLORS[l] || '#aaa');
-
   const chart = new Chart(ctx, {
     type: 'doughnut',
     data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }] },
@@ -719,7 +665,6 @@ function renderPharmacyDonut(canvasId, data, existingChart, totalInvoices) {
   });
   return chart;
 }
-
 async function loadPharmacyBreakdown(dateStart, dateEnd) {
   const card = document.getElementById('pharmacyBreakdownCard');
   card.style.display = 'block';
@@ -727,14 +672,11 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
   document.getElementById('pharmacyTauxReassort').textContent = '...';
   document.getElementById('pharmacyPanierReassort').textContent = '...';
   document.getElementById('pharmacyPanierImplantation').textContent = '...';
-
   try {
     const resp = await fetch(`/api/pharmacy-breakdown?dateStart=${dateStart}&dateEnd=${dateEnd}`);
     const data = await resp.json();
-
     const N = data.N || {};
     const montants = N.montants || N;
-
     document.getElementById('pharmacyTauxReassort').textContent =
       N.tauxReassort !== undefined ? `${N.tauxReassort.toFixed(1)}%` : '—';
     document.getElementById('pharmacyTauxReassortDetail').textContent =
@@ -775,9 +717,7 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
     }
     document.getElementById('pharmacyNbActif').textContent =
       nbParcActif !== null ? nbParcActif : (N.nbPharmaTotal !== undefined ? N.nbPharmaTotal : '—');
-
     pharmacyChartN = renderPharmacyDonut('pharmacyDonutN', montants, pharmacyChartN, N.totalPharmacyInvoices);
-
     // Budget écoulé pour Réassort et Implantation (jours ouvrés)
     const ratio = getProratioForPeriod(true); // jours ouvrés
     ['Réassort', 'Implantation'].forEach(cat => {
@@ -800,7 +740,6 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
         el.innerHTML = `<span style="color:${color};">${sign}${diffEuros === 0 || Math.abs(diffEuros) < 500 ? 'Dans les clous' : fmt(diffAbs) + ' vs budget écoulé'}</span><br><span style="color:#aaa;font-size:10px;font-weight:400;">${pct}% réalisé · attendu ${expectedPct}% (j. ouvrés)</span>`;
       }
     });
-
     const total = Object.values(montants).reduce((a, b) => a + b, 0);
     const legend = document.getElementById('pharmacyLegend');
     legend.innerHTML = Object.keys(PHARMACY_COLORS).filter(cat => cat !== 'Coffres').map(cat => {
@@ -822,69 +761,25 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
         <div style="font-size:11px;padding-left:20px;">${budgetText}</div>
       </div>`;
     }).join('');
-
     document.getElementById('pharmacyBreakdownSubtitle').textContent =
       `Pharmacies — période sélectionnée${data._fromCache ? ' (cache)' : ''}`;
-
   } catch(e) {
     document.getElementById('pharmacyBreakdownSubtitle').textContent = 'Erreur de chargement';
     card.style.display = 'none';
   }
 }
-
-async function loadShopifyDetails(dateStart, dateEnd) {
-  const card = document.getElementById('shopifyDetailCard');
-  card.style.display = 'block';
-  document.getElementById('shopifySubtitle').textContent = 'Chargement...';
-  try {
-    const resp = await fetch(`/api/shopify?dateStart=${dateStart}&dateEnd=${dateEnd}`);
-    const data = await resp.json();
-
-    document.getElementById('shopifyPanierMoyen').textContent = fmt(data._panierMoyen || 0);
-    document.getElementById('shopifyOrderCount').textContent = (data._orderCount || 0).toLocaleString('fr-FR');
-    document.getElementById('shopifyOrderCountNote').textContent = `sur ${data._orderCount || 0} commandes`;
-
-    const top = data._topProducts || [];
-    const maxRevenue = top.length > 0 ? top[0].revenue : 1;
-    const listEl = document.getElementById('shopifyTopProducts');
-    if (top.length === 0) {
-      listEl.innerHTML = '<span style="color:#aaa;font-size:13px;">Aucune donnée produit sur cette période</span>';
-    } else {
-      listEl.innerHTML = top.map((p, i) => {
-        const pct = Math.round((p.revenue / maxRevenue) * 100);
-        return `<div style="display:flex;align-items:center;gap:12px;">
-          <span style="font-size:12px;color:#888;width:18px;">${i+1}</span>
-          <span style="font-size:13px;flex:0 0 220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.title}</span>
-          <div style="flex:1;background:#f0f0f0;border-radius:4px;height:10px;">
-            <div style="width:${pct}%;background:#74A1D6;height:10px;border-radius:4px;"></div>
-          </div>
-          <span style="font-size:13px;font-weight:500;width:90px;text-align:right;">${fmt(p.revenue)}</span>
-        </div>`;
-      }).join('');
-    }
-
-    document.getElementById('shopifySubtitle').textContent =
-      `Panier moyen et top produits propres à Shopify${data._fromCache ? ' (cache)' : ''}`;
-  } catch (e) {
-    document.getElementById('shopifySubtitle').textContent = 'Erreur de chargement';
-  }
-}
-
 // Donut B2C Site vs Outlet
 function renderB2CBreakdownPieChart(caByType) {
   const B2C_CATS = ['B2C', 'Outlet'];
   const B2C_COLORS = { 'B2C': '#bbb', 'Outlet': '#9B59B6' };
   const B2C_LABELS = { 'B2C': 'Site', 'Outlet': 'Outlet' };
-
   const ctx = document.getElementById('b2cBreakdownPieChart').getContext('2d');
   if (b2cBreakdownPieInstance) b2cBreakdownPieInstance.destroy();
-
   const entries = B2C_CATS.filter(k => (caByType[k] || 0) > 0);
   const values = entries.map(k => caByType[k] || 0);
   const total = values.reduce((a, b) => a + b, 0);
   const colors = entries.map(k => B2C_COLORS[k]);
   const labels = entries.map(k => B2C_LABELS[k]);
-
   b2cBreakdownPieInstance = new Chart(ctx, {
     type: 'doughnut',
     data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }] },
@@ -935,7 +830,6 @@ function renderB2CBreakdownPieChart(caByType) {
       }
     ]
   });
-
   const legendEl = document.getElementById('b2cBreakdownLegend');
   legendEl.innerHTML = entries.map((k, i) => {
     const pct = total > 0 ? Math.round((values[i] / total) * 100) : 0;
@@ -947,10 +841,83 @@ function renderB2CBreakdownPieChart(caByType) {
       </div>
     </div>`;
   }).join('');
-
   document.getElementById('b2cBreakdownSubtitle').textContent = 'Période sélectionnée';
 }
-
+// Donut B2B France vs DOM-TOM
+function renderB2BGeoPieChart(geo) {
+  const CATS = ['France', 'DomTom'];
+  const COLORS = { France: '#1D9E75', DomTom: '#0E7C86' };
+  const LABELS = { France: 'France', DomTom: 'DOM-TOM' };
+  const ctx = document.getElementById('b2bGeoPieChart').getContext('2d');
+  if (b2bGeoPieInstance) b2bGeoPieInstance.destroy();
+  const entries = CATS.filter(k => (geo[k] || 0) > 0);
+  const values = entries.map(k => geo[k] || 0);
+  const total = values.reduce((a, b) => a + b, 0);
+  const colors = entries.map(k => COLORS[k]);
+  const labels = entries.map(k => LABELS[k]);
+  b2bGeoPieInstance = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }] },
+    options: {
+      responsive: false,
+      cutout: '62%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmt(ctx.raw)} (${total > 0 ? Math.round((ctx.raw/total)*100) : 0}%)` } }
+      }
+    },
+    plugins: [
+      {
+        id: 'centerTextB2BGeo',
+        afterDatasetsDraw(chart) {
+          const { ctx, chartArea: { left, top, right, bottom } } = chart;
+          const cx = (left + right) / 2;
+          const cy = (top + bottom) / 2;
+          ctx.save();
+          ctx.font = 'bold 14px -apple-system, sans-serif';
+          ctx.fillStyle = '#1a1a1a';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(fmt(total), cx, cy);
+          ctx.restore();
+        }
+      },
+      {
+        id: 'pctOnSliceB2BGeo',
+        afterDatasetsDraw(chart) {
+          const { ctx, data } = chart;
+          const meta = chart.getDatasetMeta(0);
+          meta.data.forEach((arc, i) => {
+            const val = data.datasets[0].data[i];
+            const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+            if (pct < 5) return;
+            const angle = (arc.startAngle + arc.endAngle) / 2;
+            const r = (arc.outerRadius + arc.innerRadius) / 2;
+            ctx.save();
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 12px -apple-system, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(pct + '%', arc.x + Math.cos(angle) * r, arc.y + Math.sin(angle) * r);
+            ctx.restore();
+          });
+        }
+      }
+    ]
+  });
+  const legendEl = document.getElementById('b2bGeoLegend');
+  legendEl.innerHTML = entries.map((k, i) => {
+    const pct = total > 0 ? Math.round((values[i] / total) * 100) : 0;
+    return `<div style="display:flex;flex-direction:column;gap:4px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="width:12px;height:12px;border-radius:3px;background:${colors[i]};display:inline-block;flex-shrink:0;"></span>
+        <span style="font-size:14px;font-weight:500;">${labels[i]}</span>
+        <span style="font-size:13px;color:#888;">${pct}% — ${fmt(values[i])}</span>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('b2bGeoSubtitle').textContent = 'Période sélectionnée';
+}
 function setSegment(seg) {
   currentSegment = seg;
   ['total','b2b','b2c'].forEach(s => {
@@ -980,10 +947,8 @@ function setSegment(seg) {
     }
   }
 }
-
 function applySegment(caData) {
   const seg = currentSegment;
-
   const caByTypeRaw = caData._caByType || {};
   const caB2CSiteOutlet = (caByTypeRaw['B2C'] || 0) + (caByTypeRaw['Outlet'] || 0);
   const caB2BFromTypes  = (caByTypeRaw['Pharmacie'] || 0)
@@ -992,7 +957,6 @@ function applySegment(caData) {
   const caTotal    = caData._totalCA || 0;
   const panierB2C  = caData._panierMoyenB2C || 0;
   const panierB2B  = caData._panierMoyenB2B || 0;
-
   // Blocs du haut : visibilité selon segment
   const blockTotal = document.getElementById('blockTotal');
   const blockB2B   = document.getElementById('blockB2B');
@@ -1000,65 +964,56 @@ function applySegment(caData) {
   if (blockTotal) blockTotal.style.display = seg === 'total' ? '' : 'none';
   if (blockB2B)   blockB2B.style.display   = (seg === 'total' || seg === 'b2b') ? '' : 'none';
   if (blockB2C)   blockB2C.style.display   = (seg === 'total' || seg === 'b2c') ? '' : 'none';
-
   // Valeurs
   document.getElementById('mCA').textContent    = fmt(caTotal);
   document.getElementById('mCAB2B').textContent = fmt(caB2BFromTypes);
   document.getElementById('mCAB2C').textContent = fmt(caB2CSiteOutlet);
   document.getElementById('mAvgB2C').textContent = fmt(panierB2C);
   document.getElementById('mAvgB2B').textContent = fmt(panierB2B);
-
   const avoirsEl = document.getElementById('mAvoirsKpi');
   if (avoirsEl) avoirsEl.innerHTML = '';
-
   // Jauges : toujours les vraies valeurs
   updateBudgetDisplay(caTotal, budget2026);
   updateBudgetB2CB2BDisplay(caB2CSiteOutlet, caB2BFromTypes);
-
   // Pour les graphiques en dessous, on garde les valeurs filtrées par segment
   const ca    = seg === 'b2b' ? caB2BFromTypes : seg === 'b2c' ? caB2CSiteOutlet : caTotal;
   const caB2C = seg === 'b2b' ? 0 : caB2CSiteOutlet;
   const caB2B = seg === 'b2c' ? 0 : caB2BFromTypes;
-
   renderPieChart(caB2C, caB2B);
   currentTotalCA = ca;
-
   const pieTitle = document.getElementById('pieChartTitle');
   if (pieTitle) {
     if (seg === 'b2b') pieTitle.textContent = 'Répartition CA B2B par type de client';
     else if (seg === 'b2c') pieTitle.textContent = 'Répartition CA B2C par canal';
     else pieTitle.textContent = 'Répartition CA par type de client';
   }
-
   const pieCard    = document.getElementById('b2cPieChart')?.closest('.chart-card');
   const typeClientRow = document.getElementById('typeClientRow');
   const pharmacyCard  = document.getElementById('pharmacyBreakdownCard');
   const b2cBreakRow   = document.getElementById('b2cBreakdownRow');
-
+  const b2bGeoRow     = document.getElementById('b2bGeoRow');
   if (seg === 'b2b') {
     if (pieCard)    pieCard.style.display     = 'none';
     if (typeClientRow) typeClientRow.style.display = '';
     if (b2cBreakRow)   b2cBreakRow.style.display   = 'none';
+    if (b2bGeoRow)      b2bGeoRow.style.display     = '';
+    if (caData._caB2BGeo) renderB2BGeoPieChart(caData._caB2BGeo);
     const dates = getDates();
     if (dates) loadPharmacyBreakdown(dates.dateStart, dates.dateEnd);
   } else {
     if (pharmacyCard) pharmacyCard.style.display = 'none';
+    if (b2bGeoRow)     b2bGeoRow.style.display     = 'none';
     if (seg === 'b2c') {
       if (pieCard)    pieCard.style.display     = 'none';
       if (typeClientRow) typeClientRow.style.display = 'none';
       if (b2cBreakRow)   b2cBreakRow.style.display   = '';
       if (caData._caByType) renderB2CBreakdownPieChart(caData._caByType);
-      const datesForShopify = getDates();
-      if (datesForShopify) loadShopifyDetails(datesForShopify.dateStart, datesForShopify.dateEnd);
     } else {
       if (pieCard)    pieCard.style.display     = '';
       if (typeClientRow) typeClientRow.style.display = '';
       if (b2cBreakRow)   b2cBreakRow.style.display   = 'none';
-      const shopifyCard = document.getElementById('shopifyDetailCard');
-      if (shopifyCard) shopifyCard.style.display = 'none';
     }
   }
-
   if (seg === 'b2c') {
     if (typeClientRow) typeClientRow.style.display = 'none';
   } else {
@@ -1072,7 +1027,6 @@ function applySegment(caData) {
       renderTypeClientPieChart(caData._caByType);
     }
   }
-
   if (seg === 'b2c') {
     document.getElementById('top30Title').textContent = '🏆 Top 30 clients B2C';
     document.getElementById('top30PctHeader').textContent = '% du CA B2C';
@@ -1087,17 +1041,14 @@ function applySegment(caData) {
     document.getElementById('top30Card').style.display = 'none';
   }
 }
-
 const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const monthsShort = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-
 const DEFAULT_BUDGET     = [1617, 1151, 3439, 1267, 1722, 2085, 1498, 814, 1319, 2401, 1461, 1483];
 const DEFAULT_BUDGET_B2C = [0,0,0,0,0,0,0,0,0,0,0,0];
 const DEFAULT_BUDGET_B2B = [0,0,0,0,0,0,0,0,0,0,0,0];
 let budget2026    = [...DEFAULT_BUDGET];
 let budgetB2C2026 = [...DEFAULT_BUDGET_B2C];
 let budgetB2B2026 = [...DEFAULT_BUDGET_B2B];
-
 function loadBudgetLocal() {
   try {
     const saved = localStorage.getItem('budget2026');
@@ -1109,10 +1060,8 @@ function loadBudgetLocal() {
   } catch {}
 }
 loadBudgetLocal();
-
 let notesPermanent = '';
 let notesMonths = Array(12).fill('');
-
 function loadNotes() {
   try {
     notesPermanent = localStorage.getItem('notesPermanent') || '';
@@ -1121,7 +1070,6 @@ function loadNotes() {
   } catch {}
 }
 loadNotes();
-
 function openNotesModal() {
   document.getElementById('notesPermanentInput').value = notesPermanent;
   const finGrid = document.getElementById('finalizedMonthsGrid');
@@ -1140,9 +1088,7 @@ function openNotesModal() {
   document.getElementById('notesModal').classList.add('open');
   document.getElementById('notesSaveMsg').style.display = 'none';
 }
-
 function closeNotesModal() { document.getElementById('notesModal').classList.remove('open'); }
-
 function saveNotes() {
   notesPermanent = document.getElementById('notesPermanentInput').value;
   notesMonths = months.map((_, i) => document.getElementById(`notesMonth_${i}`).value);
@@ -1154,7 +1100,6 @@ function saveNotes() {
   updateBanners();
   setTimeout(closeNotesModal, 800);
 }
-
 function updateBanners(monthIndex) {
   const perm = document.getElementById('bannerPermanent');
   const permText = document.getElementById('bannerPermanentText');
@@ -1176,7 +1121,6 @@ function updateBanners(monthIndex) {
     month.style.display = 'none';
   }
 }
-
 function openBudgetModal() {
   const grid = document.getElementById('budgetGrid');
   grid.innerHTML = `
@@ -1196,9 +1140,7 @@ function openBudgetModal() {
   document.getElementById('budgetModal').classList.add('open');
   document.getElementById('saveMsg').style.display = 'none';
 }
-
 function closeBudgetModal() { document.getElementById('budgetModal').classList.remove('open'); }
-
 function saveBudget() {
   budget2026    = months.map((_, i) => parseFloat(document.getElementById(`budget_${i}`).value) || 0);
   budgetB2C2026 = months.map((_, i) => parseFloat(document.getElementById(`budgetB2C_${i}`).value) || 0);
@@ -1212,11 +1154,9 @@ function saveBudget() {
     if (lastCaData) applySegment(lastCaData);
   }, 800);
 }
-
 // ============================================================
 // JAUGES ARC DE CERCLE (compteur)
 // ============================================================
-
 // Jours fériés FR (principaux, fixes)
 function joursFeries(year) {
   return [
@@ -1225,7 +1165,6 @@ function joursFeries(year) {
     `${year}-11-11`, `${year}-12-25`
   ];
 }
-
 // Compte les jours ouvrés (lun-ven hors fériés) entre deux dates incluses
 function countWorkdays(start, end) {
   let count = 0;
@@ -1241,7 +1180,6 @@ function countWorkdays(start, end) {
   }
   return count;
 }
-
 // Calcule le prorata temps écoulé selon le mode courant
 // Pour month : se base sur le mois sélectionné vs aujourd'hui
 // Pour today/week : se base sur les jours écoulés du mois en cours
@@ -1252,7 +1190,6 @@ function getProratioForPeriod(useWorkdays) {
   const startDate = new Date(dates.dateStart + 'T12:00:00');
   const endDate   = new Date(dates.dateEnd   + 'T12:00:00');
   const today     = new Date();
-
   // Pour le mode 'month' : mois sélectionné vs aujourd'hui
   if (currentMode === 'month') {
     if (startDate.getMonth() !== today.getMonth() || startDate.getFullYear() !== today.getFullYear()) return null;
@@ -1267,7 +1204,6 @@ function getProratioForPeriod(useWorkdays) {
       return elapsedEnd.getDate() / monthEnd.getDate();
     }
   }
-
   // Pour 'today' : portion du jour dans le mois
   if (currentMode === 'today') {
     if (startDate.getFullYear() !== 2026) return null;
@@ -1281,7 +1217,6 @@ function getProratioForPeriod(useWorkdays) {
       return startDate.getDate() / monthEnd.getDate();
     }
   }
-
   // Pour 'week' : jours de la semaine écoulés dans le mois en cours
   if (currentMode === 'week') {
     if (endDate.getFullYear() !== 2026) return null;
@@ -1297,10 +1232,8 @@ function getProratioForPeriod(useWorkdays) {
       return refDay.getDate() / monthEnd.getDate();
     }
   }
-
   return null;
 }
-
 // Calcule le budget proratisé pour la période courante
 function getBudgetForCurrentPeriod(budgetArr) {
   const dates = getDates();
@@ -1325,7 +1258,6 @@ function getBudgetForCurrentPeriod(budgetArr) {
   }
   return Math.round(t * 10) / 10;
 }
-
 // Dessine une jauge arc de cercle sur un canvas
 // realPct  : % réalisé (0-100+)
 // expectedPct : % attendu selon temps (0-100), null si pas dispo
@@ -1336,16 +1268,13 @@ function drawArcGauge(canvasId, realPct, expectedPct, color, budgetKe, caEuros) 
   const ctx = canvas.getContext('2d');
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
-
   const cx = W / 2;
   const cy = H * 0.85;
   const r  = Math.min(W * 0.38, H * 0.72);
   const lw = 11;
-
   // Arc part: 180° de -π à 0 (gauche à droite, bas)
   const startAngle = Math.PI;
   const endAngle   = 2 * Math.PI;
-
   // Fond gris
   ctx.beginPath();
   ctx.arc(cx, cy, r, startAngle, endAngle);
@@ -1353,7 +1282,6 @@ function drawArcGauge(canvasId, realPct, expectedPct, color, budgetKe, caEuros) 
   ctx.lineWidth = lw;
   ctx.lineCap = 'round';
   ctx.stroke();
-
   // Arc réalisé
   const realAngle = startAngle + (Math.min(realPct, 110) / 100) * Math.PI;
   if (realPct > 0) {
@@ -1364,7 +1292,6 @@ function drawArcGauge(canvasId, realPct, expectedPct, color, budgetKe, caEuros) 
     ctx.lineCap = 'round';
     ctx.stroke();
   }
-
   // Curseur attendu (trait + losange)
   if (expectedPct !== null) {
     const expAngle = startAngle + (Math.min(expectedPct, 100) / 100) * Math.PI;
@@ -1387,18 +1314,15 @@ function drawArcGauge(canvasId, realPct, expectedPct, color, budgetKe, caEuros) 
     ctx.fillStyle = '#1a1a1a';
     ctx.fill();
   }
-
   // Texte central : % réalisé
   ctx.textAlign = 'center';
   ctx.fillStyle = realPct >= 100 ? '#1D9E75' : (realPct < (expectedPct || 50) - 5 ? '#D85A30' : '#1a1a1a');
   ctx.font = `bold ${Math.round(r * 0.38)}px -apple-system, sans-serif`;
   ctx.fillText(realPct + '%', cx, cy - r * 0.18);
-
   // Budget en dessous
   ctx.font = `${Math.round(r * 0.22)}px -apple-system, sans-serif`;
   ctx.fillStyle = '#aaa';
   ctx.fillText(budgetKe > 0 ? budgetKe.toLocaleString('fr-FR') + ' k€' : '', cx, cy - r * 0.18 + r * 0.32);
-
   // Étiquettes 0% et 100% aux extrémités
   ctx.font = `${Math.round(r * 0.19)}px -apple-system, sans-serif`;
   ctx.fillStyle = '#ccc';
@@ -1407,32 +1331,26 @@ function drawArcGauge(canvasId, realPct, expectedPct, color, budgetKe, caEuros) 
   ctx.textAlign = 'right';
   ctx.fillText('100%', cx + r + lw, cy + 14);
 }
-
 // Render une jauge arc + statut texte
 function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWorkdays, budgetLabelId, resteAFaireId) {
   const budVal = getBudgetForCurrentPeriod(budgetArr);
   const wrap = document.getElementById(wrapperId);
   if (!wrap) return;
-
   // Budget label (ex: "Budget : 1 722 k€")
   const budLabelEl = budgetLabelId ? document.getElementById(budgetLabelId) : null;
   const resteEl    = resteAFaireId ? document.getElementById(resteAFaireId) : null;
-
   if (budVal <= 0) {
     wrap.style.display = 'none';
     if (budLabelEl) budLabelEl.textContent = '';
     if (resteEl)    resteEl.textContent = '';
     return;
   }
-
   wrap.style.display = 'block';
   const pct = Math.round(((caVal / 1000) / budVal) * 100);
   const ratio = getProratioForPeriod(useWorkdays);
   const expectedPct = ratio !== null ? Math.round(ratio * 100) : null;
   const fillColor = pct >= 100 ? '#1D9E75' : (expectedPct !== null && pct < expectedPct - 3 ? '#D85A30' : '#74A1D6');
-
   drawArcGauge(canvasId, pct, expectedPct, fillColor, budVal, caVal);
-
   // Label budget
   // Affiche le % de temps écoulé plutôt que le budget
   if (budLabelEl) {
@@ -1445,7 +1363,6 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
       budLabelEl.textContent = '';
     }
   }
-
   // Reste à faire
   if (resteEl) {
     const budgetEuros = budVal * 1000;
@@ -1458,7 +1375,6 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
       resteEl.style.color = '#1D9E75';
     }
   }
-
   // Statut rythme
   const statusEl = document.getElementById(statusId);
   if (statusEl) {
@@ -1481,17 +1397,14 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
     }
   }
 }
-
 function updateBudgetB2CB2BDisplay(caB2C, caB2B) {
   renderArcGauge('budgetBarB2BWrap', 'gaugeB2B', 'budgetStatusB2B', caB2B, budgetB2B2026, true,  'mB2BBudgetLabel', 'mB2BResteAFaire');
   renderArcGauge('budgetBarB2CWrap', 'gaugeB2C', 'budgetStatusB2C', caB2C, budgetB2C2026, false, 'mB2CBudgetLabel', 'mB2CResteAFaire');
 }
-
 function updateBudgetDisplay(totalCA, budgetArr) {
   const arr = budgetArr || budget2026;
   renderArcGauge('budgetBarWrap', 'gaugeTotal', 'budgetStatusTotal', totalCA, arr, false, null, 'mCAResteAFaire');
 }
-
 [document.getElementById('selYear'), document.getElementById('selYtdYear')].forEach(el => {
   if (!el) return;
   for(let y = now.getFullYear(); y >= 2015; y--) {
@@ -1503,7 +1416,6 @@ if (document.getElementById('selMonth')) document.getElementById('selMonth').val
 if (document.getElementById('selYtdMonth')) document.getElementById('selYtdMonth').value = now.getMonth();
 if (document.getElementById('dateFrom')) document.getElementById('dateFrom').value = todayStr;
 if (document.getElementById('dateTo')) document.getElementById('dateTo').value = todayStr;
-
 function setPeriod(mode) {
   currentMode = mode;
   ['today','week','month','ytd','custom'].forEach(m => {
@@ -1514,41 +1426,34 @@ function setPeriod(mode) {
   document.getElementById('selectorsYtd').style.display = mode === 'ytd' ? 'flex' : 'none';
   document.getElementById('selectorsCustom').style.display = mode === 'custom' ? 'flex' : 'none';
 }
-
 function setStatus(state, msg) {
   document.getElementById('statusDot').className = 'dot ' + state;
   document.getElementById('statusText').textContent = msg;
 }
-
 function fmt(n) {
   return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
 }
-
 function shiftYearBack(dateStart, dateEnd) {
   const s = new Date(dateStart + 'T12:00:00');
   const e = new Date(dateEnd + 'T12:00:00');
   s.setFullYear(s.getFullYear() - 1); e.setFullYear(e.getFullYear() - 1);
-
   // Pour le mois en cours : tronquer N-1 au même jour qu aujourd hui
   const today = new Date();
   const origEnd = new Date(dateEnd + 'T12:00:00');
   const isCurrentMonth = currentMode === 'month'
     && origEnd.getMonth() === today.getMonth()
     && origEnd.getFullYear() === today.getFullYear();
-
   if (isCurrentMonth) {
     const maxDay = new Date(e.getFullYear(), e.getMonth() + 1, 0).getDate();
     const truncDay = Math.min(today.getDate(), maxDay);
     e.setDate(truncDay);
   }
-
   return {
     dateStart: `${s.getFullYear()}-${pad(s.getMonth()+1)}-${pad(s.getDate())}`,
     dateEnd: `${e.getFullYear()}-${pad(e.getMonth()+1)}-${pad(e.getDate())}`,
     year: s.getFullYear()
   };
 }
-
 function getDates() {
   if (currentMode === 'today') return { dateStart: todayStr, dateEnd: todayStr, label: `Aujourd'hui — ${now.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long', year:'numeric'})}` };
   if (currentMode === 'week') {
@@ -1578,16 +1483,12 @@ function getDates() {
     return { dateStart: from, dateEnd: to, label: `Du ${new Date(from+'T12:00:00').toLocaleDateString('fr-FR')} au ${new Date(to+'T12:00:00').toLocaleDateString('fr-FR')}` };
   }
 }
-
 function renderPieChart(caB2C, caB2B) {
   const ctx = document.getElementById('b2cPieChart').getContext('2d');
   if (pieChartInstance) pieChartInstance.destroy();
-
   const seg = currentSegment;
   const caByType = (lastCaData && lastCaData._caByType) || {};
-
   let labels, values, colors;
-
   if (seg === 'b2b') {
     const B2B_CATS = ['Pharmacie', 'Grand Compte', 'Monoprix'];
     const filtered = B2B_CATS.filter(k => (caByType[k] || 0) > 0);
@@ -1615,9 +1516,7 @@ function renderPieChart(caB2C, caB2B) {
     values = segments.map(s => s.value);
     colors = segments.map(s => s.color);
   }
-
   const total = values.reduce((a, b) => a + b, 0);
-
   pieChartInstance = new Chart(ctx, {
     type: 'doughnut',
     data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }] },
@@ -1653,11 +1552,9 @@ function renderPieChart(caB2C, caB2B) {
       }
     }]
   });
-
   const dates = getDates();
   const budB2C = dates ? getBudgetB2CForPeriod(dates.dateStart, dates.dateEnd) : 0;
   const budB2B = dates ? getBudgetB2BForPeriod(dates.dateStart, dates.dateEnd) : 0;
-
   function legendItem(label, val, color) {
     const pct = total > 0 ? Math.round((val / total) * 100) : 0;
     let budText = '';
@@ -1679,13 +1576,11 @@ function renderPieChart(caB2C, caB2B) {
       ${budText}
     </div>`;
   }
-
   const legendEl = document.getElementById('b2cB2BLegend');
   if (legendEl) {
     legendEl.innerHTML = labels.map((l, i) => legendItem(l, values[i], colors[i])).join('');
   }
 }
-
 function getBudgetB2CForPeriod(dateStart, dateEnd) {
   const start = new Date(dateStart + 'T12:00:00');
   const end = new Date(dateEnd + 'T12:00:00');
@@ -1702,7 +1597,6 @@ function getBudgetB2CForPeriod(dateStart, dateEnd) {
   }
   return Math.round(t * 10) / 10;
 }
-
 function getBudgetB2BForPeriod(dateStart, dateEnd) {
   const start = new Date(dateStart + 'T12:00:00');
   const end = new Date(dateEnd + 'T12:00:00');
@@ -1719,7 +1613,6 @@ function getBudgetB2BForPeriod(dateStart, dateEnd) {
   }
   return Math.round(t * 10) / 10;
 }
-
 const TYPE_CLIENT_COLORS = {
   'Pharmacie':    '#1D9E75',
   'Monoprix':     '#9B59B6',
@@ -1737,14 +1630,12 @@ const TYPE_CLIENT_DISPLAY = {
 function displayLabel(label) {
   return TYPE_CLIENT_DISPLAY[label] || label;
 }
-
 const TYPE_CLIENT_BUDGET_CATS  = ['Pharmacie', 'Monoprix', 'Marketing', 'Grand Compte'];
 const TYPE_CLIENT_BUDGET_CATS2 = ['Site', 'Outlet', 'Autre'];
 let budgetTypeClient = {};
 TYPE_CLIENT_BUDGET_CATS.forEach(cat => { budgetTypeClient[cat] = Array(12).fill(0); });
 let budgetTypeClient2 = {};
 TYPE_CLIENT_BUDGET_CATS2.forEach(cat => { budgetTypeClient2[cat] = Array(12).fill(0); });
-
 function loadTypeClientBudget() {
   try {
     const saved = localStorage.getItem('budgetTypeClient');
@@ -1754,12 +1645,10 @@ function loadTypeClientBudget() {
   } catch {}
 }
 loadTypeClientBudget();
-
 function saveTypeClientBudget() {
   localStorage.setItem('budgetTypeClient', JSON.stringify(budgetTypeClient));
   localStorage.setItem('budgetTypeClient2', JSON.stringify(budgetTypeClient2));
 }
-
 function getTypeClientBudgetForPeriod(cat) {
   const budgetCat = cat === 'B2C' ? 'Site' : cat;
   const map = TYPE_CLIENT_BUDGET_CATS2.includes(budgetCat) ? budgetTypeClient2 : budgetTypeClient;
@@ -1782,16 +1671,13 @@ function getTypeClientBudgetForPeriod(cat) {
   }
   return Math.round(total * 10) / 10;
 }
-
 function renderTypeClientPieChart(caByType) {
   const ctx = document.getElementById('typeClientPieChart').getContext('2d');
   if (window.typeClientPieInstance) window.typeClientPieInstance.destroy();
-
   const labels = Object.keys(caByType).filter(k => (caByType[k] || 0) > 0);
   const values = labels.map(k => caByType[k] || 0);
   const total = values.reduce((a, b) => a + b, 0);
   const colors = labels.map(l => TYPE_CLIENT_COLORS[l] || '#aaa');
-
   window.typeClientPieInstance = new Chart(ctx, {
     type: 'doughnut',
     data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }] },
@@ -1826,7 +1712,6 @@ function renderTypeClientPieChart(caByType) {
       }
     }]
   });
-
   // B2C cats = jours calendaires, B2B = jours ouvrés
   const B2C_CATS = ['B2C', 'Site', 'Outlet'];
   const legendEl = document.getElementById('typeClientLegend');
@@ -1839,7 +1724,6 @@ function renderTypeClientPieChart(caByType) {
     const budgetText = budgetPct !== null
       ? `<span style="color:${budgetColor};font-weight:600;">${budgetPct}% du budget</span>`
       : `<span style="color:#bbb;">Pas de budget</span>`;
-
     // Rythme attendu
     const useWorkdays = !B2C_CATS.includes(cat);
     const ratio = getProratioForPeriod(useWorkdays);
@@ -1856,7 +1740,6 @@ function renderTypeClientPieChart(caByType) {
         rythmeText = `<span style="color:#888;">≈ Dans les clous du budget écoulé</span>`;
       }
     }
-
     return `<div style="display:flex;flex-direction:column;gap:3px;">
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="width:12px;height:12px;border-radius:3px;background:${TYPE_CLIENT_COLORS[cat] || '#aaa'};display:inline-block;flex-shrink:0;"></span>
@@ -1866,10 +1749,8 @@ function renderTypeClientPieChart(caByType) {
       <div style="font-size:11px;padding-left:20px;display:flex;gap:10px;">${budgetText}${rythmeText ? ' · ' + rythmeText : ''}</div>
     </div>`;
   }).join('');
-
   document.getElementById('typeClientSubtitle').textContent = 'Période sélectionnée';
 }
-
 function setVs(id, current, prev, prevYear) {
   const el = document.getElementById(id);
   if (!prev || prev === 0) { el.textContent = ''; el.className = 'metric-vs neutral'; return; }
@@ -1878,7 +1759,6 @@ function setVs(id, current, prev, prevYear) {
   el.textContent = `${sign}${diff.toFixed(1)}% vs ${prevYear} (${fmt(prev)})`;
   el.className = `metric-vs ${diff >= 0 ? 'up' : 'down'}`;
 }
-
 async function loadMonthlyChart(year, upToMonth) {
   document.getElementById('chartSubtitle').textContent = 'Chargement du graphique...';
   const currentYearData = [], prevYearData = [], budgetData = [], labels = [];
@@ -1887,7 +1767,6 @@ async function loadMonthlyChart(year, upToMonth) {
   for (let m = 0; m <= upToMonth; m++) {
     const lastDay = new Date(year, m+1, 0).getDate();
     const ds = `${year}-${pad(m+1)}-01`, de = `${year}-${pad(m+1)}-${pad(lastDay)}`;
-
     // Pour le mois en cours de l'année affichée : tronquer N-1 au même jour
     const isCurrentMonth = (year === todayForChart.getFullYear() && m === todayForChart.getMonth());
     let lastDayPrev;
@@ -1899,7 +1778,6 @@ async function loadMonthlyChart(year, upToMonth) {
       lastDayPrev = new Date(year-1, m+1, 0).getDate();
     }
     const dsPrev = `${year-1}-${pad(m+1)}-01`, dePrev = `${year-1}-${pad(m+1)}-${pad(lastDayPrev)}`;
-
     labels.push(monthsShort[m]);
     promises.push(
       fetch(`/api/sellsy?dateStart=${ds}&dateEnd=${de}&mode=total`).then(r => r.json()),
@@ -1930,17 +1808,14 @@ async function loadMonthlyChart(year, upToMonth) {
   if (year === 2026) renderBudgetChart(labels, currentYearData, upToMonth);
   else document.getElementById('budgetChartCard').style.display = 'none';
 }
-
 function renderChart(labels, currentData, prevData, budgetData, year) {
   const ctx = document.getElementById('caChart').getContext('2d');
   if (caChartInstance) caChartInstance.destroy();
-
   // Calcul des % de réalisation vs budget pour les étiquettes
   const activeBudget = currentSegment === 'b2b' ? budgetB2B2026 : currentSegment === 'b2c' ? budgetB2C2026 : budget2026;
   const pctData = year === 2026 && budgetData.length > 0
     ? labels.map((_, i) => activeBudget[i] > 0 ? Math.round((currentData[i] / activeBudget[i]) * 100) : null)
     : [];
-
   const datasets = [
     { label: `${year}`, data: currentData, borderColor: '#1a1a1a', backgroundColor: 'rgba(26,26,26,0.05)', borderWidth: 2.5, pointRadius: 5, pointBackgroundColor: '#1a1a1a', tension: 0.3, fill: true },
     { label: `${year-1}`, data: prevData, borderColor: '#aaa', backgroundColor: 'transparent', borderWidth: 1.5, borderDash: [5,4], pointRadius: 3, pointBackgroundColor: '#aaa', tension: 0.3, fill: false }
@@ -1948,11 +1823,9 @@ function renderChart(labels, currentData, prevData, budgetData, year) {
   if (year === 2026 && budgetData.length > 0) {
     datasets.push({ label: 'Budget 2026', data: budgetData, borderColor: '#74A1D6', backgroundColor: 'transparent', borderWidth: 2, borderDash: [3,3], pointRadius: 3, pointBackgroundColor: '#74A1D6', tension: 0.3, fill: false });
   }
-
   // Plugin étiquettes % réalisation sur les points 2026
   const pctLabelPlugin = {
     id: 'pctLabels',
-
     afterDatasetsDraw(chart) {
       if (!pctData.length) return;
       const { ctx } = chart;
@@ -1979,7 +1852,6 @@ function renderChart(labels, currentData, prevData, budgetData, year) {
       });
     }
   };
-
   caChartInstance = new Chart(ctx, {
     type: 'line', data: { labels, datasets },
     options: {
@@ -2004,13 +1876,11 @@ function renderChart(labels, currentData, prevData, budgetData, year) {
     plugins: [pctLabelPlugin]
   });
 }
-
 function renderBudgetChart(labels, realDataKe, upToMonth) {
   // Graphique barres désactivé — les % sont maintenant dans le graphique courbes
   document.getElementById('budgetChartCard').style.display = 'none';
   if (budgetChartInstance) { budgetChartInstance.destroy(); budgetChartInstance = null; }
 }
-
 function renderTop30(top30, totalCAB2B) {
   const card = document.getElementById('top30Card');
   const tbody = document.getElementById('top30Body');
@@ -2032,14 +1902,12 @@ function renderTop30(top30, totalCAB2B) {
     </tr>`;
   }).join('');
 }
-
 async function loadData() {
   const dates = getDates();
   if (!dates) return;
   const { dateStart, dateEnd, label } = dates;
   const prevDates = shiftYearBack(dateStart, dateEnd);
   const prevYear = prevDates.year;
-
   document.getElementById('errorBox').style.display = 'none';
   document.getElementById('periodLabel').textContent = label;
   // Badges temps écoulé B2B et B2C
@@ -2069,15 +1937,12 @@ async function loadData() {
   document.getElementById('top30Card').style.display = 'none';
   document.getElementById('pharmacyBreakdownCard').style.display = 'none';
   document.getElementById('b2cBreakdownRow').style.display = 'none';
-
   try {
     const caResp = await fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=total`);
     if (!caResp.ok) throw new Error('Erreur API');
     const caData = await caResp.json();
-
     lastCaData = caData;
     applySegment(caData);
-
     const caByTypeRaw2 = caData._caByType || {};
     const caB2C = (caByTypeRaw2['B2C'] || 0) + (caByTypeRaw2['Outlet'] || 0);
     const caB2B = (caByTypeRaw2['Pharmacie'] || 0)
@@ -2085,15 +1950,12 @@ async function loadData() {
                 + (caByTypeRaw2['Monoprix'] || 0);
     const panierB2C = caData._panierMoyenB2C || 0;
     const panierB2B = caData._panierMoyenB2B || 0;
-
     const t = new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     document.getElementById('lastUpdate').textContent = 'Mis à jour le ' + t;
     setStatus('spin', 'Chargement graphique...');
-
     const vsEl = document.getElementById('mCAVs');
     vsEl.textContent = '⏳ vs N-1...';
     vsEl.className = 'metric-vs neutral';
-
     fetch(`/api/sellsy?dateStart=${prevDates.dateStart}&dateEnd=${prevDates.dateEnd}&mode=total`)
       .then(r => r.json())
       .then(prev => {
@@ -2104,17 +1966,14 @@ async function loadData() {
         const prevTotal = prev._totalCA || 0;
         const prevPanierB2C = prev._panierMoyenB2C || 0;
         const prevPanierB2B = prev._panierMoyenB2B || 0;
-
         const curCA   = seg === 'b2b' ? caB2B : seg === 'b2c' ? caB2C : (caData._totalCA || 0);
         const prevCA  = seg === 'b2b' ? prevB2B : seg === 'b2c' ? prevB2C : prevTotal;
-
         if (prevCA > 0) {
           const diff = ((curCA - prevCA) / prevCA) * 100;
           const sign = diff >= 0 ? '+' : '';
           vsEl.textContent = `${sign}${diff.toFixed(1)}% vs ${prevYear} (${fmt(prevCA)})`;
           vsEl.className = `metric-vs ${diff >= 0 ? 'up' : 'down'}`;
         } else { vsEl.textContent = 'Pas de données N-1'; }
-
         setVs('mCAB2CVs', caB2C, prevB2C, prevYear);
         setVs('mCAB2BVs', caB2B, prevB2B, prevYear);
         setVs('mAvgB2CVs', panierB2C, prevPanierB2C, prevYear);
@@ -2124,28 +1983,23 @@ async function loadData() {
         vsEl.textContent = '';
         ['mCAB2CVs','mCAB2BVs','mAvgB2CVs','mAvgB2BVs'].forEach(id => { document.getElementById(id).textContent = ''; });
       });
-
     const endDate = new Date(dateEnd + 'T12:00:00');
     updateBanners(new Date(dateStart + 'T12:00:00').getMonth());
     await loadMonthlyChart(endDate.getFullYear(), endDate.getMonth());
     setStatus('ok', 'Données à jour');
-
   } catch(e) {
     setStatus('err', 'Erreur');
     document.getElementById('errorBox').style.display = 'block';
     document.getElementById('errorBox').textContent = 'Erreur : ' + e.message;
   }
 }
-
 let finLineChartInstance = null;
 let finBarChartInstance = null;
-
 async function loadFinancierCharts(year, upToMonth) {
   const labels = [];
   const cm1Data = [], cm2Data = [], ebitdaData = [];
   const budCM1Data = [], budCM2Data = [], budEBITDAData = [];
   const promises = [];
-
   for (let m = 0; m <= upToMonth; m++) {
     if (year === 2026 && !finalizedMonths[m]) continue;
     const lastDay = new Date(year, m+1, 0).getDate();
@@ -2154,11 +2008,9 @@ async function loadFinancierCharts(year, upToMonth) {
     labels.push(monthsShort[m]);
     promises.push({ m, ds, de });
   }
-
   const results = await Promise.all(promises.map(({ ds, de }) =>
     fetch(`/api/pennylane?dateStart=${ds}&dateEnd=${de}`).then(r => r.json()).catch(() => ({}))
   ));
-
   for (let i = 0; i < promises.length; i++) {
     const { m } = promises[i];
     const d = results[i];
@@ -2171,7 +2023,6 @@ async function loadFinancierCharts(year, upToMonth) {
       budEBITDAData.push(budgetEBITDA2026[m] || 0);
     }
   }
-
   const ctx1 = document.getElementById('finLineChart').getContext('2d');
   if (finLineChartInstance) finLineChartInstance.destroy();
   const datasets = [
@@ -2195,7 +2046,6 @@ async function loadFinancierCharts(year, upToMonth) {
     }
   });
   document.getElementById('finChartCard').style.display = 'block';
-
   if (year === 2026 && budEBITDAData.some(v => v > 0)) {
     const ctx2 = document.getElementById('finBarChart').getContext('2d');
     if (finBarChartInstance) finBarChartInstance.destroy();
@@ -2220,9 +2070,7 @@ async function loadFinancierCharts(year, upToMonth) {
     document.getElementById('finBudgetChartCard').style.display = 'none';
   }
 }
-
 let finalizedMonths = Array(12).fill(false);
-
 function loadFinalizedMonths() {
   try {
     const saved = localStorage.getItem('finalizedMonths2026');
@@ -2230,18 +2078,15 @@ function loadFinalizedMonths() {
   } catch {}
 }
 loadFinalizedMonths();
-
 function isMonthFinalized(dateStart) {
   const d = new Date(dateStart + 'T12:00:00');
   if (d.getFullYear() !== 2026) return true;
   return finalizedMonths[d.getMonth()] === true;
 }
-
 function loadFinancierChecked() {
   const dates = getFinDates();
   if (!dates) return;
   const lockMsg = document.getElementById('finLockMsg');
-
   if (!isMonthFinalized(dates.dateEnd)) {
     lockMsg.style.display = 'block';
     lockMsg.textContent = '🔒 Ce mois n\'est pas encore finalisé dans Pennylane.';
@@ -2249,13 +2094,10 @@ function loadFinancierChecked() {
     return;
   }
   lockMsg.style.display = 'none';
-
   updateBanners(dates.monthIndex);
   loadFinancier(dates);
 }
-
 let currentView = 'business';
-
 function switchView(view) {
   currentView = view;
   document.getElementById('businessView').style.display = view === 'business' ? 'block' : 'none';
@@ -2265,16 +2107,13 @@ function switchView(view) {
   document.getElementById('navFinancier').style.background = view === 'financier' ? '#1a1a1a' : 'transparent';
   document.getElementById('navFinancier').style.color = view === 'financier' ? 'white' : '#666';
 }
-
 let finCurrentMode = 'month';
-
 const DEFAULT_BUDGET_CM1    = [0,0,0,0,0,0,0,0,0,0,0,0];
 const DEFAULT_BUDGET_CM2    = [0,0,0,0,0,0,0,0,0,0,0,0];
 const DEFAULT_BUDGET_EBITDA = [0,0,0,0,0,0,0,0,0,0,0,0];
 let budgetCM12026    = [...DEFAULT_BUDGET_CM1];
 let budgetCM22026    = [...DEFAULT_BUDGET_CM2];
 let budgetEBITDA2026 = [...DEFAULT_BUDGET_EBITDA];
-
 function loadFinBudgetLocal() {
   try {
     const s1 = localStorage.getItem('budgetCM12026');    if (s1) budgetCM12026    = JSON.parse(s1);
@@ -2283,11 +2122,9 @@ function loadFinBudgetLocal() {
   } catch {}
 }
 loadFinBudgetLocal();
-
 function openBudgetModalWithFin() {
   openBudgetModal();
   const grid = document.getElementById('budgetGrid');
-
   const finSection = document.createElement('div');
   finSection.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
   finSection.innerHTML = '<p style="font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px;">💰 Budgets Financier (k€)</p>' +
@@ -2306,7 +2143,6 @@ function openBudgetModalWithFin() {
       '</div>'
     ).join('');
   grid.appendChild(finSection);
-
   const pharmSection = document.createElement('div');
   pharmSection.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
   const pharmCols = PHARMACY_CATS.map(c => `<span style="font-size:11px;color:${PHARMACY_COLORS[c]};font-weight:600;text-align:center;">${c} (k€)</span>`).join('');
@@ -2321,7 +2157,6 @@ function openBudgetModalWithFin() {
       <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>${pharmCols}
     </div>${pharmInputs}`;
   grid.appendChild(pharmSection);
-
   const tcSection = document.createElement('div');
   tcSection.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
   const tcCols = TYPE_CLIENT_BUDGET_CATS.map(c => `<span style="font-size:11px;color:${TYPE_CLIENT_COLORS[c]};font-weight:600;text-align:center;">${c} (k€)</span>`).join('');
@@ -2336,7 +2171,6 @@ function openBudgetModalWithFin() {
       <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>${tcCols}
     </div>${tcInputs}`;
   grid.appendChild(tcSection);
-
   const tc2Section = document.createElement('div');
   tc2Section.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
   const tc2Cols = TYPE_CLIENT_BUDGET_CATS2.map(c => `<span style="font-size:11px;color:${TYPE_CLIENT_COLORS[c] || '#888'};font-weight:600;text-align:center;">${c === 'B2C' ? 'Site' : c} (k€)</span>`).join('');
@@ -2352,7 +2186,6 @@ function openBudgetModalWithFin() {
     </div>${tc2Inputs}`;
   grid.appendChild(tc2Section);
 }
-
 function saveBudgetWithFin() {
   saveBudget();
   budgetCM12026    = months.map((_, i) => parseFloat(document.getElementById(`budgetCM1_${i}`)?.value) || 0);
@@ -2373,7 +2206,6 @@ function saveBudgetWithFin() {
   });
   saveTypeClientBudget();
 }
-
 window.addEventListener('DOMContentLoaded', () => {
   ['finSelYear','finSelYtdYear'].forEach(id => {
     const el = document.getElementById(id);
@@ -2388,7 +2220,6 @@ window.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('finDateFrom'))    document.getElementById('finDateFrom').value    = todayStr;
   if (document.getElementById('finDateTo'))      document.getElementById('finDateTo').value      = todayStr;
 });
-
 function setFinPeriod(mode) {
   finCurrentMode = mode;
   ['month','ytd','custom'].forEach(m => {
@@ -2399,7 +2230,6 @@ function setFinPeriod(mode) {
   document.getElementById('finSelectorsYtd').style.display    = mode === 'ytd'    ? 'flex' : 'none';
   document.getElementById('finSelectorsCustom').style.display = mode === 'custom' ? 'flex' : 'none';
 }
-
 function getFinDates() {
   if (finCurrentMode === 'month') {
     const month = parseInt(document.getElementById('finSelMonth').value);
@@ -2420,7 +2250,6 @@ function getFinDates() {
     return { dateStart: from, dateEnd: to, label: `Du ${new Date(from+'T12:00:00').toLocaleDateString('fr-FR')} au ${new Date(to+'T12:00:00').toLocaleDateString('fr-FR')}`, monthIndex: new Date(from+'T12:00:00').getMonth() };
   }
 }
-
 function showFinBudgetBar(wrapperId, labelId, pctId, fillId, value, budgetVal, label) {
   if (budgetVal <= 0) { document.getElementById(wrapperId).style.display = 'none'; return; }
   const pct = Math.round(((value / 1000) / budgetVal) * 100);
@@ -2431,10 +2260,8 @@ function showFinBudgetBar(wrapperId, labelId, pctId, fillId, value, budgetVal, l
   fill.style.width = Math.min(pct, 100) + '%';
   fill.className = `budget-bar-fill ${pct >= 100 ? 'over' : 'ok'}`;
 }
-
 let tresorerieVisible = false;
 let tresorerieValue = null;
-
 function toggleTresorerie() {
   tresorerieVisible = !tresorerieVisible;
   const el  = document.getElementById('tresorerieResult');
@@ -2452,7 +2279,6 @@ function toggleTresorerie() {
     btn.textContent = '👁 Afficher';
   }
 }
-
 async function loadTresorerie() {
   const resultEl = document.getElementById('tresorerieResult');
   const detailEl = document.getElementById('tresorerieDetail');
@@ -2475,23 +2301,19 @@ async function loadTresorerie() {
     resultEl.textContent = 'Erreur';
   }
 }
-
 async function loadFinancier(datesOverride) {
   const dates = datesOverride || getFinDates();
   if (!dates) return;
   const { dateStart, dateEnd, label, monthIndex } = dates;
-
   document.getElementById('finErrorBox').style.display = 'none';
   document.getElementById('finPeriodLabel').textContent = label;
   document.getElementById('finStatusDot').className = 'dot spin';
   document.getElementById('finStatusText').textContent = 'Chargement...';
   ['finCA','finCM1','finCM2','finEBITDA'].forEach(id => document.getElementById(id).textContent = '...');
-
   try {
     const resp = await fetch(`/api/pennylane?dateStart=${dateStart}&dateEnd=${dateEnd}`);
     if (!resp.ok) throw new Error('Erreur API Pennylane');
     const data = await resp.json();
-
     document.getElementById('finCA').textContent       = fmt(data._caComptable || 0);
     document.getElementById('finCM1').textContent      = fmt(data._cm1 || 0);
     document.getElementById('finTauxCM1').textContent  = `Taux : ${(data._tauxCm1 || 0).toFixed(1)}%`;
@@ -2499,10 +2321,8 @@ async function loadFinancier(datesOverride) {
     document.getElementById('finTauxCM2').textContent  = `Taux : ${(data._tauxCm2 || 0).toFixed(1)}%`;
     document.getElementById('finEBITDA').textContent   = fmt(data._ebitda || 0);
     document.getElementById('finTauxEBITDA').textContent = `Taux : ${(data._tauxEbitda || 0).toFixed(1)}%`;
-
     const ebitdaEl = document.getElementById('finEBITDA');
     ebitdaEl.style.color = (data._ebitda || 0) >= 0 ? '#1D9E75' : '#D85A30';
-
     const year = new Date(dateStart + 'T12:00:00').getFullYear();
     if (year === 2026) {
       let budCM1 = 0, budCM2 = 0, budEBITDA = 0;
@@ -2521,13 +2341,10 @@ async function loadFinancier(datesOverride) {
       showFinBudgetBar('finBudgetCM2Wrap',    'finBudgetCM2Label',    'finBudgetCM2Pct',    'finBudgetCM2Fill',    data._cm2||0,    budCM2,    'Budget CM2');
       showFinBudgetBar('finBudgetEBITDAWrap', 'finBudgetEBITDALabel', 'finBudgetEBITDAPct', 'finBudgetEBITDAFill', data._ebitda||0, budEBITDA, 'Budget EBITDA');
     }
-
     document.getElementById('finStatusDot').className  = 'dot ok';
     document.getElementById('finStatusText').textContent = `Données à jour${data._fromCache ? ' (cache)' : ''}`;
-
     const endDateObj = new Date(dateEnd + 'T12:00:00');
     await loadFinancierCharts(endDateObj.getFullYear(), endDateObj.getMonth());
-
   } catch(e) {
     document.getElementById('finStatusDot').className  = 'dot err';
     document.getElementById('finStatusText').textContent = 'Erreur';
