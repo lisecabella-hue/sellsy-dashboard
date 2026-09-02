@@ -1258,17 +1258,10 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
   const expectedPct = ratio !== null ? Math.round(ratio * 100) : null;
   const fillColor = pct >= 100 ? '#1D9E75' : (expectedPct !== null && pct < expectedPct - 3 ? '#D85A30' : '#74A1D6');
   drawArcGauge(canvasId, pct, expectedPct, fillColor, budVal, caVal);
-  // Label budget
-  // Affiche le % de temps écoulé plutôt que le budget
+  // Label budget : retiré des cartes (déjà affiché une seule fois via les pastilles
+  // "B2B : X% écoulé" / "B2C : X% écoulé" en haut de page, pour éviter le doublon).
   if (budLabelEl) {
-    const ratio = getProratioForPeriod(useWorkdays);
-    if (ratio !== null) {
-      const pctTemps = Math.round(ratio * 100);
-      const base = useWorkdays ? 'jours ouvrés' : 'jours calendaires';
-      budLabelEl.textContent = `Temps écoulé : ${pctTemps}% (${base})`;
-    } else {
-      budLabelEl.textContent = '';
-    }
+    budLabelEl.textContent = '';
   }
   // Reste à faire (masqué en vue "Aujourd'hui" : seul le statut de rythme vs budget
   // proratisé du jour est affiché, cf. bloc "Statut rythme" plus bas)
