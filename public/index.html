@@ -1226,16 +1226,10 @@ function drawArcGauge(canvasId, realPct, expectedPct, color, budgetKe, caEuros) 
   ctx.fillStyle = realPct >= 100 ? '#1D9E75' : (realPct < (expectedPct || 50) - 5 ? '#D85A30' : '#1a1a1a');
   ctx.font = `bold ${Math.round(r * 0.38)}px -apple-system, sans-serif`;
   ctx.fillText(realPct + '%', cx, cy - r * 0.18);
-  // En dessous : on compare directement au % attendu à ce stade (plus lisible que de
-  // deviner l'écart entre l'arc coloré et le petit curseur, surtout quand les deux sont
-  // petits et proches en début de période). On retombe sur le budget en k€ si le %
-  // attendu n'est pas calculable pour la période affichée (ex: YTD).
+  // Budget en dessous
   ctx.font = `${Math.round(r * 0.22)}px -apple-system, sans-serif`;
   ctx.fillStyle = '#aaa';
-  const secondLine = expectedPct !== null
-    ? `Objectif : ${expectedPct}%`
-    : (budgetKe > 0 ? budgetKe.toLocaleString('fr-FR') + ' k€' : '');
-  ctx.fillText(secondLine, cx, cy - r * 0.18 + r * 0.32);
+  ctx.fillText(budgetKe > 0 ? budgetKe.toLocaleString('fr-FR') + ' k€' : '', cx, cy - r * 0.18 + r * 0.32);
   // Étiquettes 0% et 100% aux extrémités
   ctx.font = `${Math.round(r * 0.19)}px -apple-system, sans-serif`;
   ctx.fillStyle = '#ccc';
