@@ -348,38 +348,28 @@
           <p class="chart-subtitle" id="pharmacyBreakdownSubtitle"></p>
         </div>
       </div>
-      <!-- Ligne 1 : Parc actif centré -->
-      <div style="text-align:center;margin-bottom:20px;">
-        <span style="font-size:12px;color:#888;">Parc actif : </span>
-        <span style="font-size:15px;font-weight:600;" id="pharmacyNbActif">—</span>
-        <span style="font-size:12px;color:#888;"> pharmacies distinctes facturées depuis janvier 2026</span>
-      </div>
       <!-- Ligne 2 : Bloc Réassort + Bloc Implantation -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
         <!-- RÉASSORT -->
         <div style="background:linear-gradient(135deg,#f3eeff,#faf7ff);border-radius:14px;padding:20px;border:1px solid #d8c8f5;">
           <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#7B4FD4;margin-bottom:16px;">♻️ Réassort</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div>
-              <p style="font-size:11px;color:#9B59B6;margin-bottom:4px;">Taux de réassort</p>
-              <p style="font-size:22px;font-weight:600;color:#1a1a1a;" id="pharmacyTauxReassort">—</p>
-              <p style="font-size:10px;color:#aaa;margin-top:2px;" id="pharmacyTauxReassortDetail">pharmacies avec réassort / parc</p>
+              <p style="font-size:11px;color:#9B59B6;margin-bottom:4px;">Nombre de factures</p>
+              <p style="font-size:22px;font-weight:600;color:#1a1a1a;" id="pharmacyNbFacturesReassort">—</p>
+              <p style="font-size:10px;color:#aaa;margin-top:2px;">factures réassort sur la période</p>
             </div>
             <div>
               <p style="font-size:11px;color:#9B59B6;margin-bottom:4px;">Panier moyen</p>
               <p style="font-size:22px;font-weight:600;color:#1a1a1a;" id="pharmacyPanierReassort">—</p>
-              <p style="font-size:10px;color:#aaa;margin-top:2px;">CA / nb pharmacies avec réassort</p>
-            </div>
-            <div id="pharmacyReassortBudgetBlock">
-              <p style="font-size:11px;color:#9B59B6;margin-bottom:4px;">Budget écoulé</p>
-              <p style="font-size:12px;font-weight:600;margin-top:8px;" id="pharmacyReassortBudgetStatus">—</p>
+              <p style="font-size:10px;color:#aaa;margin-top:2px;">CA / nb factures réassort</p>
             </div>
           </div>
         </div>
         <!-- IMPLANTATION -->
         <div style="background:linear-gradient(135deg,#f2f2f2,#fafafa);border-radius:14px;padding:20px;border:1px solid #d0d0d0;">
           <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#444;margin-bottom:16px;">🏪 Implantation</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
             <div>
               <p style="font-size:11px;color:#666;margin-bottom:4px;">Nouvelles implantations</p>
               <p style="font-size:22px;font-weight:600;color:#1a1a1a;" id="pharmacyNbImplantation">—</p>
@@ -389,10 +379,6 @@
               <p style="font-size:11px;color:#666;margin-bottom:4px;">Panier moyen</p>
               <p style="font-size:22px;font-weight:600;color:#1a1a1a;" id="pharmacyPanierImplantation">—</p>
               <p style="font-size:10px;color:#aaa;margin-top:2px;">CA / nb pharmacies avec implantation</p>
-            </div>
-            <div>
-              <p style="font-size:11px;color:#666;margin-bottom:4px;">Budget écoulé</p>
-              <p style="font-size:12px;font-weight:600;margin-top:8px;" id="pharmacyImplantationBudgetStatus">—</p>
             </div>
           </div>
         </div>
@@ -676,7 +662,7 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
   const card = document.getElementById('pharmacyBreakdownCard');
   card.style.display = 'block';
   document.getElementById('pharmacyBreakdownSubtitle').textContent = 'Chargement...';
-  document.getElementById('pharmacyTauxReassort').textContent = '...';
+  document.getElementById('pharmacyNbFacturesReassort').textContent = '...';
   document.getElementById('pharmacyPanierReassort').textContent = '...';
   document.getElementById('pharmacyPanierImplantation').textContent = '...';
   try {
@@ -684,69 +670,17 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
     const data = await resp.json();
     const N = data.N || {};
     const montants = N.montants || N;
-    document.getElementById('pharmacyTauxReassort').textContent =
-      N.tauxReassort !== undefined ? `${N.tauxReassort.toFixed(1)}%` : '—';
-    document.getElementById('pharmacyTauxReassortDetail').textContent =
-      N.nbPharmaReassort !== undefined
-        ? `${N.nbPharmaReassort} pharmacies avec réassort / ${N.nbPharmaTotal} au total`
-        : '% pharmacies avec réassort / parc total';
+    const nbFactReassort = (N.counts || {})['Réassort'] || 0;
+    const caReassort = montants['Réassort'] || 0;
+    document.getElementById('pharmacyNbFacturesReassort').textContent = nbFactReassort;
     document.getElementById('pharmacyPanierReassort').textContent =
-      N.panierMoyenReassort !== undefined ? fmt(N.panierMoyenReassort) : '—';
+      nbFactReassort > 0 ? fmt(caReassort / nbFactReassort) : '—';
     document.getElementById('pharmacyNbImplantation').textContent =
       N.nbPharmaImplantation !== undefined ? N.nbPharmaImplantation : '—';
     document.getElementById('pharmacyPanierImplantation').textContent =
       N.panierMoyenImplantation !== undefined ? fmt(N.panierMoyenImplantation) : '—';
-    // Parc actif : requête séparée depuis janvier 2026 avec cache 1h en mémoire
-    const yearStart = new Date().getFullYear();
-    // Toujours prendre du 1er jan au dernier jour du mois en cours
-    const parcToday = new Date();
-    const parcEndMonth = new Date(parcToday.getFullYear(), parcToday.getMonth() + 1, 0);
-    const parcEnd = `${parcEndMonth.getFullYear()}-${pad(parcEndMonth.getMonth()+1)}-${pad(parcEndMonth.getDate())}`;
-    const parcCacheKey = `parcActif:${yearStart}:${parcEnd}`;
-    const parcCacheExpiry = `${parcCacheKey}:expiry`;
-    const now = Date.now();
-    const cachedParc = sessionStorage.getItem(parcCacheKey);
-    const cachedExpiry = sessionStorage.getItem(parcCacheExpiry);
-    let nbParcActif = null;
-    if (cachedParc && cachedExpiry && now < parseInt(cachedExpiry)) {
-      nbParcActif = cachedParc;
-    } else {
-      try {
-        const parcResp = await fetch(`/api/pharmacy-breakdown?dateStart=${yearStart}-01-01&dateEnd=${parcEnd}`);
-        const parcData = await parcResp.json();
-        const parcN = parcData.N || {};
-        nbParcActif = parcN.nbPharmaTotal !== undefined ? parcN.nbPharmaTotal : null;
-        if (nbParcActif !== null) {
-          sessionStorage.setItem(parcCacheKey, nbParcActif);
-          sessionStorage.setItem(parcCacheExpiry, now + 3600000); // 1h
-        }
-      } catch(e) { nbParcActif = null; }
-    }
-    document.getElementById('pharmacyNbActif').textContent =
-      nbParcActif !== null ? nbParcActif : (N.nbPharmaTotal !== undefined ? N.nbPharmaTotal : '—');
+    // Le donut et la légende ne dépendent d'aucune requête lourde : affichage immédiat.
     pharmacyChartN = renderPharmacyDonut('pharmacyDonutN', montants, pharmacyChartN, N.totalPharmacyInvoices);
-    // Budget écoulé pour Réassort et Implantation (jours ouvrés)
-    const ratio = getProratioForPeriod(true); // jours ouvrés
-    ['Réassort', 'Implantation'].forEach(cat => {
-      const elId = cat === 'Réassort' ? 'pharmacyReassortBudgetStatus' : 'pharmacyImplantationBudgetStatus';
-      const el = document.getElementById(elId);
-      if (!el) return;
-      const caVal = montants[cat] || 0;
-      const budgetVal = getPharmacyBudgetForPeriod(cat, dateStart, dateEnd);
-      if (budgetVal <= 0) { el.textContent = 'Pas de budget'; el.style.color = '#bbb'; return; }
-      const pct = Math.round(((caVal / 1000) / budgetVal) * 100);
-      el.textContent = pct + '% du budget';
-      el.style.color = pct >= 100 ? '#1D9E75' : '#D85A30';
-      if (ratio !== null) {
-        const expectedPct = Math.round(ratio * 100);
-        const expectedEuros = Math.round((budgetVal * 1000) * ratio);
-        const diffEuros = caVal - expectedEuros;
-        const diffAbs = Math.abs(diffEuros);
-        const sign = diffEuros >= 500 ? '✓ +' : diffEuros <= -500 ? '↓ -' : '≈ ';
-        const color = diffEuros >= 500 ? '#1D9E75' : diffEuros <= -500 ? '#D85A30' : '#888';
-        el.innerHTML = `<span style="color:${color};">${sign}${diffEuros === 0 || Math.abs(diffEuros) < 500 ? 'Dans les clous' : fmt(diffAbs) + ' vs budget écoulé'}</span><br><span style="color:#aaa;font-size:10px;font-weight:400;">${pct}% réalisé · attendu ${expectedPct}% (j. ouvrés)</span>`;
-      }
-    });
     const total = Object.values(montants).reduce((a, b) => a + b, 0);
     const legend = document.getElementById('pharmacyLegend');
     legend.innerHTML = Object.keys(PHARMACY_COLORS).filter(cat => cat !== 'Coffres').map(cat => {
