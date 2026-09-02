@@ -141,7 +141,7 @@
       <h1>📊 Cockpit CEO</h1>
       <div style="display:flex;gap:4px;background:#f5f5f5;border-radius:10px;padding:4px;">
         <button id="navBusiness" onclick="switchView('business')" style="font-size:13px;padding:7px 16px;border-radius:7px;border:none;cursor:pointer;background:#1a1a1a;color:white;font-weight:500;">🛒 Business</button>
-        <button id="navFinancier" onclick="switchView('financier')" style="font-size:13px;padding:7px 16px;border-radius:7px;border:none;cursor:pointer;background:transparent;color:#666;font-weight:500;">💰 Financier</button>
+        <button id="navFinancier" onclick="switchView('financier')" style="display:none;font-size:13px;padding:7px 16px;border-radius:7px;border:none;cursor:pointer;background:transparent;color:#666;font-weight:500;">💰 Financier</button>
       </div>
     </div>
     <div style="position:absolute;left:50%;transform:translateX(-50%);">
@@ -284,12 +284,12 @@
       <div class="chart-header">
         <div>
           <p class="chart-title">🛍️ Détails Shopify — indicateurs e-commerce</p>
-          <p class="chart-subtitle" id="shopifySubtitle">Panier moyen (hors frais de livraison) et top produits propres à Shopify (le CA est déjà compté dans le B2C ci-dessus)</p>
+          <p class="chart-subtitle" id="shopifySubtitle">Panier moyen et top produits propres à Shopify (le CA est déjà compté dans le B2C ci-dessus)</p>
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
         <div style="background:linear-gradient(145deg,#edf3fb 0%,#f7fafd 100%);border-radius:14px;padding:20px;border:1px solid #c5d9f0;">
-          <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#74A1D6;margin-bottom:8px;">Panier moyen Shopify</p>
+          <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#74A1D6;margin-bottom:8px;">Panier moyen Shopify *</p>
           <p style="font-size:26px;font-weight:600;" id="shopifyPanierMoyen">—</p>
           <p style="font-size:11px;color:#aaa;margin-top:4px;" id="shopifyOrderCountNote"></p>
         </div>
@@ -303,6 +303,7 @@
       <div id="shopifyTopProducts" style="display:flex;flex-direction:column;gap:8px;">
         <span style="color:#aaa;font-size:13px;">En attente de données...</span>
       </div>
+      <p style="font-size:10px;color:#bbb;margin-top:12px;">* hors frais de transport</p>
     </div>
     <!-- Répartition par type de client -->
     <div class="chart-card" id="typeClientRow" style="margin-bottom:24px;">
@@ -744,7 +745,7 @@ async function loadShopifyDetails(dateStart, dateEnd) {
       }).join('');
     }
     document.getElementById('shopifySubtitle').textContent =
-      `Panier moyen (hors frais de livraison) et top produits propres à Shopify${data._fromCache ? ' (cache)' : ''}`;
+      `Panier moyen et top produits propres à Shopify${data._fromCache ? ' (cache)' : ''}`;
   } catch (e) {
     document.getElementById('shopifySubtitle').textContent = 'Erreur de chargement';
   }
@@ -1290,27 +1291,9 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
       }
     }
   }
-  // Statut rythme
+  // Statut rythme (retiré : trop d'infos, gardait doublon avec "Reste à faire")
   const statusEl = document.getElementById(statusId);
-  if (statusEl) {
-    if (expectedPct !== null) {
-      const expectedEuros = Math.round((budVal * 1000) * ratio);
-      const diffEuros = caVal - expectedEuros;
-      const diffAbs = Math.abs(diffEuros);
-      if (diffEuros >= 500) {
-        statusEl.textContent = `✓ En avance de ${fmt(diffAbs)}`;
-        statusEl.style.color = '#1D9E75';
-      } else if (diffEuros <= -500) {
-        statusEl.textContent = `↓ En retard de ${fmt(diffAbs)}`;
-        statusEl.style.color = '#D85A30';
-      } else {
-        statusEl.textContent = '≈ Dans les clous du budget écoulé';
-        statusEl.style.color = '#888';
-      }
-    } else {
-      statusEl.textContent = '';
-    }
-  }
+  if (statusEl) statusEl.textContent = '';
 }
 function updateBudgetB2CB2BDisplay(caB2C, caB2B) {
   renderArcGauge('budgetBarB2BWrap', 'gaugeB2B', 'budgetStatusB2B', caB2B, budgetB2B2026, true,  'mB2BBudgetLabel', 'mB2BResteAFaire');
