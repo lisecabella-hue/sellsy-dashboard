@@ -1170,13 +1170,18 @@ function getProratioForPeriod(useWorkdays) {
       return elapsedEnd.getDate() / monthEnd.getDate();
     }
   }
-  // Pour 'today' : portion de la journée déjà écoulée (heure actuelle / 24h).
-  // Le budget du jour est déjà proratisé dans getBudgetForCurrentPeriod, donc ici
-  // on ne proratise plus que sur la journée elle-même (sinon double prorata).
+  // Pour 'today' : portion du jour dans le mois
   if (currentMode === 'today') {
     if (startDate.getFullYear() !== 2026) return null;
-    const nowClock = new Date();
-    return (nowClock.getHours() * 60 + nowClock.getMinutes()) / 1440;
+    const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+    const monthEnd   = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
+    if (useWorkdays) {
+      const totalWD   = countWorkdays(monthStart, monthEnd);
+      const elapsedWD = countWorkdays(monthStart, startDate);
+      return totalWD > 0 ? elapsedWD / totalWD : null;
+    } else {
+      return startDate.getDate() / monthEnd.getDate();
+    }
   }
   // Pour 'week' : jours de la semaine écoulés dans le mois en cours
   if (currentMode === 'week') {
