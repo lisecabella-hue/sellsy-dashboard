@@ -1298,6 +1298,26 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
     if (resteEl)    resteEl.textContent = '';
     return;
   }
+  // Vue "Aujourd'hui" : pas de jauge ni de %, juste le reste à faire du jour
+  // (budget du jour proratisé - CA du jour), plus lisible sur une seule journée.
+  if (currentMode === 'today') {
+    wrap.style.display = 'none';
+    if (budLabelEl) budLabelEl.textContent = '';
+    const statusElToday = document.getElementById(statusId);
+    if (statusElToday) statusElToday.textContent = '';
+    if (resteEl) {
+      const budgetEuros = budVal * 1000;
+      const reste = budgetEuros - caVal;
+      if (reste > 0) {
+        resteEl.textContent = `Reste à faire : ${fmt(reste)}`;
+        resteEl.style.color = '#D85A30';
+      } else {
+        resteEl.textContent = `Objectif atteint ! ${fmt(Math.abs(reste))} au-delà`;
+        resteEl.style.color = '#1D9E75';
+      }
+    }
+    return;
+  }
   wrap.style.display = 'block';
   const pct = Math.round(((caVal / 1000) / budVal) * 100);
   const ratio = getProratioForPeriod(useWorkdays);
@@ -1309,25 +1329,19 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
   if (budLabelEl) {
     budLabelEl.textContent = '';
   }
-  // Reste à faire (masqué en vue "Aujourd'hui" : seul le statut de rythme vs budget
-  // proratisé du jour est affiché, cf. bloc "Statut rythme" plus bas)
   if (resteEl) {
-    if (currentMode === 'today') {
-      resteEl.textContent = '';
+    const budgetEuros = budVal * 1000;
+    const reste = budgetEuros - caVal;
+    // Un mois est "fini" quand sa date de fin est déjà passée (mois clôturé, pas le mois en cours)
+    const periodDates = getDates();
+    const periodEnded = currentMode === 'month' && periodDates && new Date(periodDates.dateEnd + 'T23:59:59') < new Date();
+    if (reste > 0) {
+      const label = periodEnded ? 'Retard sur le mois' : 'Reste à faire vs Budget';
+      resteEl.textContent = `${label} : ${fmt(reste)}`;
+      resteEl.style.color = '#D85A30';
     } else {
-      const budgetEuros = budVal * 1000;
-      const reste = budgetEuros - caVal;
-      // Un mois est "fini" quand sa date de fin est déjà passée (mois clôturé, pas le mois en cours)
-      const periodDates = getDates();
-      const periodEnded = currentMode === 'month' && periodDates && new Date(periodDates.dateEnd + 'T23:59:59') < new Date();
-      if (reste > 0) {
-        const label = periodEnded ? 'Retard sur le mois' : 'Reste à faire vs Budget';
-        resteEl.textContent = `${label} : ${fmt(reste)}`;
-        resteEl.style.color = '#D85A30';
-      } else {
-        resteEl.textContent = `Objectif atteint ! ${fmt(Math.abs(reste))} au-delà`;
-        resteEl.style.color = '#1D9E75';
-      }
+      resteEl.textContent = `Objectif atteint ! ${fmt(Math.abs(reste))} au-delà`;
+      resteEl.style.color = '#1D9E75';
     }
   }
   // Statut rythme (retiré : trop d'infos, gardait doublon avec "Reste à faire")
