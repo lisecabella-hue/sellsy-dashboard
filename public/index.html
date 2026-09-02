@@ -713,6 +713,12 @@ async function loadShopifyDetails(dateStart, dateEnd) {
   const card = document.getElementById('shopifyDetailCard');
   card.style.display = 'block';
   document.getElementById('shopifySubtitle').textContent = 'Chargement...';
+  // On efface les valeurs de la période précédente avant de charger la nouvelle,
+  // pour ne pas laisser croire que ce sont déjà les bons chiffres.
+  document.getElementById('shopifyPanierMoyen').textContent = '...';
+  document.getElementById('shopifyOrderCount').textContent = '...';
+  document.getElementById('shopifyOrderCountNote').textContent = '';
+  document.getElementById('shopifyTopProducts').innerHTML = '<span style="color:#aaa;font-size:13px;">Chargement...</span>';
   try {
     const resp = await fetch(`/api/shopify?dateStart=${dateStart}&dateEnd=${dateEnd}`);
     const data = await resp.json();
