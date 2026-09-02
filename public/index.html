@@ -205,7 +205,7 @@
     <div id="gaugesRow" style="display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:14px;margin-bottom:16px;">
         <!-- TOTAL -->
         <div id="blockTotal" class="metric-card" style="padding:24px 28px;border-radius:16px;border:1px solid #e5e5e5;">
-          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#888;margin-bottom:12px;">CA Total HT</p>
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#888;margin-bottom:12px;">CA Total HT (brut)</p>
           <p style="font-size:34px;font-weight:500;line-height:1;" id="mCA">—</p>
           <p style="font-size:12px;margin-top:6px;font-weight:500;" id="mCAVs"></p>
           <p style="font-size:11px;margin-top:5px;color:#bbb;" id="mCABudgetLabel"></p>
@@ -1337,8 +1337,12 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
     } else {
       const budgetEuros = budVal * 1000;
       const reste = budgetEuros - caVal;
+      // Un mois est "fini" quand sa date de fin est déjà passée (mois clôturé, pas le mois en cours)
+      const periodDates = getDates();
+      const periodEnded = currentMode === 'month' && periodDates && new Date(periodDates.dateEnd + 'T23:59:59') < new Date();
       if (reste > 0) {
-        resteEl.textContent = `Reste à faire : ${fmt(reste)}`;
+        const label = periodEnded ? 'Retard sur le mois' : 'Reste à faire';
+        resteEl.textContent = `${label} : ${fmt(reste)}`;
         resteEl.style.color = '#D85A30';
       } else {
         resteEl.textContent = `Objectif atteint ! ${fmt(Math.abs(reste))} au-delà`;
