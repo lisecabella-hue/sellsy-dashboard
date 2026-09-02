@@ -209,11 +209,11 @@
           <p style="font-size:34px;font-weight:500;line-height:1;" id="mCA">—</p>
           <p style="font-size:12px;margin-top:6px;font-weight:500;" id="mCAVs"></p>
           <p style="font-size:11px;margin-top:5px;color:#bbb;" id="mCABudgetLabel"></p>
-          <p style="font-size:12px;font-weight:600;margin-top:4px;" id="mCAResteAFaire"></p>
           <div id="budgetBarWrap" style="display:none;text-align:center;margin-top:12px;">
             <canvas id="gaugeTotal" width="180" height="108" style="display:block;margin:0 auto;"></canvas>
             <p id="budgetStatusTotal" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;"></p>
           </div>
+          <p style="font-size:12px;font-weight:600;margin-top:8px;text-align:center;" id="mCAResteAFaire"></p>
           <div style="display:none;">
             <p id="mAvgB2C"></p><p id="mAvgB2CVs"></p>
             <p id="mAvgB2B"></p><p id="mAvgB2BVs"></p>
@@ -226,11 +226,11 @@
           <p style="font-size:28px;font-weight:500;line-height:1;" id="mCAB2B">—</p>
           <p style="font-size:12px;margin-top:6px;font-weight:500;" id="mCAB2BVs">⏳</p>
           <p style="font-size:11px;margin-top:5px;color:#bbb;" id="mB2BBudgetLabel"></p>
-          <p style="font-size:12px;font-weight:600;margin-top:4px;" id="mB2BResteAFaire"></p>
           <div id="budgetBarB2BWrap" style="display:none;text-align:center;margin-top:12px;">
             <canvas id="gaugeB2B" width="160" height="96" style="display:block;margin:0 auto;"></canvas>
             <p id="budgetStatusB2B" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;color:#1D9E75;"></p>
           </div>
+          <p style="font-size:12px;font-weight:600;margin-top:8px;text-align:center;" id="mB2BResteAFaire"></p>
         </div>
         <!-- B2C -->
         <div id="blockB2C" class="metric-card" style="padding:24px 24px;border-radius:16px;border:1px solid #c5d9f0;background:linear-gradient(145deg, #edf3fb 0%, #f7fafd 100%);">
@@ -238,11 +238,11 @@
           <p style="font-size:28px;font-weight:500;line-height:1;" id="mCAB2C">—</p>
           <p style="font-size:12px;margin-top:6px;font-weight:500;" id="mCAB2CVs">⏳</p>
           <p style="font-size:11px;margin-top:5px;color:#bbb;" id="mB2CBudgetLabel"></p>
-          <p style="font-size:12px;font-weight:600;margin-top:4px;" id="mB2CResteAFaire"></p>
           <div id="budgetBarB2CWrap" style="display:none;text-align:center;margin-top:12px;">
             <canvas id="gaugeB2C" width="160" height="96" style="display:block;margin:0 auto;"></canvas>
             <p id="budgetStatusB2C" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;color:#74A1D6;"></p>
           </div>
+          <p style="font-size:12px;font-weight:600;margin-top:8px;text-align:center;" id="mB2CResteAFaire"></p>
         </div>
     </div>
     <!-- Camembert répartition (conservé) -->
@@ -279,21 +279,29 @@
         </div>
       </div>
     </div>
-    <!-- Répartition B2B France vs DOM-TOM -->
-    <div class="chart-card" id="b2bGeoRow" style="display:none;margin-bottom:24px;">
+    <!-- Détails Shopify (segment B2C uniquement) -->
+    <div class="chart-card" id="shopifyDetailCard" style="display:none;margin-bottom:24px;">
       <div class="chart-header">
         <div>
-          <p class="chart-title">Répartition B2B — France vs DOM-TOM</p>
-          <p class="chart-subtitle" id="b2bGeoSubtitle">Période sélectionnée</p>
+          <p class="chart-title">🛍️ Détails Shopify — indicateurs e-commerce</p>
+          <p class="chart-subtitle" id="shopifySubtitle">Panier moyen et top produits propres à Shopify (le CA est déjà compté dans le B2C ci-dessus)</p>
         </div>
       </div>
-      <div style="display:flex;align-items:center;justify-content:center;gap:48px;flex-wrap:wrap;padding:8px 0;">
-        <div style="position:relative;width:220px;height:220px;flex-shrink:0;">
-          <canvas id="b2bGeoPieChart" width="220" height="220"></canvas>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+        <div style="background:linear-gradient(145deg,#edf3fb 0%,#f7fafd 100%);border-radius:14px;padding:20px;border:1px solid #c5d9f0;">
+          <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#74A1D6;margin-bottom:8px;">Panier moyen Shopify</p>
+          <p style="font-size:26px;font-weight:600;" id="shopifyPanierMoyen">—</p>
+          <p style="font-size:11px;color:#aaa;margin-top:4px;" id="shopifyOrderCountNote"></p>
         </div>
-        <div id="b2bGeoLegend" style="display:flex;flex-direction:column;gap:14px;min-width:220px;">
-          <span style="color:#aaa;font-size:13px;">En attente de données...</span>
+        <div style="background:#fafafa;border-radius:14px;padding:20px;border:1px solid #e5e5e5;">
+          <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:8px;">Commandes Shopify</p>
+          <p style="font-size:26px;font-weight:600;" id="shopifyOrderCount">—</p>
+          <p style="font-size:11px;color:#aaa;margin-top:4px;">Commandes payées sur la période</p>
         </div>
+      </div>
+      <p style="font-size:13px;font-weight:600;margin-bottom:12px;">🏆 Top 10 produits (CA)</p>
+      <div id="shopifyTopProducts" style="display:flex;flex-direction:column;gap:8px;">
+        <span style="color:#aaa;font-size:13px;">En attente de données...</span>
       </div>
     </div>
     <!-- Répartition par type de client -->
@@ -561,7 +569,6 @@ let caChartInstance = null;
 let budgetChartInstance = null;
 let pieChartInstance = null;
 let b2cBreakdownPieInstance = null;
-let b2bGeoPieInstance = null;
 let currentTotalCA = 0;
 let pharmacyChartN = null;
 const PHARMACY_COLORS = {
@@ -768,6 +775,40 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
     card.style.display = 'none';
   }
 }
+async function loadShopifyDetails(dateStart, dateEnd) {
+  const card = document.getElementById('shopifyDetailCard');
+  card.style.display = 'block';
+  document.getElementById('shopifySubtitle').textContent = 'Chargement...';
+  try {
+    const resp = await fetch(`/api/shopify?dateStart=${dateStart}&dateEnd=${dateEnd}`);
+    const data = await resp.json();
+    document.getElementById('shopifyPanierMoyen').textContent = fmt(data._panierMoyen || 0);
+    document.getElementById('shopifyOrderCount').textContent = (data._orderCount || 0).toLocaleString('fr-FR');
+    document.getElementById('shopifyOrderCountNote').textContent = `sur ${data._orderCount || 0} commandes`;
+    const top = data._topProducts || [];
+    const maxRevenue = top.length > 0 ? top[0].revenue : 1;
+    const listEl = document.getElementById('shopifyTopProducts');
+    if (top.length === 0) {
+      listEl.innerHTML = '<span style="color:#aaa;font-size:13px;">Aucune donnée produit sur cette période</span>';
+    } else {
+      listEl.innerHTML = top.map((p, i) => {
+        const pct = Math.round((p.revenue / maxRevenue) * 100);
+        return `<div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-size:12px;color:#888;width:18px;">${i+1}</span>
+          <span style="font-size:13px;flex:0 0 220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p.title}</span>
+          <div style="flex:1;background:#f0f0f0;border-radius:4px;height:10px;">
+            <div style="width:${pct}%;background:#74A1D6;height:10px;border-radius:4px;"></div>
+          </div>
+          <span style="font-size:13px;font-weight:500;width:90px;text-align:right;">${fmt(p.revenue)}</span>
+        </div>`;
+      }).join('');
+    }
+    document.getElementById('shopifySubtitle').textContent =
+      `Panier moyen et top produits propres à Shopify${data._fromCache ? ' (cache)' : ''}`;
+  } catch (e) {
+    document.getElementById('shopifySubtitle').textContent = 'Erreur de chargement';
+  }
+}
 // Donut B2C Site vs Outlet
 function renderB2CBreakdownPieChart(caByType) {
   const B2C_CATS = ['B2C', 'Outlet'];
@@ -843,81 +884,6 @@ function renderB2CBreakdownPieChart(caByType) {
   }).join('');
   document.getElementById('b2cBreakdownSubtitle').textContent = 'Période sélectionnée';
 }
-// Donut B2B France vs DOM-TOM
-function renderB2BGeoPieChart(geo) {
-  const CATS = ['France', 'DomTom'];
-  const COLORS = { France: '#1D9E75', DomTom: '#0E7C86' };
-  const LABELS = { France: 'France', DomTom: 'DOM-TOM' };
-  const ctx = document.getElementById('b2bGeoPieChart').getContext('2d');
-  if (b2bGeoPieInstance) b2bGeoPieInstance.destroy();
-  const entries = CATS.filter(k => (geo[k] || 0) > 0);
-  const values = entries.map(k => geo[k] || 0);
-  const total = values.reduce((a, b) => a + b, 0);
-  const colors = entries.map(k => COLORS[k]);
-  const labels = entries.map(k => LABELS[k]);
-  b2bGeoPieInstance = new Chart(ctx, {
-    type: 'doughnut',
-    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }] },
-    options: {
-      responsive: false,
-      cutout: '62%',
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.label} : ${fmt(ctx.raw)} (${total > 0 ? Math.round((ctx.raw/total)*100) : 0}%)` } }
-      }
-    },
-    plugins: [
-      {
-        id: 'centerTextB2BGeo',
-        afterDatasetsDraw(chart) {
-          const { ctx, chartArea: { left, top, right, bottom } } = chart;
-          const cx = (left + right) / 2;
-          const cy = (top + bottom) / 2;
-          ctx.save();
-          ctx.font = 'bold 14px -apple-system, sans-serif';
-          ctx.fillStyle = '#1a1a1a';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(fmt(total), cx, cy);
-          ctx.restore();
-        }
-      },
-      {
-        id: 'pctOnSliceB2BGeo',
-        afterDatasetsDraw(chart) {
-          const { ctx, data } = chart;
-          const meta = chart.getDatasetMeta(0);
-          meta.data.forEach((arc, i) => {
-            const val = data.datasets[0].data[i];
-            const pct = total > 0 ? Math.round((val / total) * 100) : 0;
-            if (pct < 5) return;
-            const angle = (arc.startAngle + arc.endAngle) / 2;
-            const r = (arc.outerRadius + arc.innerRadius) / 2;
-            ctx.save();
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 12px -apple-system, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(pct + '%', arc.x + Math.cos(angle) * r, arc.y + Math.sin(angle) * r);
-            ctx.restore();
-          });
-        }
-      }
-    ]
-  });
-  const legendEl = document.getElementById('b2bGeoLegend');
-  legendEl.innerHTML = entries.map((k, i) => {
-    const pct = total > 0 ? Math.round((values[i] / total) * 100) : 0;
-    return `<div style="display:flex;flex-direction:column;gap:4px;">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="width:12px;height:12px;border-radius:3px;background:${colors[i]};display:inline-block;flex-shrink:0;"></span>
-        <span style="font-size:14px;font-weight:500;">${labels[i]}</span>
-        <span style="font-size:13px;color:#888;">${pct}% — ${fmt(values[i])}</span>
-      </div>
-    </div>`;
-  }).join('');
-  document.getElementById('b2bGeoSubtitle').textContent = 'Période sélectionnée';
-}
 function setSegment(seg) {
   currentSegment = seg;
   ['total','b2b','b2c'].forEach(s => {
@@ -991,27 +957,27 @@ function applySegment(caData) {
   const typeClientRow = document.getElementById('typeClientRow');
   const pharmacyCard  = document.getElementById('pharmacyBreakdownCard');
   const b2cBreakRow   = document.getElementById('b2cBreakdownRow');
-  const b2bGeoRow     = document.getElementById('b2bGeoRow');
   if (seg === 'b2b') {
     if (pieCard)    pieCard.style.display     = 'none';
     if (typeClientRow) typeClientRow.style.display = '';
     if (b2cBreakRow)   b2cBreakRow.style.display   = 'none';
-    if (b2bGeoRow)      b2bGeoRow.style.display     = '';
-    if (caData._caB2BGeo) renderB2BGeoPieChart(caData._caB2BGeo);
     const dates = getDates();
     if (dates) loadPharmacyBreakdown(dates.dateStart, dates.dateEnd);
   } else {
     if (pharmacyCard) pharmacyCard.style.display = 'none';
-    if (b2bGeoRow)     b2bGeoRow.style.display     = 'none';
     if (seg === 'b2c') {
       if (pieCard)    pieCard.style.display     = 'none';
       if (typeClientRow) typeClientRow.style.display = 'none';
       if (b2cBreakRow)   b2cBreakRow.style.display   = '';
       if (caData._caByType) renderB2CBreakdownPieChart(caData._caByType);
+      const datesForShopify = getDates();
+      if (datesForShopify) loadShopifyDetails(datesForShopify.dateStart, datesForShopify.dateEnd);
     } else {
       if (pieCard)    pieCard.style.display     = '';
       if (typeClientRow) typeClientRow.style.display = '';
       if (b2cBreakRow)   b2cBreakRow.style.display   = 'none';
+      const shopifyCard = document.getElementById('shopifyDetailCard');
+      if (shopifyCard) shopifyCard.style.display = 'none';
     }
   }
   if (seg === 'b2c') {
@@ -1204,18 +1170,13 @@ function getProratioForPeriod(useWorkdays) {
       return elapsedEnd.getDate() / monthEnd.getDate();
     }
   }
-  // Pour 'today' : portion du jour dans le mois
+  // Pour 'today' : portion de la journée déjà écoulée (heure actuelle / 24h).
+  // Le budget du jour est déjà proratisé dans getBudgetForCurrentPeriod, donc ici
+  // on ne proratise plus que sur la journée elle-même (sinon double prorata).
   if (currentMode === 'today') {
     if (startDate.getFullYear() !== 2026) return null;
-    const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
-    const monthEnd   = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
-    if (useWorkdays) {
-      const totalWD   = countWorkdays(monthStart, monthEnd);
-      const elapsedWD = countWorkdays(monthStart, startDate);
-      return totalWD > 0 ? elapsedWD / totalWD : null;
-    } else {
-      return startDate.getDate() / monthEnd.getDate();
-    }
+    const nowClock = new Date();
+    return (nowClock.getHours() * 60 + nowClock.getMinutes()) / 1440;
   }
   // Pour 'week' : jours de la semaine écoulés dans le mois en cours
   if (currentMode === 'week') {
@@ -1363,16 +1324,21 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
       budLabelEl.textContent = '';
     }
   }
-  // Reste à faire
+  // Reste à faire (masqué en vue "Aujourd'hui" : seul le statut de rythme vs budget
+  // proratisé du jour est affiché, cf. bloc "Statut rythme" plus bas)
   if (resteEl) {
-    const budgetEuros = budVal * 1000;
-    const reste = budgetEuros - caVal;
-    if (reste > 0) {
-      resteEl.textContent = `Reste à faire : ${fmt(reste)}`;
-      resteEl.style.color = '#D85A30';
+    if (currentMode === 'today') {
+      resteEl.textContent = '';
     } else {
-      resteEl.textContent = `Objectif atteint ! ${fmt(Math.abs(reste))} au-delà`;
-      resteEl.style.color = '#1D9E75';
+      const budgetEuros = budVal * 1000;
+      const reste = budgetEuros - caVal;
+      if (reste > 0) {
+        resteEl.textContent = `Reste à faire : ${fmt(reste)}`;
+        resteEl.style.color = '#D85A30';
+      } else {
+        resteEl.textContent = `Objectif atteint ! ${fmt(Math.abs(reste))} au-delà`;
+        resteEl.style.color = '#1D9E75';
+      }
     }
   }
   // Statut rythme
