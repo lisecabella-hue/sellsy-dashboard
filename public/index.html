@@ -204,6 +204,7 @@
     <div class="controls-bar">
       <div class="period-btns">
         <button class="period-btn" id="btnToday" onclick="setPeriod('today')">Aujourd'hui</button>
+        <button class="period-btn" id="btnYesterday" onclick="setPeriod('yesterday')">Hier</button>
         <button class="period-btn" id="btnWeek" onclick="setPeriod('week')">Cette semaine</button>
         <button class="period-btn active" id="btnMonth" onclick="setPeriod('month')">Ce mois</button>
         <button class="period-btn" id="btnYtd" onclick="setPeriod('ytd')">Cumul YTD</button>
@@ -1157,8 +1158,8 @@ function getProratioForPeriod(useWorkdays) {
       return elapsedEnd.getDate() / monthEnd.getDate();
     }
   }
-  // Pour 'today' : portion du jour dans le mois
-  if (currentMode === 'today') {
+  // Pour 'today'/'yesterday' : portion du jour dans le mois (startDate = hier pour 'yesterday')
+  if (currentMode === 'today' || currentMode === 'yesterday') {
     if (startDate.getFullYear() !== 2026) return null;
     const monthStart = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
     const monthEnd   = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 0);
@@ -1199,7 +1200,7 @@ function getBudgetForCurrentPeriod(budgetArr) {
   if (currentMode === 'ytd' && endDate.getFullYear() === 2026) {
     let t = 0; for (let m = 0; m <= endDate.getMonth(); m++) t += budgetArr[m]; return t;
   }
-  if (currentMode === 'today' && startDate.getFullYear() === 2026) {
+  if ((currentMode === 'today' || currentMode === 'yesterday') && startDate.getFullYear() === 2026) {
     const m = startDate.getMonth();
     return Math.round(budgetArr[m] / new Date(2026, m+1, 0).getDate() * 10) / 10;
   }
@@ -1298,14 +1299,15 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
     if (resteEl)    resteEl.textContent = '';
     return;
   }
-  // Vue "Aujourd'hui" : pas de jauge ni de %, juste le reste à faire du jour
+  // Vue "Aujourd'hui"/"Hier" : pas de jauge ni de %, juste le reste à faire du jour
   // (budget du jour proratisé - CA du jour), plus lisible sur une seule journée.
-  if (currentMode === 'today') {
+  if (currentMode === 'today' || currentMode === 'yesterday') {
     wrap.style.display = 'none';
     if (budLabelEl) budLabelEl.textContent = '';
     const statusElToday = document.getElementById(statusId);
     if (statusElToday) statusElToday.textContent = '';
     if (resteEl) {
+      const jourLabel = currentMode === 'yesterday' ? "d'hier" : 'du jour';
       const budgetEuros = budVal * 1000;
       const reste = budgetEuros - caVal;
       const resteColor = reste > 0 ? '#D85A30' : '#1D9E75';
@@ -1313,8 +1315,8 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
       const resteValue = reste > 0 ? fmt(reste) : `+${fmt(Math.abs(reste))}`;
       resteEl.style.color = '';
       resteEl.innerHTML = `
-        <div style="display:flex;justify-content:space-between;font-weight:400;color:#888;padding:2px 0;"><span>CA du jour</span><span style="font-weight:600;color:#1a1a1a;">${fmt(caVal)}</span></div>
-        <div style="display:flex;justify-content:space-between;font-weight:400;color:#888;padding:2px 0;"><span>Budget du jour</span><span style="font-weight:600;color:#1a1a1a;">${fmt(budgetEuros)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-weight:400;color:#888;padding:2px 0;"><span>CA ${jourLabel}</span><span style="font-weight:600;color:#1a1a1a;">${fmt(caVal)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-weight:400;color:#888;padding:2px 0;"><span>Budget ${jourLabel}</span><span style="font-weight:600;color:#1a1a1a;">${fmt(budgetEuros)}</span></div>
         <div style="display:flex;justify-content:space-between;font-weight:600;color:${resteColor};padding:2px 0;border-top:1px solid #eee;margin-top:2px;"><span>${resteLabel}</span><span>${resteValue}</span></div>
       `;
     }
@@ -1371,7 +1373,7 @@ if (document.getElementById('dateFrom')) document.getElementById('dateFrom').val
 if (document.getElementById('dateTo')) document.getElementById('dateTo').value = todayStr;
 function setPeriod(mode) {
   currentMode = mode;
-  ['today','week','month','ytd','custom'].forEach(m => {
+  ['today','yesterday','week','month','ytd','custom'].forEach(m => {
     const btn = document.getElementById('btn' + m.charAt(0).toUpperCase() + m.slice(1));
     if(btn) btn.classList.toggle('active', m === mode);
   });
@@ -1409,6 +1411,12 @@ function shiftYearBack(dateStart, dateEnd) {
 }
 function getDates() {
   if (currentMode === 'today') return { dateStart: todayStr, dateEnd: todayStr, label: `Aujourd'hui — ${now.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long', year:'numeric'})}` };
+  if (currentMode === 'yesterday') {
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const ds = `${yesterday.getFullYear()}-${pad(yesterday.getMonth()+1)}-${pad(yesterday.getDate())}`;
+    return { dateStart: ds, dateEnd: ds, label: `Hier — ${yesterday.toLocaleDateString('fr-FR', {weekday:'long', day:'numeric', month:'long', year:'numeric'})}` };
+  }
   if (currentMode === 'week') {
     const day = now.getDay() || 7;
     const monday = new Date(now); monday.setDate(now.getDate() - day + 1);
