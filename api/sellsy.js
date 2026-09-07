@@ -105,9 +105,11 @@ export default async function handler(req, res) {
           _caByType: {},
           _caB2BGeo: { France: 0, DomTom: 0 },
           _top30B2B: {},
+          _enseigneDetail: [],
           pagination: { total: 0 }
         };
         const b2bByClient = {};
+        const enseigneByClient = {};
         for (const m of cachedMonths) {
           aggregated._totalCA += m._totalCA || 0;
           aggregated._totalCABrut += m._totalCABrut || 0;
@@ -131,6 +133,11 @@ export default async function handler(req, res) {
             b2bByClient[client.name].ca += client.ca;
             b2bByClient[client.name].nbFactures += client.nbFactures;
           }
+          for (const client of (m._enseigneDetail || [])) {
+            if (!enseigneByClient[client.name]) enseigneByClient[client.name] = { ca: 0, nbFactures: 0 };
+            enseigneByClient[client.name].ca += client.ca;
+            enseigneByClient[client.name].nbFactures += client.nbFactures;
+          }
         }
         for (const key of Object.keys(aggregated._caByType)) {
           aggregated._caByType[key] = Math.round(aggregated._caByType[key] * 100) / 100;
@@ -139,6 +146,9 @@ export default async function handler(req, res) {
           .map(([name, data]) => ({ name, ca: Math.round(data.ca * 100) / 100, nbFactures: data.nbFactures }))
           .sort((a, b) => b.ca - a.ca)
           .slice(0, 30);
+        aggregated._enseigneDetail = Object.entries(enseigneByClient)
+          .map(([name, data]) => ({ name, ca: Math.round(data.ca * 100) / 100, nbFactures: data.nbFactures }))
+          .sort((a, b) => b.ca - a.ca);
         aggregated._totalCA = Math.round(aggregated._totalCA * 100) / 100;
         aggregated._totalCABrut = Math.round(aggregated._totalCABrut * 100) / 100;
         aggregated._totalAvoirs = Math.round(aggregated._totalAvoirs * 100) / 100;
@@ -325,6 +335,19 @@ export default async function handler(req, res) {
       .map(([name, data]) => ({ name, ca: Math.round(data.ca * 100) / 100, nbFactures: data.nbFactures }))
       .sort((a, b) => b.ca - a.ca)
       .slice(0, 30);
+    // Détail des clients classés en "Enseigne" (ex Grand Compte), pour diagnostiquer ce qui tombe dedans
+    const enseigneByClient = {};
+    for (const inv of invoicesB2BNew) {
+      if (classifyClient(inv) !== 'Grand Compte') continue;
+      const name = inv.company_name || 'Inconnu';
+      const amount = parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0);
+      if (!enseigneByClient[name]) enseigneByClient[name] = { ca: 0, nbFactures: 0 };
+      enseigneByClient[name].ca += amount;
+      enseigneByClient[name].nbFactures += 1;
+    }
+    const enseigneDetail = Object.entries(enseigneByClient)
+      .map(([name, data]) => ({ name, ca: Math.round(data.ca * 100) / 100, nbFactures: data.nbFactures }))
+      .sort((a, b) => b.ca - a.ca);
     const b2cByClient = {};
     for (const inv of invoicesB2CNew) {
       const name = inv.company_name || 'Inconnu';
@@ -397,6 +420,7 @@ export default async function handler(req, res) {
       _caByType: caByType,
       _top30B2B: top30B2B,
       _top30B2C: top30B2C,
+      _enseigneDetail: enseigneDetail,
       pagination: { total }
     };
     const isComplete = allInvoices.length >= total;
