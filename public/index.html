@@ -907,7 +907,8 @@ function applySegment(caData) {
   const caB2CSiteOutlet = (caByTypeRaw['B2C'] || 0) + (caByTypeRaw['Outlet'] || 0);
   const caB2BFromTypes  = (caByTypeRaw['Pharmacie'] || 0)
                         + (caByTypeRaw['Grand Compte'] || 0)
-                        + (caByTypeRaw['Monoprix'] || 0);
+                        + (caByTypeRaw['Monoprix'] || 0)
+                        + (caByTypeRaw['DomTom'] || 0);
   const caTotal    = caData._totalCA || 0;
   const panierB2C  = caData._panierMoyenB2C || 0;
   const panierB2B  = caData._panierMoyenB2B || 0;
@@ -972,7 +973,7 @@ function applySegment(caData) {
     if (typeClientRow) typeClientRow.style.display = 'none';
   } else {
     if (seg === 'b2b' && caData._caByType) {
-      const B2B_CATS = ['Pharmacie', 'Grand Compte', 'Monoprix'];
+      const B2B_CATS = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom'];
       const caByTypeB2B = Object.fromEntries(
         Object.entries(caData._caByType).filter(([k]) => B2B_CATS.includes(k))
       );
@@ -1451,7 +1452,7 @@ function renderPieChart(caB2C, caB2B) {
   const caByType = (lastCaData && lastCaData._caByType) || {};
   let labels, values, colors;
   if (seg === 'b2b') {
-    const B2B_CATS = ['Pharmacie', 'Grand Compte', 'Monoprix'];
+    const B2B_CATS = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom'];
     const filtered = B2B_CATS.filter(k => (caByType[k] || 0) > 0);
     labels = filtered;
     values = filtered.map(k => caByType[k] || 0);
@@ -1464,7 +1465,7 @@ function renderPieChart(caB2C, caB2B) {
     colors = filtered.map(l => TYPE_CLIENT_COLORS[l] || '#aaa');
   } else {
     const b2cTotal = (caByType['B2C'] || 0) + (caByType['Outlet'] || 0);
-    const b2bTotal = (caByType['Pharmacie'] || 0) + (caByType['Grand Compte'] || 0) + (caByType['Monoprix'] || 0);
+    const b2bTotal = (caByType['Pharmacie'] || 0) + (caByType['Grand Compte'] || 0) + (caByType['Monoprix'] || 0) + (caByType['DomTom'] || 0);
     const marketing = caByType['Marketing'] || 0;
     const autre = caByType['Autre'] || 0;
     const segments = [
@@ -1582,17 +1583,20 @@ const TYPE_CLIENT_COLORS = {
   'Outlet':       '#E67E22',
   'Autre':        '#F5A623',
   'Site':         '#bbb',
-  'B2C':          '#bbb'
+  'B2C':          '#bbb',
+  'DomTom':       '#0FA3B1'
 };
 const TYPE_CLIENT_DISPLAY = {
   'B2C': 'Site',
-  'Site': 'Site'
+  'Site': 'Site',
+  'DomTom': 'DOM-TOM',
+  'Grand Compte': 'Enseigne'
 };
 function displayLabel(label) {
   return TYPE_CLIENT_DISPLAY[label] || label;
 }
-const TYPE_CLIENT_BUDGET_CATS  = ['Pharmacie', 'Monoprix', 'Marketing', 'Grand Compte'];
-const TYPE_CLIENT_BUDGET_CATS2 = ['Site', 'Outlet', 'Autre'];
+const TYPE_CLIENT_BUDGET_CATS  = ['Pharmacie', 'Monoprix', 'Grand Compte', 'DomTom'];
+const TYPE_CLIENT_BUDGET_CATS2 = ['Site', 'Outlet', 'Marketing', 'Autre'];
 let budgetTypeClient = {};
 TYPE_CLIENT_BUDGET_CATS.forEach(cat => { budgetTypeClient[cat] = Array(12).fill(0); });
 let budgetTypeClient2 = {};
@@ -1770,8 +1774,8 @@ async function loadMonthlyChart(year, upToMonth) {
     const caByTypeP = results[m*2+1]._caByType || {};
     let curVal, prevVal;
     if (currentSegment === 'b2b') {
-      curVal  = (caByTypeN['Pharmacie']||0) + (caByTypeN['Grand Compte']||0) + (caByTypeN['Monoprix']||0);
-      prevVal = (caByTypeP['Pharmacie']||0) + (caByTypeP['Grand Compte']||0) + (caByTypeP['Monoprix']||0);
+      curVal  = (caByTypeN['Pharmacie']||0) + (caByTypeN['Grand Compte']||0) + (caByTypeN['Monoprix']||0) + (caByTypeN['DomTom']||0);
+      prevVal = (caByTypeP['Pharmacie']||0) + (caByTypeP['Grand Compte']||0) + (caByTypeP['Monoprix']||0) + (caByTypeP['DomTom']||0);
     } else if (currentSegment === 'b2c') {
       curVal  = (caByTypeN['B2C']||0) + (caByTypeN['Outlet']||0);
       prevVal = (caByTypeP['B2C']||0) + (caByTypeP['Outlet']||0);
@@ -1927,7 +1931,8 @@ async function loadData() {
     const caB2C = (caByTypeRaw2['B2C'] || 0) + (caByTypeRaw2['Outlet'] || 0);
     const caB2B = (caByTypeRaw2['Pharmacie'] || 0)
                 + (caByTypeRaw2['Grand Compte'] || 0)
-                + (caByTypeRaw2['Monoprix'] || 0);
+                + (caByTypeRaw2['Monoprix'] || 0)
+                + (caByTypeRaw2['DomTom'] || 0);
     const panierB2C = caData._panierMoyenB2C || 0;
     const panierB2B = caData._panierMoyenB2B || 0;
     const t = new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
@@ -1942,7 +1947,7 @@ async function loadData() {
         const seg = currentSegment;
         const prevByType = prev._caByType || {};
         const prevB2C = (prevByType['B2C']||0) + (prevByType['Outlet']||0);
-        const prevB2B = (prevByType['Pharmacie']||0) + (prevByType['Grand Compte']||0) + (prevByType['Monoprix']||0);
+        const prevB2B = (prevByType['Pharmacie']||0) + (prevByType['Grand Compte']||0) + (prevByType['Monoprix']||0) + (prevByType['DomTom']||0);
         const prevTotal = prev._totalCA || 0;
         const prevPanierB2C = prev._panierMoyenB2C || 0;
         const prevPanierB2B = prev._panierMoyenB2B || 0;
@@ -2139,7 +2144,7 @@ function openBudgetModalWithFin() {
   grid.appendChild(pharmSection);
   const tcSection = document.createElement('div');
   tcSection.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
-  const tcCols = TYPE_CLIENT_BUDGET_CATS.map(c => `<span style="font-size:11px;color:${TYPE_CLIENT_COLORS[c]};font-weight:600;text-align:center;">${c} (k€)</span>`).join('');
+  const tcCols = TYPE_CLIENT_BUDGET_CATS.map(c => `<span style="font-size:11px;color:${TYPE_CLIENT_COLORS[c]};font-weight:600;text-align:center;">${displayLabel(c)} (k€)</span>`).join('');
   const tcInputs = months.map((m, i) =>
     `<div style="display:grid;grid-template-columns:80px ${TYPE_CLIENT_BUDGET_CATS.map(() => '1fr').join(' ')};gap:8px;align-items:center;margin-bottom:4px;">
       <span style="font-size:12px;color:#444;">${m}</span>
@@ -2160,7 +2165,7 @@ function openBudgetModalWithFin() {
       ${TYPE_CLIENT_BUDGET_CATS2.map(cat => `<input type="number" id="budgetTC2_${cat}_${i}" value="${(budgetTypeClient2[cat] || [])[i] || 0}" placeholder="0" style="padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center;" />`).join('')}
     </div>`
   ).join('');
-  tc2Section.innerHTML = `<p style="font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px;">🌐 Budget Site / Outlet / Autre (k€)</p>
+  tc2Section.innerHTML = `<p style="font-size:13px;font-weight:600;color:#1a1a1a;margin-bottom:12px;">🌐 Budget Site / Outlet / Marketing / Autre (k€)</p>
     <div style="display:grid;grid-template-columns:80px ${TYPE_CLIENT_BUDGET_CATS2.map(() => '1fr').join(' ')};gap:8px;align-items:center;border-bottom:1px solid #e5e5e5;padding-bottom:8px;margin-bottom:4px;">
       <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>${tc2Cols}
     </div>${tc2Inputs}`;
