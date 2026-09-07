@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   const kvToken = process.env.KV_REST_API_TOKEN;
   const { dateStart, dateEnd, mode } = req.query;
   if (!dateStart || !dateEnd) return res.status(400).json({ error: 'dateStart and dateEnd required' });
-  const CACHE_VERSION = 'v8';
+  const CACHE_VERSION = 'v9';
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const pad = n => String(n).padStart(2, '0');
   async function cacheGet(key) {
@@ -257,28 +257,36 @@ export default async function handler(req, res) {
     }
     const filteredInvoices = allInvoices.filter(inv => !inv.is_deposit);
     const B2C_CATEGORY_ID = 215340;
+    // Comptes DOM-TOM : reclassement forcé, prioritaire même sur un tag Sellsy "Pharmacie"
+    // (Sanisco toutes variantes + Marques & Beautés)
+    function isDomTomOverride(companyName) {
+      const n = (companyName || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+      return n.includes('sanisco') || (n.includes('marques') && n.includes('beaute'));
+    }
+    // Comptes Outlet : reclassement forcé, prioritaire même sur un tag Sellsy
+    function isOutletOverride(companyName) {
+      const n = (companyName || '').toLowerCase();
+      return n.includes('blissim') || n.includes('bradery') || n.includes('symmetric');
+    }
     function classifyClient(inv) {
       // 1. B2C via tarif — priorité absolue
       if (inv.rate_category_id === B2C_CATEGORY_ID) return 'B2C';
       const name = (inv.company_name || '').toLowerCase();
       const companyId = inv.related?.[0]?.id;
+      // 1.5 DOM-TOM : reclassement forcé, avant même le tag Sellsy
+      if (isDomTomOverride(inv.company_name)) return 'DomTom';
+      // 1.6 Outlet : reclassement forcé, avant même le tag Sellsy
+      if (isOutletOverride(inv.company_name)) return 'Outlet';
       // 2. Type client Sellsy en priorité (sauf Autre)
       if (companyId && companyTypeMap[companyId] && companyTypeMap[companyId] !== 'Autre') {
         return companyTypeMap[companyId];
       }
       // 3. Règles nom en fallback (clients sans type renseigné dans Sellsy)
-      if (name.includes('blissim') || name.includes('bradery') || name.includes('symmetric')) return 'Outlet';
       if (name.includes('printemps') || name.includes('samaritaine')) return 'Grand Compte';
       if (name.includes('figaro') || name.includes('media ')) return 'Marketing';
-      if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco') || name.includes('dhygietal')) return 'Pharmacie';
+      if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco') || name.includes('dhygietal') || name.includes('atida') || name.includes('divabox') || name.includes('divaboc')) return 'Pharmacie';
       // 4. Sinon Autre
       return 'Autre';
-    }
-    // Sous-classification géographique des pharmacies DOM-TOM (n'affecte pas le type client)
-    function isDomTomClient(companyName) {
-      const n = (companyName || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-      return (n.includes('sanisco') && (n.includes('caraibes') || n.includes('pacifique') || n.includes('polynesie') || n.includes('guyane') || n.includes('groupe')))
-        || (n.includes('marques') && n.includes('beaute'));
     }
     const caByType = {};
     for (const inv of filteredInvoices) {
@@ -291,7 +299,7 @@ export default async function handler(req, res) {
       caByType[key] = Math.round(caByType[key] * 100) / 100;
     }
     const B2C_TYPES = ['B2C', 'Outlet'];
-    const B2B_TYPES = ['Pharmacie', 'Grand Compte', 'Monoprix'];
+    const B2B_TYPES = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom'];
     const invoicesB2CNew = filteredInvoices.filter(inv => B2C_TYPES.includes(classifyClient(inv)));
     const invoicesB2BNew = filteredInvoices.filter(inv => B2B_TYPES.includes(classifyClient(inv)));
     const totalCA = filteredInvoices.reduce((acc, inv) =>
@@ -300,9 +308,9 @@ export default async function handler(req, res) {
       acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
     const totalCAB2B = invoicesB2BNew.reduce((acc, inv) =>
       acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
-    // Répartition géographique B2B : France vs DOM-TOM (sous-ensemble de Pharmacie, classification inchangée)
+    // Répartition géographique B2B : France vs DOM-TOM (désormais la catégorie DomTom elle-même)
     const totalCAB2BDomTom = invoicesB2BNew
-      .filter(inv => isDomTomClient(inv.company_name))
+      .filter(inv => classifyClient(inv) === 'DomTom')
       .reduce((acc, inv) => acc + parseFloat((inv.amounts && inv.amounts.total_excl_tax) || 0), 0);
     const totalCAB2BFrance = totalCAB2B - totalCAB2BDomTom;
     const b2bByClient = {};
