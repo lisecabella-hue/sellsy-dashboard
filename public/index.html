@@ -1596,7 +1596,7 @@ const TYPE_CLIENT_DISPLAY = {
   'Monoprix': 'Monoprix - B2B',
   'DomTom': 'DOM-TOM - B2B',
   'Grand Compte': 'Enseigne - B2B',
-  'Eretailer': 'E-retailer - B2B'
+  'Eretailer': 'E-retailers - B2B'
 };
 function displayLabel(label) {
   return TYPE_CLIENT_DISPLAY[label] || label;
@@ -1685,10 +1685,12 @@ function renderTypeClientPieChart(caByType) {
   });
   // B2C cats = jours calendaires, B2B = jours ouvrés
   const B2C_CATS = ['B2C', 'Site', 'Outlet'];
+  const B2B_CATS_LEGEND = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer'];
   const legendEl = document.getElementById('typeClientLegend');
   const isDayMode = (currentMode === 'today' || currentMode === 'yesterday');
   const jourLabel = currentMode === 'yesterday' ? "d'hier" : 'du jour';
-  legendEl.innerHTML = labels.map(cat => {
+  const itemsHtmlByCat = {};
+  labels.forEach(cat => { itemsHtmlByCat[cat] = (() => {
     const val = caByType[cat] || 0;
     const pct = total > 0 ? Math.round((val / total) * 100) : 0;
     const budgetVal = getTypeClientBudgetForPeriod(cat);
@@ -1738,7 +1740,17 @@ function renderTypeClientPieChart(caByType) {
       </div>
       <div style="font-size:11px;padding-left:20px;display:flex;gap:10px;">${detailHtml}</div>
     </div>`;
-  }).join('');
+  })(); });
+  function legendGroupBlock(cats, bg, border) {
+    const items = cats.filter(c => labels.includes(c));
+    if (items.length === 0) return '';
+    return `<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:10px;">${items.map(c => itemsHtmlByCat[c]).join('')}</div>`;
+  }
+  const otherCatsLegend = labels.filter(c => !B2B_CATS_LEGEND.includes(c) && !B2C_CATS.includes(c));
+  legendEl.innerHTML =
+    legendGroupBlock(B2B_CATS_LEGEND, '#EAF7F1', '#B7E4D2') +
+    legendGroupBlock(B2C_CATS, '#EAF1FB', '#C3D9F3') +
+    legendGroupBlock(otherCatsLegend, '#FBF3E7', '#F0DDB8');
   document.getElementById('typeClientSubtitle').textContent = 'Période sélectionnée';
 }
 function setVs(id, current, prev, prevYear) {
