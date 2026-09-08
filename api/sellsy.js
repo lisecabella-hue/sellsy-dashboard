@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   const kvToken = process.env.KV_REST_API_TOKEN;
   const { dateStart, dateEnd, mode } = req.query;
   if (!dateStart || !dateEnd) return res.status(400).json({ error: 'dateStart and dateEnd required' });
-  const CACHE_VERSION = 'v11';
+  const CACHE_VERSION = 'v12';
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const pad = n => String(n).padStart(2, '0');
   async function cacheGet(key) {
@@ -278,6 +278,16 @@ export default async function handler(req, res) {
       const n = (companyName || '').toLowerCase();
       return n.includes('blissim') || n.includes('bradery') || n.includes('symmetric');
     }
+    // Comptes Pharmacie : reclassement forcé, prioritaire même sur un tag Sellsy "Grand Compte"
+    function isPharmacieOverride(companyName) {
+      const n = (companyName || '').toLowerCase();
+      return n.includes('capucins') || n.includes('wellpharma') || n.includes('well pharma');
+    }
+    // Comptes E-retailer : reclassement forcé, prioritaire même sur un tag Sellsy "Grand Compte"
+    function isEretailerOverride(companyName) {
+      const n = (companyName || '').toLowerCase();
+      return n.includes('atida') || n.includes('dhygietal') || n.includes('divabox') || n.includes('divaboc');
+    }
     function classifyClient(inv) {
       // 1. B2C via tarif — priorité absolue
       if (inv.rate_category_id === B2C_CATEGORY_ID) return 'B2C';
@@ -287,6 +297,10 @@ export default async function handler(req, res) {
       if (isDomTomOverride(inv.company_name)) return 'DomTom';
       // 1.6 Outlet : reclassement forcé, avant même le tag Sellsy
       if (isOutletOverride(inv.company_name)) return 'Outlet';
+      // 1.7 Pharmacie : reclassement forcé, avant même le tag Sellsy
+      if (isPharmacieOverride(inv.company_name)) return 'Pharmacie';
+      // 1.8 E-retailer : reclassement forcé, avant même le tag Sellsy
+      if (isEretailerOverride(inv.company_name)) return 'Eretailer';
       // 2. Type client Sellsy en priorité (sauf Autre)
       if (companyId && companyTypeMap[companyId] && companyTypeMap[companyId] !== 'Autre') {
         return companyTypeMap[companyId];
@@ -309,7 +323,7 @@ export default async function handler(req, res) {
       caByType[key] = Math.round(caByType[key] * 100) / 100;
     }
     const B2C_TYPES = ['B2C', 'Outlet'];
-    const B2B_TYPES = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom'];
+    const B2B_TYPES = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer'];
     const invoicesB2CNew = filteredInvoices.filter(inv => B2C_TYPES.includes(classifyClient(inv)));
     const invoicesB2BNew = filteredInvoices.filter(inv => B2B_TYPES.includes(classifyClient(inv)));
     const totalCA = filteredInvoices.reduce((acc, inv) =>
