@@ -1748,9 +1748,9 @@ function renderTypeClientPieChart(caByType) {
   }
   const otherCatsLegend = labels.filter(c => !B2B_CATS_LEGEND.includes(c) && !B2C_CATS.includes(c));
   legendEl.innerHTML =
-    legendGroupBlock(B2B_CATS_LEGEND, '#EAF7F1', '#B7E4D2') +
-    legendGroupBlock(B2C_CATS, '#EAF1FB', '#C3D9F3') +
-    legendGroupBlock(otherCatsLegend, '#FBF3E7', '#F0DDB8');
+    legendGroupBlock(B2B_CATS_LEGEND, '#EEF0FC', '#D2D8F5') +
+    legendGroupBlock(B2C_CATS, '#FDF0F5', '#F6D3E3') +
+    legendGroupBlock(otherCatsLegend, '#F2F2F2', '#DDDDDD');
   document.getElementById('typeClientSubtitle').textContent = 'Période sélectionnée';
 }
 function setVs(id, current, prev, prevYear) {
