@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   }
   const { dateStart, dateEnd } = req.query;
   if (!dateStart || !dateEnd) return res.status(400).json({ error: 'dateStart and dateEnd required' });
-  const CACHE_VERSION = 'shopify_v7_debug';
+  const CACHE_VERSION = 'shopify_v9';
   const cacheKey = `shopify:${CACHE_VERSION}:${dateStart}:${dateEnd}`;
   const API_VERSION = '2026-07';
   // Calcule l'offset UTC de la boutique (Europe/Paris, gère automatiquement l'heure d'été/hiver)
@@ -102,6 +102,9 @@ export default async function handler(req, res) {
                 totalTaxSet { shopMoney { amount } }
                 currentTotalPriceSet { shopMoney { amount currencyCode } }
                 currentTotalTaxSet { shopMoney { amount } }
+                currentShippingPriceSet { shopMoney { amount } }
+                taxesIncluded
+                currentTaxLines { rate }
                 lineItems(first: 20) {
                   edges {
                     node {
@@ -176,15 +179,31 @@ export default async function handler(req, res) {
       _debugSumTTCAllOrders: Math.round(orders.reduce((s, o) => s + parseFloat(o.currentTotalPriceSet?.shopMoney?.amount ?? o.totalPriceSet.shopMoney.amount), 0) * 100) / 100,
       _debugSumTTCValidOrders: Math.round(validOrders.reduce((s, o) => s + parseFloat(o.currentTotalPriceSet?.shopMoney?.amount ?? o.totalPriceSet.shopMoney.amount), 0) * 100) / 100,
       _debugCreatedAtStart: createdAtStart,
-      _debugCreatedAtEnd: createdAtEnd
+      _debugCreatedAtEnd: createdAtEnd,
+      _debugSumShippingHTDeduced: Math.round(validOrders.reduce((s, o) => s + shippingHTFromOrder(o), 0) * 100) / 100,
+      _debugTaxesIncludedSample: orders[0]?.taxesIncluded ?? null
     };
     // D'après la doc Shopify, currentSubtotalPriceSet inclut en fait encore la taxe
     // (contrairement à ce que son nom suggère) : l'utiliser directement gonflait le panier
-    // moyen. On revient donc à total TTC (net des remboursements) moins la taxe.
+    // moyen. On part donc de total TTC (net des remboursements) moins la taxe, puis on
+    // retire aussi les frais de livraison (HT) pour ne garder que le CA produits, comme
+    // le fait le "panier moyen" natif de Shopify.
+    function getOrderVatRate(o) {
+      const rates = (o.currentTaxLines || []).map(l => parseFloat(l.rate)).filter(r => r > 0);
+      return rates.length > 0 ? rates[0] : 0;
+    }
+    function shippingHTFromOrder(o) {
+      const shippingRaw = parseFloat(o.currentShippingPriceSet?.shopMoney?.amount || 0);
+      if (!shippingRaw) return 0;
+      if (!o.taxesIncluded) return shippingRaw; // déjà HT
+      const rate = getOrderVatRate(o);
+      return rate > 0 ? shippingRaw / (1 + rate) : shippingRaw;
+    }
     function htFromOrder(o) {
       const ttc = parseFloat(o.currentTotalPriceSet?.shopMoney?.amount ?? o.totalPriceSet.shopMoney.amount);
       const taxe = parseFloat(o.currentTotalTaxSet?.shopMoney?.amount ?? o.totalTaxSet?.shopMoney?.amount ?? 0);
-      return ttc - taxe;
+      const shippingHT = shippingHTFromOrder(o);
+      return ttc - taxe - shippingHT;
     }
     const totalCA = validOrders.reduce((sum, o) => sum + htFromOrder(o), 0);
     const orderCount = validOrders.length;
@@ -272,7 +291,7 @@ export default async function handler(req, res) {
       _currency: validOrders[0]?.totalPriceSet.shopMoney.currencyCode || 'EUR',
       _dateStart: dateStart,
       _dateEnd: dateEnd,
-      _tva: 'HT (taxe déduite)',
+      _tva: 'HT, hors frais de livraison (taxe et livraison déduites)',
       ...debugInfo
     };
     if (kvUrl && kvToken) await cacheSet(cacheKey, result, ttl);
