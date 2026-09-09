@@ -128,20 +128,7 @@ export default async function handler(req, res) {
         const lastDay = new Date(year, month + 1, 0).getDate();
         const mStart = `${year}-${pad(month + 1)}-01`;
         const mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
-        let monthData = await cacheGet(`sellsy:pharmacy-breakdown:v16:${mStart}:${mEnd}`);
-        // Si un mois manque dans un cumul multi-mois, on recalcule UNIQUEMENT ce mois
-        // (via un appel au même endpoint sur ce mois, qui se met en cache tout seul),
-        // au lieu de tout refaire. Uniquement pour les périodes multi-mois (pas de récursion).
-        if (!monthData && months.length > 1) {
-          try {
-            const base = `https://${req.headers.host}`;
-            const r = await fetch(`${base}/api/pharmacy-breakdown?dateStart=${mStart}&dateEnd=${mEnd}`);
-            if (r.ok) {
-              const j = await r.json();
-              if (j && j.N) monthData = j;
-            }
-          } catch {}
-        }
+        const monthData = await cacheGet(`sellsy:pharmacy-breakdown:v16:${mStart}:${mEnd}`);
         if (!monthData) { allFoundInCache = false; break; }
         cachedMonths.push(monthData);
       }
