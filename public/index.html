@@ -872,6 +872,21 @@ function renderB2CBreakdownPieChart(caByType) {
   }).join('');
   document.getElementById('b2cBreakdownSubtitle').textContent = 'Période sélectionnée';
 }
+// Met à jour les 2 badges "temps écoulé" (texte + affichage) de façon cohérente,
+// pour ne jamais laisser une pastille affichée sans son texte.
+function updateTempsEcouleBadges(seg) {
+  const b2bEl = document.getElementById('tempsEcouleB2B');
+  const b2cEl = document.getElementById('tempsEcouleB2C');
+  if (!b2bEl || !b2cEl) return;
+  const ratioB2B = getProratioForPeriod(true);
+  const ratioB2C = getProratioForPeriod(false);
+  const showB2B = (seg === 'total' || seg === 'b2b') && ratioB2B !== null;
+  const showB2C = (seg === 'total' || seg === 'b2c') && ratioB2C !== null;
+  b2bEl.textContent = showB2B ? `⏱ B2B : ${Math.round(ratioB2B * 100)}% écoulé (j. ouvrés)` : '';
+  b2cEl.textContent = showB2C ? `⏱ B2C : ${Math.round(ratioB2C * 100)}% écoulé (j. calendaires)` : '';
+  b2bEl.style.display = showB2B ? 'inline' : 'none';
+  b2cEl.style.display = showB2C ? 'inline' : 'none';
+}
 function setSegment(seg) {
   currentSegment = seg;
   ['total','b2b','b2c'].forEach(s => {
@@ -882,16 +897,7 @@ function setSegment(seg) {
     }
   });
   // Mettre à jour les badges temps écoulé
-  const b2bEl = document.getElementById('tempsEcouleB2B');
-  const b2cEl = document.getElementById('tempsEcouleB2C');
-  if (b2bEl && b2cEl) {
-    const ratioB2B = getProratioForPeriod(true);
-    const ratioB2C = getProratioForPeriod(false);
-    const showB2B = (seg === 'total' || seg === 'b2b') && ratioB2B !== null;
-    const showB2C = (seg === 'total' || seg === 'b2c') && ratioB2C !== null;
-    b2bEl.style.display = showB2B ? 'inline' : 'none';
-    b2cEl.style.display = showB2C ? 'inline' : 'none';
-  }
+  updateTempsEcouleBadges(seg);
   if (lastCaData) {
     applySegment(lastCaData);
     const dates = getDates();
@@ -978,9 +984,9 @@ function applySegment(caData) {
       const caByTypeB2B = Object.fromEntries(
         Object.entries(caData._caByType).filter(([k]) => B2B_CATS.includes(k))
       );
-      renderTypeClientPieChart(caByTypeB2B);
+      renderTypeClientPieChart(caByTypeB2B, B2B_CATS);
     } else if (caData._caByType && Object.keys(caData._caByType).length > 0) {
-      renderTypeClientPieChart(caData._caByType);
+      renderTypeClientPieChart(caData._caByType, ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer', 'B2C', 'Outlet', 'Marketing', 'Autre']);
     }
   }
   if (seg === 'b2c') {
@@ -1642,7 +1648,7 @@ function getTypeClientBudgetForPeriod(cat) {
   }
   return Math.round(total * 10) / 10;
 }
-function renderTypeClientPieChart(caByType) {
+function renderTypeClientPieChart(caByType, universeCats) {
   const ctx = document.getElementById('typeClientPieChart').getContext('2d');
   if (window.typeClientPieInstance) window.typeClientPieInstance.destroy();
   const labels = Object.keys(caByType).filter(k => (caByType[k] || 0) > 0);
@@ -1687,16 +1693,25 @@ function renderTypeClientPieChart(caByType) {
   const B2C_CATS = ['B2C', 'Site', 'Outlet'];
   const B2B_CATS_LEGEND = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer'];
   const legendEl = document.getElementById('typeClientLegend');
-  const isDayMode = (currentMode === 'today' || currentMode === 'yesterday');
-  const jourLabel = currentMode === 'yesterday' ? "d'hier" : 'du jour';
+  // Aujourd'hui / Hier / Cette semaine : format simplifié "reste à faire"
+  const isResteMode = (currentMode === 'today' || currentMode === 'yesterday' || currentMode === 'week');
+  const jourLabel = currentMode === 'yesterday' ? "d'hier" : currentMode === 'week' ? 'de la semaine' : 'du jour';
+  // En mode "reste à faire", on affiche aussi les catégories budgétées même à 0 € de CA,
+  // pour que la somme des "reste à faire" corresponde au reste à faire B2B affiché en haut.
+  let legendCats;
+  if (isResteMode && Array.isArray(universeCats)) {
+    legendCats = universeCats.filter(c => (caByType[c] || 0) > 0 || getTypeClientBudgetForPeriod(c) > 0);
+  } else {
+    legendCats = labels.slice();
+  }
   const itemsHtmlByCat = {};
-  labels.forEach(cat => { itemsHtmlByCat[cat] = (() => {
+  legendCats.forEach(cat => { itemsHtmlByCat[cat] = (() => {
     const val = caByType[cat] || 0;
     const pct = total > 0 ? Math.round((val / total) * 100) : 0;
     const budgetVal = getTypeClientBudgetForPeriod(cat);
 
     let detailHtml;
-    if (isDayMode) {
+    if (isResteMode) {
       if (budgetVal > 0) {
         const budgetEuros = budgetVal * 1000;
         const reste = budgetEuros - val;
@@ -1742,11 +1757,11 @@ function renderTypeClientPieChart(caByType) {
     </div>`;
   })(); });
   function legendGroupBlock(cats, bg, border) {
-    const items = cats.filter(c => labels.includes(c));
+    const items = cats.filter(c => legendCats.includes(c));
     if (items.length === 0) return '';
     return `<div style="background:${bg};border:1px solid ${border};border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:10px;">${items.map(c => itemsHtmlByCat[c]).join('')}</div>`;
   }
-  const otherCatsLegend = labels.filter(c => !B2B_CATS_LEGEND.includes(c) && !B2C_CATS.includes(c));
+  const otherCatsLegend = legendCats.filter(c => !B2B_CATS_LEGEND.includes(c) && !B2C_CATS.includes(c));
   legendEl.innerHTML =
     legendGroupBlock(B2B_CATS_LEGEND, '#EEF0FC', '#D2D8F5') +
     legendGroupBlock(B2C_CATS, '#FDF0F5', '#F6D3E3') +
@@ -1913,19 +1928,7 @@ async function loadData() {
   document.getElementById('errorBox').style.display = 'none';
   document.getElementById('periodLabel').textContent = label;
   // Badges temps écoulé B2B et B2C
-  const b2bEl = document.getElementById('tempsEcouleB2B');
-  const b2cEl = document.getElementById('tempsEcouleB2C');
-  if (b2bEl && b2cEl) {
-    const ratioB2B = getProratioForPeriod(true);
-    const ratioB2C = getProratioForPeriod(false);
-    // Afficher uniquement le badge correspondant au segment actif
-    const showB2B = (currentSegment === 'total' || currentSegment === 'b2b') && ratioB2B !== null;
-    const showB2C = (currentSegment === 'total' || currentSegment === 'b2c') && ratioB2C !== null;
-    b2bEl.textContent = showB2B ? `⏱ B2B : ${Math.round(ratioB2B * 100)}% écoulé (j. ouvrés)` : '';
-    b2cEl.textContent = showB2C ? `⏱ B2C : ${Math.round(ratioB2C * 100)}% écoulé (j. calendaires)` : '';
-    b2bEl.style.display = showB2B ? 'inline' : 'none';
-    b2cEl.style.display = showB2C ? 'inline' : 'none';
-  }
+  updateTempsEcouleBadges(currentSegment);
   document.getElementById('mCAVs').textContent = '';
   document.getElementById('budgetBarWrap').style.display = 'none';
   setStatus('spin', 'Chargement...');
