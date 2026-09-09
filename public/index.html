@@ -1693,9 +1693,14 @@ function renderTypeClientPieChart(caByType, universeCats) {
   const B2C_CATS = ['B2C', 'Site', 'Outlet'];
   const B2B_CATS_LEGEND = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer'];
   const legendEl = document.getElementById('typeClientLegend');
-  // Aujourd'hui / Hier / Cette semaine : format simplifié "reste à faire"
-  const isResteMode = (currentMode === 'today' || currentMode === 'yesterday' || currentMode === 'week');
-  const jourLabel = currentMode === 'yesterday' ? "d'hier" : currentMode === 'week' ? 'de la semaine' : 'du jour';
+  // Format simplifié "reste à faire" pour TOUTES les périodes
+  const isResteMode = true;
+  const jourLabel = currentMode === 'yesterday' ? "d'hier"
+    : currentMode === 'week' ? 'de la semaine'
+    : currentMode === 'month' ? 'du mois'
+    : currentMode === 'ytd' ? 'cumulé'
+    : currentMode === 'today' ? 'du jour'
+    : 'de la période';
   // En mode "reste à faire", on affiche aussi les catégories budgétées même à 0 € de CA,
   // pour que la somme des "reste à faire" corresponde au reste à faire B2B affiché en haut.
   let legendCats;
