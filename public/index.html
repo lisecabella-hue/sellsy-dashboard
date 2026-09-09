@@ -1732,7 +1732,9 @@ function renderTypeClientPieChart(caByType, universeCats) {
 
     let detailHtml;
     if (isResteMode) {
-      if (budgetVal > 0) {
+      if (budgetVal > 0 || val > 0) {
+        // Même si budget = 0 mais qu'il y a du CA, on affiche la ligne (reste négatif = dépassement),
+        // pour que la somme des "reste à faire" de la légende colle à la carte du haut.
         const budgetEuros = budgetVal * 1000;
         const reste = budgetEuros - val;
         const resteColor = reste > 0 ? '#D85A30' : '#1D9E75';
