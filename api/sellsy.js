@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   const kvToken = process.env.KV_REST_API_TOKEN;
   const { dateStart, dateEnd, mode } = req.query;
   if (!dateStart || !dateEnd) return res.status(400).json({ error: 'dateStart and dateEnd required' });
-  const CACHE_VERSION = 'v12';
+  const CACHE_VERSION = 'v14';
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const pad = n => String(n).padStart(2, '0');
   async function cacheGet(key) {
@@ -82,7 +82,21 @@ export default async function handler(req, res) {
         const mStart = `${year}-${pad(month + 1)}-01`;
         const mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
         const monthCacheKey = `sellsy:${CACHE_VERSION}:total:${mStart}:${mEnd}`;
-        const monthData = await cacheGet(monthCacheKey);
+        let monthData = await cacheGet(monthCacheKey);
+        // Si un mois manque dans un cumul multi-mois, on recalcule UNIQUEMENT ce mois
+        // (via un appel au même endpoint sur ce mois, qui se met en cache tout seul),
+        // au lieu de tout refaire. On ne fait ça que pour les périodes multi-mois pour
+        // éviter toute récursion sur une requête d'un seul mois.
+        if (!monthData && months.length > 1) {
+          try {
+            const base = `https://${req.headers.host}`;
+            const r = await fetch(`${base}/api/sellsy?dateStart=${mStart}&dateEnd=${mEnd}&mode=total`);
+            if (r.ok) {
+              const j = await r.json();
+              if (j && j._totalCA !== undefined) monthData = j;
+            }
+          } catch {}
+        }
         if (!monthData) {
           allFoundInCache = false;
           break;
