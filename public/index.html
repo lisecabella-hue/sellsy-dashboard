@@ -1294,8 +1294,10 @@ function drawArcGauge(canvasId, realPct, expectedPct, color, budgetKe, caEuros) 
   ctx.fillText('100%', cx + r + lw, cy + 14);
 }
 // Render une jauge arc + statut texte
-function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWorkdays, budgetLabelId, resteAFaireId) {
-  const budVal = getBudgetForCurrentPeriod(budgetArr);
+function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWorkdays, budgetLabelId, resteAFaireId, budgetOverrideKe) {
+  // budgetOverrideKe (en k€) permet de forcer un budget calculé comme la somme des
+  // catégories, pour que la carte du haut cadre exactement avec la somme de la légende.
+  const budVal = (typeof budgetOverrideKe === 'number') ? budgetOverrideKe : getBudgetForCurrentPeriod(budgetArr);
   const wrap = document.getElementById(wrapperId);
   if (!wrap) return;
   // Budget label (ex: "Budget : 1 722 k€")
@@ -1361,12 +1363,20 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
   if (statusEl) statusEl.textContent = '';
 }
 function updateBudgetB2CB2BDisplay(caB2C, caB2B) {
-  renderArcGauge('budgetBarB2BWrap', 'gaugeB2B', 'budgetStatusB2B', caB2B, budgetB2B2026, true,  'mB2BBudgetLabel', 'mB2BResteAFaire');
-  renderArcGauge('budgetBarB2CWrap', 'gaugeB2C', 'budgetStatusB2C', caB2C, budgetB2C2026, false, 'mB2CBudgetLabel', 'mB2CResteAFaire');
+  // Budget B2B/B2C = somme des budgets par catégorie, pour que la carte du haut cadre
+  // exactement avec la somme de la légende (mêmes arrondis, aucune double saisie).
+  const b2bBudgetKe = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer']
+    .reduce((s, c) => s + getTypeClientBudgetForPeriod(c), 0);
+  const b2cBudgetKe = getTypeClientBudgetForPeriod('B2C') + getTypeClientBudgetForPeriod('Outlet');
+  renderArcGauge('budgetBarB2BWrap', 'gaugeB2B', 'budgetStatusB2B', caB2B, budgetB2B2026, true,  'mB2BBudgetLabel', 'mB2BResteAFaire', b2bBudgetKe);
+  renderArcGauge('budgetBarB2CWrap', 'gaugeB2C', 'budgetStatusB2C', caB2C, budgetB2C2026, false, 'mB2CBudgetLabel', 'mB2CResteAFaire', b2cBudgetKe);
 }
 function updateBudgetDisplay(totalCA, budgetArr) {
   const arr = budgetArr || budget2026;
-  renderArcGauge('budgetBarWrap', 'gaugeTotal', 'budgetStatusTotal', totalCA, arr, false, null, 'mCAResteAFaire');
+  // Budget Total = somme de toutes les catégories, pour cadrer avec la somme de la légende.
+  const totalBudgetKe = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer', 'B2C', 'Outlet', 'Marketing', 'Autre']
+    .reduce((s, c) => s + getTypeClientBudgetForPeriod(c), 0);
+  renderArcGauge('budgetBarWrap', 'gaugeTotal', 'budgetStatusTotal', totalCA, arr, false, null, 'mCAResteAFaire', totalBudgetKe);
 }
 [document.getElementById('selYear'), document.getElementById('selYtdYear')].forEach(el => {
   if (!el) return;
@@ -1705,7 +1715,12 @@ function renderTypeClientPieChart(caByType, universeCats) {
   // pour que la somme des "reste à faire" corresponde au reste à faire B2B affiché en haut.
   let legendCats;
   if (isResteMode && Array.isArray(universeCats)) {
-    legendCats = universeCats.filter(c => (caByType[c] || 0) > 0 || getTypeClientBudgetForPeriod(c) > 0);
+    // On affiche toujours les catégories B2B et B2C de base (même à 0 €, ex : E-retailers),
+    // pour que la répartition soit complète et que la somme colle aux cartes du haut.
+    legendCats = universeCats.filter(c =>
+      B2B_CATS_LEGEND.includes(c) || B2C_CATS.includes(c) ||
+      (caByType[c] || 0) > 0 || getTypeClientBudgetForPeriod(c) > 0
+    );
   } else {
     legendCats = labels.slice();
   }
