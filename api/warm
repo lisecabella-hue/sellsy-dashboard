@@ -1,0 +1,94 @@
+export const maxDuration = 300;
+
+// Préchauffe le cache Sellsy (et Shopify) pour que le dashboard soit toujours rapide.
+// - Appel manuel une fois (ex : après un déploiement) : /api/warm?scope=all
+//   → recalcule TOUS les mois 2025 + 2026 jusqu'au mois courant.
+// - Cron quotidien (voir vercel.json) : /api/warm
+//   → ne rafraîchit que le mois en cours (2026) et son équivalent 2025 (pour le comparatif N-1),
+//     les mois passés restant déjà en cache 30 jours.
+export default async function handler(req, res) {
+  const pad = n => String(n).padStart(2, '0');
+  const base = `https://${req.headers.host}`;
+  const scope = (req.query.scope || 'current').toLowerCase();
+  const now = new Date();
+  const curYear = now.getFullYear();
+  const curMonth = now.getMonth(); // 0-11
+
+  // Construit la liste des périodes (mois complets) à préchauffer.
+  const periods = [];
+  const addMonth = (year, month) => {
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    periods.push({
+      ds: `${year}-${pad(month + 1)}-01`,
+      de: `${year}-${pad(month + 1)}-${pad(lastDay)}`
+    });
+  };
+
+  if (scope === 'all') {
+    // Tous les mois 2025 (pour le comparatif N-1) + 2026 jusqu'au mois courant
+    for (let m = 0; m < 12; m++) addMonth(2025, m);
+    for (let m = 0; m <= curMonth; m++) addMonth(curYear, m);
+  } else {
+    // Mois courant + son équivalent N-1 (et le mois précédent par sécurité en début de mois)
+    addMonth(curYear, curMonth);
+    addMonth(curYear - 1, curMonth);
+    if (now.getDate() <= 3 && curMonth > 0) {
+      addMonth(curYear, curMonth - 1);
+      addMonth(curYear - 1, curMonth - 1);
+    }
+  }
+
+  // Préchauffe en petits lots parallèles (2 mois à la fois) pour rester rapide
+  // sans saturer l'API Sellsy (qui limite le nombre d'appels).
+  const results = [];
+  const BATCH = 2;
+  const warmOne = async ({ ds, de }) => {
+    const t0 = Date.now();
+    const out = { period: `${ds}→${de}` };
+    try {
+      const r = await fetch(`${base}/api/sellsy?dateStart=${ds}&dateEnd=${de}&mode=total`);
+      const j = await r.json();
+      out.sellsyOk = r.ok;
+      out.totalCA = j._totalCA ?? null;
+    } catch (e) {
+      out.sellsyOk = false;
+      out.sellsyError = e.message;
+    }
+    // Préchauffe aussi la carte "CA par type de commande — Pharmacies" (la plus lourde)
+    try {
+      const r2 = await fetch(`${base}/api/pharmacy-breakdown?dateStart=${ds}&dateEnd=${de}`);
+      out.pharmaOk = r2.ok;
+    } catch (e) {
+      out.pharmaOk = false;
+    }
+    out.ms = Date.now() - t0;
+    return out;
+  };
+  for (let i = 0; i < periods.length; i += BATCH) {
+    const batch = periods.slice(i, i + BATCH);
+    const batchRes = await Promise.all(batch.map(warmOne));
+    results.push(...batchRes);
+  }
+
+  // Shopify : préchauffe le mois en cours (le plus lourd et le plus consulté)
+  let shopify = null;
+  try {
+    const lastDay = new Date(curYear, curMonth + 1, 0).getDate();
+    const ds = `${curYear}-${pad(curMonth + 1)}-01`;
+    const de = `${curYear}-${pad(curMonth + 1)}-${pad(lastDay)}`;
+    const t0 = Date.now();
+    const r = await fetch(`${base}/api/shopify?dateStart=${ds}&dateEnd=${de}`);
+    const j = await r.json();
+    shopify = { period: `${ds}→${de}`, ok: r.ok, panierMoyen: j._panierMoyen ?? null, ms: Date.now() - t0 };
+  } catch (e) {
+    shopify = { ok: false, error: e.message };
+  }
+
+  return res.status(200).json({
+    scope,
+    warmedCount: results.length,
+    totalMs: results.reduce((s, r) => s + (r.ms || 0), 0),
+    sellsy: results,
+    shopify
+  });
+}
