@@ -82,7 +82,22 @@ export default async function handler(req, res) {
         const mStart = `${year}-${pad(month + 1)}-01`;
         const mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
         const monthCacheKey = `sellsy:${CACHE_VERSION}:total:${mStart}:${mEnd}`;
-        const monthData = await cacheGet(monthCacheKey);
+        let monthData = await cacheGet(monthCacheKey);
+        // Un mois en cache mais vide (faux "0" d'un incident passé) est traité comme manquant.
+        if (monthData && !((monthData.pagination?.total || 0) > 0)) monthData = null;
+        // Si un mois manque dans un cumul MULTI-mois, on recalcule UNIQUEMENT ce mois
+        // (via un appel au même endpoint sur ce seul mois, qui se met en cache tout seul),
+        // au lieu de tout refaire. Réservé au multi-mois pour éviter toute récursion sur un seul mois.
+        if (!monthData && months.length > 1) {
+          try {
+            const base = `https://${req.headers.host}`;
+            const r = await fetch(`${base}/api/sellsy?dateStart=${mStart}&dateEnd=${mEnd}&mode=total`);
+            if (r.ok) {
+              const j = await r.json();
+              if (j && j._totalCA !== undefined && (j.pagination?.total || 0) > 0) monthData = j;
+            }
+          } catch {}
+        }
         if (!monthData) {
           allFoundInCache = false;
           break;
@@ -167,7 +182,8 @@ export default async function handler(req, res) {
         aggregated._panierMoyenB2B = aggregated._countB2B > 0
           ? Math.round((aggregated._totalCAB2B / aggregated._countB2B) * 100) / 100
           : 0;
-        if (ttl > 0) await cacheSet(cacheKey, aggregated, ttl);
+        // On ne met en cache l'agrégat que s'il est non vide (sécurité anti faux "0").
+        if (ttl > 0 && aggregated._totalCA > 0) await cacheSet(cacheKey, aggregated, ttl);
         return res.status(200).json({ ...aggregated, _fromCache: true, _aggregatedFromMonths: cachedMonths.length });
       }
     }
@@ -438,7 +454,12 @@ export default async function handler(req, res) {
       pagination: { total }
     };
     const isComplete = allInvoices.length >= total;
-    if (ttl > 0 && kvUrl && isComplete) await cacheSet(cacheKey, result, ttl);
+    // Ne JAMAIS mettre en cache un résultat vide/incomplet : si Sellsy est saturé (429) ou
+    // renvoie une liste vide, on obtiendrait 0 € — et le cacher figerait un faux 0
+    // (surtout 30 jours pour un mois passé). On n'enregistre que si on a bien récupéré des factures.
+    if (ttl > 0 && kvUrl && isComplete && total > 0 && allInvoices.length > 0) {
+      await cacheSet(cacheKey, result, ttl);
+    }
     return res.status(200).json({ ...result, _complete: isComplete });
   } catch (e) {
     return res.status(500).json({ error: e.message });
