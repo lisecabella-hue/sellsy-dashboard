@@ -891,12 +891,12 @@ function updateTempsEcouleBadges(seg) {
   const b2bEl = document.getElementById('tempsEcouleB2B');
   const b2cEl = document.getElementById('tempsEcouleB2C');
   if (!b2bEl || !b2cEl) return;
-  // Temps écoulé en jours calendaires (B2B comme B2C)
-  const ratioB2B = getProratioForPeriod(false);
+  // Temps écoulé : B2B en jours ouvrés, B2C en jours calendaires
+  const ratioB2B = getProratioForPeriod(true);
   const ratioB2C = getProratioForPeriod(false);
   const showB2B = (seg === 'total' || seg === 'b2b') && ratioB2B !== null;
   const showB2C = (seg === 'total' || seg === 'b2c') && ratioB2C !== null;
-  b2bEl.textContent = showB2B ? `⏱ B2B : ${Math.round(ratioB2B * 100)}% écoulé (j. calendaires)` : '';
+  b2bEl.textContent = showB2B ? `⏱ B2B : ${Math.round(ratioB2B * 100)}% écoulé (j. ouvrés)` : '';
   b2cEl.textContent = showB2C ? `⏱ B2C : ${Math.round(ratioB2C * 100)}% écoulé (j. calendaires)` : '';
   b2bEl.style.display = showB2B ? 'inline' : 'none';
   b2cEl.style.display = showB2C ? 'inline' : 'none';
@@ -1362,8 +1362,8 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
   }
   wrap.style.display = 'block';
   const pct = Math.round(((caVal / 1000) / budVal) * 100);
-  // Temps écoulé en jours calendaires (B2B comme B2C), cohérent avec le budget calendaire
-  const ratio = getProratioForPeriod(false);
+  // Temps écoulé : B2B en jours ouvrés (100% le vendredi), B2C/Total en jours calendaires
+  const ratio = getProratioForPeriod(useWorkdays);
   const expectedPct = ratio !== null ? Math.round(ratio * 100) : null;
   const fillColor = pct >= 100 ? '#1D9E75' : (expectedPct !== null && pct < expectedPct - 3 ? '#D85A30' : '#74A1D6');
   drawArcGauge(canvasId, pct, expectedPct, fillColor, budVal, caVal);
