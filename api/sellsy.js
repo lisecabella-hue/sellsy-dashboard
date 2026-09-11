@@ -59,7 +59,10 @@ export default async function handler(req, res) {
   const ttl = getCacheTTL(dateStart, dateEnd);
   if (ttl > 0 && kvUrl && kvToken) {
     const cached = await cacheGet(cacheKey);
-    if (cached) return res.status(200).json({ ...cached, _fromCache: true });
+    // On ignore un cache vide (faux "0" d'un incident passé) : il sera recalculé.
+    if (cached && (cached.pagination?.total || 0) > 0) {
+      return res.status(200).json({ ...cached, _fromCache: true });
+    }
   }
   if (mode === 'total' && kvUrl && kvToken) {
     const start = new Date(dateStart);
