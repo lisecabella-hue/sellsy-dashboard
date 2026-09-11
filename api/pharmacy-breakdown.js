@@ -43,37 +43,24 @@ export default async function handler(req, res) {
     return 'Non classifié'; // objet non reconnu
   }
 
-  // ⚠️ Doit rester STRICTEMENT identique à classifyClient() de sellsy.js :
-  // une facture est "pharmacie" si et seulement si classifyClient renverrait 'Pharmacie'.
-  function classifyClientLikeSellsy(inv, companyTypeMap) {
-    const B2C_CATEGORY_ID = 215340;
-    if (inv.rate_category_id === B2C_CATEGORY_ID) return 'B2C';
-    const rawName = inv.company_name || '';
-    const name = rawName.toLowerCase();
-    const companyId = inv.related?.[0]?.id ? String(inv.related[0].id) : null;
-    // 1.5 DOM-TOM : reclassement forcé, avant même le tag Sellsy
-    const nDom = name.normalize('NFD').replace(/[̀-ͯ]/g, '');
-    if (nDom.includes('sanisco') || (nDom.includes('marques') && nDom.includes('beaute'))) return 'DomTom';
-    // 1.6 Outlet : reclassement forcé
-    if (name.includes('blissim') || name.includes('bradery') || name.includes('symmetric')) return 'Outlet';
-    // 1.7 Pharmacie : reclassement forcé
-    if (name.includes('capucins') || name.includes('wellpharma') || name.includes('well pharma')) return 'Pharmacie';
-    // 1.8 E-retailer : reclassement forcé
-    if (name.includes('atida') || name.includes('dhygietal') || name.includes('divabox') || name.includes('divaboc')) return 'Eretailer';
-    // 2. Type client Sellsy en priorité (sauf Autre)
-    if (companyId && companyTypeMap[companyId] && companyTypeMap[companyId] !== 'Autre') {
-      return companyTypeMap[companyId];
-    }
-    // 3. Règles nom en fallback
-    if (name.includes('printemps') || name.includes('samaritaine')) return 'Grand Compte';
-    if (name.includes('figaro') || name.includes('media ')) return 'Marketing';
-    if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco') || name.includes('dhygietal') || name.includes('atida') || name.includes('divabox') || name.includes('divaboc')) return 'Pharmacie';
-    // 4. Sinon Autre
-    return 'Autre';
-  }
-
   function isPharmacy(inv, companyTypeMap) {
-    return classifyClientLikeSellsy(inv, companyTypeMap) === 'Pharmacie';
+    const name = (inv.company_name || '').toLowerCase();
+    const companyId = inv.related?.[0]?.id ? String(inv.related[0].id) : null;
+
+    // 1. Jamais B2C
+    if (inv.rate_category_id === 215340) return false;
+    // 2. Exclusions explicites par nom
+    if (name.includes('blissim') || name.includes('bradery')) return false;
+    if (name.includes('figaro') || name.includes('media ')) return false;
+    // 3. Type client Sellsy en priorité
+    if (companyId && companyTypeMap[companyId] && companyTypeMap[companyId] !== 'Autre') {
+      return companyTypeMap[companyId] === 'Pharmacie';
+    }
+    // 4. Règles nom en fallback
+    if (name.includes('printemps') || name.includes('samaritaine')) return false; // Grand Compte
+    if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco') || name.includes('dhygietal')) return true;
+
+    return false;
   }
 
   function getCacheTTL(dateStart, dateEnd) {
@@ -97,12 +84,14 @@ export default async function handler(req, res) {
     const prevDateStart = dateStart.replace(String(currentYear), String(prevYear));
     const prevDateEnd = dateEnd.replace(String(currentYear), String(prevYear));
 
-    // v16 : classification pharmacies alignée sur sellsy.js (overrides Capucins/Wellpharma,
-    // exclusions DOM-TOM / E-retailer / Enseigne). Bump depuis v15 pour recalcul propre.
-    const cacheKey = `sellsy:pharmacy-breakdown:v16:${dateStart}:${dateEnd}`;
+    // v15 : fix classification pharmacies (même logique que sellsy.js)
+    const cacheKey = `sellsy:pharmacy-breakdown:v15:${dateStart}:${dateEnd}`;
     const ttl = getCacheTTL(dateStart, dateEnd);
     const cached = await cacheGet(cacheKey);
-    if (cached) return res.status(200).json({ ...cached, _fromCache: true });
+    // On ignore un cache vide (0 facture pharmacie = faux "0" d'un incident passé) : il sera recalculé.
+    if (cached && (cached.N?.totalPharmacyInvoices || 0) > 0) {
+      return res.status(200).json({ ...cached, _fromCache: true });
+    }
 
     // ─── AGRÉGATION DEPUIS LE CACHE DES MOIS INDIVIDUELS ───────────────────────
     const pad = n => String(n).padStart(2, '0');
@@ -128,7 +117,21 @@ export default async function handler(req, res) {
         const lastDay = new Date(year, month + 1, 0).getDate();
         const mStart = `${year}-${pad(month + 1)}-01`;
         const mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
-        const monthData = await cacheGet(`sellsy:pharmacy-breakdown:v16:${mStart}:${mEnd}`);
+        let monthData = await cacheGet(`sellsy:pharmacy-breakdown:v15:${mStart}:${mEnd}`);
+        // Un mois en cache mais vide (faux "0") est traité comme manquant.
+        if (monthData && !((monthData.N?.totalPharmacyInvoices || 0) > 0)) monthData = null;
+        // Un mois manquant dans un cumul MULTI-mois est recalculé SEUL (appel au même endpoint
+        // sur ce seul mois, qui se met en cache), au lieu de tout refaire. Pas de récursion sur 1 mois.
+        if (!monthData && months.length > 1) {
+          try {
+            const base = `https://${req.headers.host}`;
+            const r = await fetch(`${base}/api/pharmacy-breakdown?dateStart=${mStart}&dateEnd=${mEnd}`);
+            if (r.ok) {
+              const j = await r.json();
+              if (j && j.N) monthData = j;
+            }
+          } catch {}
+        }
         if (!monthData) { allFoundInCache = false; break; }
         cachedMonths.push(monthData);
       }
@@ -185,7 +188,7 @@ export default async function handler(req, res) {
           dst.panierMoyenImplantation = dst.nbPharmaImplantation > 0 ? Math.round((dst.montants['Implantation'] / dst.nbPharmaImplantation) * 100) / 100 : 0;
         }
 
-        if (ttl > 0) await cacheSet(cacheKey, aggregated, ttl);
+        if (ttl > 0 && (aggregated.N?.totalPharmacyInvoices || 0) > 0) await cacheSet(cacheKey, aggregated, ttl);
         return res.status(200).json({ ...aggregated, _fromCache: true, _aggregatedFromMonths: cachedMonths.length });
       }
     }
