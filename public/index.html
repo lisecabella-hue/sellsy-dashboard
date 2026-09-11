@@ -1532,6 +1532,7 @@ async function renderQuarterPace(refDateStr) {
   const qStart = `${year}-${pad(qStartMonth+1)}-01`;
   const qEndLast = new Date(year, qEndMonth+1, 0).getDate();
   const qEnd = new Date(year, qEndMonth, qEndLast, 12, 0, 0);
+  const qEndStr = `${year}-${pad(qEndMonth+1)}-${pad(qEndLast)}`;
   // Jours restants après le jour affiché, jusqu'à la fin du trimestre
   const nextDay = new Date(ref); nextDay.setDate(ref.getDate() + 1);
   const remainingDays = Math.max(0, Math.round((qEnd - nextDay) / 86400000) + 1);
@@ -1543,10 +1544,12 @@ async function renderQuarterPace(refDateStr) {
   const budB2B = sumCats(B2B_CATS);
   const budB2C = sumCats(B2C_CATS_Q);
   const budTotal = sumCats([...B2B_CATS, ...B2C_CATS_Q, ...OTHER_CATS]);
-  // CA réalisé depuis le début du trimestre jusqu'au jour affiché
+  // CA réalisé depuis le début du trimestre. On demande le TRIMESTRE ENTIER (aligné sur les
+  // mois → agrégation depuis le cache = rapide) : les jours futurs n'ont pas de factures,
+  // donc le CA obtenu = le CA réalisé à ce jour.
   let qData;
   try {
-    const r = await fetch(`/api/sellsy?dateStart=${qStart}&dateEnd=${refDateStr}&mode=total`);
+    const r = await fetch(`/api/sellsy?dateStart=${qStart}&dateEnd=${qEndStr}&mode=total`);
     if (!r.ok) { clearAll(); return; }
     qData = await r.json();
   } catch { clearAll(); return; }
