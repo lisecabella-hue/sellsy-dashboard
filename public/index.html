@@ -271,6 +271,7 @@
             <p id="budgetStatusTotal" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;"></p>
           </div>
           <p style="font-size:12px;font-weight:600;margin-top:8px;text-align:center;" id="mCAResteAFaire"></p>
+          <p style="font-size:12px;font-weight:600;margin-top:6px;text-align:center;padding-top:6px;border-top:1px dashed #e5e5e5;" id="mCAQuarterPace"></p>
           <div style="display:none;">
             <p id="mAvgB2C"></p><p id="mAvgB2CVs"></p>
             <p id="mAvgB2B"></p><p id="mAvgB2BVs"></p>
@@ -288,6 +289,7 @@
             <p id="budgetStatusB2B" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;color:#1D9E75;"></p>
           </div>
           <p style="font-size:12px;font-weight:600;margin-top:8px;text-align:center;" id="mB2BResteAFaire"></p>
+          <p style="font-size:12px;font-weight:600;margin-top:6px;text-align:center;padding-top:6px;border-top:1px dashed #c8eadb;" id="mB2BQuarterPace"></p>
         </div>
         <!-- B2C -->
         <div id="blockB2C" class="metric-card" style="padding:24px 24px;border-radius:16px;border:1px solid #c5d9f0;background:linear-gradient(145deg, #edf3fb 0%, #f7fafd 100%);">
@@ -300,6 +302,7 @@
             <p id="budgetStatusB2C" style="font-size:10px;text-align:center;margin-top:2px;font-weight:600;color:#74A1D6;"></p>
           </div>
           <p style="font-size:12px;font-weight:600;margin-top:8px;text-align:center;" id="mB2CResteAFaire"></p>
+          <p style="font-size:12px;font-weight:600;margin-top:6px;text-align:center;padding-top:6px;border-top:1px dashed #c5d9f0;" id="mB2CQuarterPace"></p>
         </div>
     </div>
     <!-- Camembert répartition (conservé) -->
@@ -1482,6 +1485,66 @@ function getDates() {
     return { dateStart: from, dateEnd: to, label: `Du ${new Date(from+'T12:00:00').toLocaleDateString('fr-FR')} au ${new Date(to+'T12:00:00').toLocaleDateString('fr-FR')}` };
   }
 }
+// Budget mensuel (k€) d'une catégorie, par index de mois (0-11)
+function catBudgetMonth(cat, m) {
+  const budgetCat = cat === 'B2C' ? 'Site' : cat;
+  const map = TYPE_CLIENT_BUDGET_CATS2.includes(budgetCat) ? budgetTypeClient2 : budgetTypeClient;
+  return (map[budgetCat] || [])[m] || 0;
+}
+// Vue jour : combien faut-il faire par jour pour tenir l'objectif du TRIMESTRE
+// (objectif trimestre - CA déjà réalisé depuis le début du trimestre) / jours restants.
+async function renderQuarterPace(refDateStr) {
+  const paceIds = { total: 'mCAQuarterPace', b2b: 'mB2BQuarterPace', b2c: 'mB2CQuarterPace' };
+  const clearAll = () => Object.values(paceIds).forEach(id => { const el = document.getElementById(id); if (el) { el.textContent = ''; el.style.display = 'none'; } });
+  // Uniquement en vue "Aujourd'hui" / "Hier"
+  if (currentMode !== 'today' && currentMode !== 'yesterday') { clearAll(); return; }
+  const ref = new Date(refDateStr + 'T12:00:00');
+  const year = ref.getFullYear();
+  if (year !== 2026) { clearAll(); return; }
+  const q = Math.floor(ref.getMonth() / 3);
+  const qStartMonth = q * 3, qEndMonth = q * 3 + 2;
+  const qStart = `${year}-${pad(qStartMonth+1)}-01`;
+  const qEndLast = new Date(year, qEndMonth+1, 0).getDate();
+  const qEnd = new Date(year, qEndMonth, qEndLast, 12, 0, 0);
+  // Jours restants après le jour affiché, jusqu'à la fin du trimestre
+  const nextDay = new Date(ref); nextDay.setDate(ref.getDate() + 1);
+  const remainingDays = Math.max(0, Math.round((qEnd - nextDay) / 86400000) + 1);
+  // Objectifs trimestre (€) par segment = somme des budgets catégorie sur les 3 mois
+  const B2B_CATS = ['Pharmacie','Grand Compte','Monoprix','DomTom','Eretailer'];
+  const B2C_CATS_Q = ['B2C','Outlet'];
+  const OTHER_CATS = ['Marketing','Autre'];
+  const sumCats = cats => { let s = 0; for (let m = qStartMonth; m <= qEndMonth; m++) for (const c of cats) s += catBudgetMonth(c, m); return s * 1000; };
+  const budB2B = sumCats(B2B_CATS);
+  const budB2C = sumCats(B2C_CATS_Q);
+  const budTotal = sumCats([...B2B_CATS, ...B2C_CATS_Q, ...OTHER_CATS]);
+  // CA réalisé depuis le début du trimestre jusqu'au jour affiché
+  let qData;
+  try {
+    const r = await fetch(`/api/sellsy?dateStart=${qStart}&dateEnd=${refDateStr}&mode=total`);
+    if (!r.ok) { clearAll(); return; }
+    qData = await r.json();
+  } catch { clearAll(); return; }
+  // Si on a changé de période entre-temps, ne rien afficher
+  if (currentMode !== 'today' && currentMode !== 'yesterday') { clearAll(); return; }
+  const tp = qData._caByType || {};
+  const doneB2B = (tp['Pharmacie']||0)+(tp['Grand Compte']||0)+(tp['Monoprix']||0)+(tp['DomTom']||0)+(tp['Eretailer']||0);
+  const doneB2C = (tp['B2C']||0)+(tp['Outlet']||0);
+  const doneTotal = qData._totalCA || 0;
+  const render = (id, budget, done) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (budget <= 0) { el.textContent = ''; el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    const reste = budget - done;
+    if (reste <= 0) { el.innerHTML = `<span style="color:#1D9E75;">✓ Objectif T${q+1} atteint</span>`; return; }
+    if (remainingDays <= 0) { el.innerHTML = `<span style="color:#D85A30;">Reste ${fmt(reste)} — dernier jour du T${q+1}</span>`; return; }
+    const perDay = reste / remainingDays;
+    el.innerHTML = `<span style="color:#888;font-weight:500;">Rythme T${q+1} :</span> <span style="color:#D85A30;">${fmt(perDay)}/j</span> <span style="color:#aaa;font-weight:400;">(${remainingDays} j restants)</span>`;
+  };
+  render(paceIds.total, budTotal, doneTotal);
+  render(paceIds.b2b, budB2B, doneB2B);
+  render(paceIds.b2c, budB2C, doneB2C);
+}
 function renderPieChart(caB2C, caB2B) {
   const ctx = document.getElementById('b2cPieChart').getContext('2d');
   if (pieChartInstance) pieChartInstance.destroy();
@@ -1990,6 +2053,7 @@ async function loadData() {
     const caData = await caResp.json();
     lastCaData = caData;
     applySegment(caData);
+    renderQuarterPace(dateStart);
     const caByTypeRaw2 = caData._caByType || {};
     const caB2C = (caByTypeRaw2['B2C'] || 0) + (caByTypeRaw2['Outlet'] || 0);
     const caB2B = (caByTypeRaw2['Pharmacie'] || 0)
