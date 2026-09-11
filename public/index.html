@@ -891,6 +891,12 @@ function updateTempsEcouleBadges(seg) {
   const b2bEl = document.getElementById('tempsEcouleB2B');
   const b2cEl = document.getElementById('tempsEcouleB2C');
   if (!b2bEl || !b2cEl) return;
+  // Pas de "temps écoulé" en vue Aujourd'hui / Hier : sur une seule journée ça n'a pas de sens.
+  if (currentMode === 'today' || currentMode === 'yesterday') {
+    b2bEl.textContent = ''; b2bEl.style.display = 'none';
+    b2cEl.textContent = ''; b2cEl.style.display = 'none';
+    return;
+  }
   // Temps écoulé : B2B en jours ouvrés, B2C en jours calendaires
   const ratioB2B = getProratioForPeriod(true);
   const ratioB2C = getProratioForPeriod(false);
@@ -1550,7 +1556,8 @@ async function renderQuarterPace(refDateStr) {
   const qEndStr = `${year}-${pad(qEndMonth+1)}-${pad(qEndLast)}`;
   // Jours restants après le jour affiché, jusqu'à la fin du trimestre
   const nextDay = new Date(ref); nextDay.setDate(ref.getDate() + 1);
-  const remainingDays = Math.max(0, Math.round((qEnd - nextDay) / 86400000) + 1);
+  const remainingCal = Math.max(0, Math.round((qEnd - nextDay) / 86400000) + 1);      // calendaires (B2C)
+  const remainingWD  = nextDay > qEnd ? 0 : countWorkdays(nextDay, qEnd);              // ouvrés (B2B)
   // Objectifs trimestre (€) par segment = somme des budgets catégorie sur les 3 mois
   const B2B_CATS = ['Pharmacie','Grand Compte','Monoprix','DomTom','Eretailer'];
   const B2C_CATS_Q = ['B2C','Outlet'];
@@ -1574,20 +1581,21 @@ async function renderQuarterPace(refDateStr) {
   const doneB2B = (tp['Pharmacie']||0)+(tp['Grand Compte']||0)+(tp['Monoprix']||0)+(tp['DomTom']||0)+(tp['Eretailer']||0);
   const doneB2C = (tp['B2C']||0)+(tp['Outlet']||0);
   const doneTotal = qData._totalCA || 0;
-  const render = (id, budget, done) => {
+  const render = (id, budget, done, remDays, remLabel) => {
     const el = document.getElementById(id);
     if (!el) return;
     if (budget <= 0) { el.textContent = ''; el.style.display = 'none'; return; }
     el.style.display = 'block';
     const reste = budget - done;
     if (reste <= 0) { el.innerHTML = `<span style="color:#1D9E75;">✓ Objectif T${q+1} atteint</span>`; return; }
-    if (remainingDays <= 0) { el.innerHTML = `<span style="color:#D85A30;">Reste ${fmt(reste)} — dernier jour du T${q+1}</span>`; return; }
-    const perDay = reste / remainingDays;
-    el.innerHTML = `<span style="color:#888;font-weight:500;">Rythme T${q+1} :</span> <span style="color:#D85A30;">${fmt(perDay)}/j</span> <span style="color:#aaa;font-weight:400;">(${remainingDays} j restants)</span>`;
+    if (remDays <= 0) { el.innerHTML = `<span style="color:#D85A30;">Reste ${fmt(reste)} — dernier jour du T${q+1}</span>`; return; }
+    const perDay = reste / remDays;
+    el.innerHTML = `<span style="color:#888;font-weight:500;">Rythme T${q+1} :</span> <span style="color:#D85A30;">${fmt(perDay)}/j</span> <span style="color:#aaa;font-weight:400;">(${remDays} ${remLabel} restants)</span>`;
   };
-  render(paceIds.total, budTotal, doneTotal);
-  render(paceIds.b2b, budB2B, doneB2B);
-  render(paceIds.b2c, budB2C, doneB2C);
+  // Total & B2C : jours calendaires restants ; B2B : jours ouvrés restants
+  render(paceIds.total, budTotal, doneTotal, remainingCal, 'j');
+  render(paceIds.b2b, budB2B, doneB2B, remainingWD, 'j ouvrés');
+  render(paceIds.b2c, budB2C, doneB2C, remainingCal, 'j');
 }
 function renderPieChart(caB2C, caB2B) {
   const ctx = document.getElementById('b2cPieChart').getContext('2d');
