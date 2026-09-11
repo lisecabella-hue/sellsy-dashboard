@@ -1208,6 +1208,15 @@ function getProratioForPeriod(useWorkdays) {
       return refDay.getDate() / monthEnd.getDate();
     }
   }
+  // Pour 'quarter' : temps écoulé calendaire dans le trimestre
+  if (currentMode === 'quarter') {
+    const todayMid = new Date(); todayMid.setHours(12, 0, 0, 0);
+    if (todayMid < startDate) return null; // trimestre à venir
+    const refEnd = todayMid > endDate ? endDate : todayMid; // borné au trimestre
+    const elapsedDays = Math.round((refEnd - startDate) / 86400000) + 1;
+    const totalDays = Math.round((endDate - startDate) / 86400000) + 1;
+    return totalDays > 0 ? Math.min(1, elapsedDays / totalDays) : null;
+  }
   return null;
 }
 // Calcule le budget proratisé pour la période courante
