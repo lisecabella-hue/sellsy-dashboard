@@ -43,24 +43,34 @@ export default async function handler(req, res) {
     return 'Non classifié'; // objet non reconnu
   }
 
-  function isPharmacy(inv, companyTypeMap) {
-    const name = (inv.company_name || '').toLowerCase();
+  // ⚠️ Doit rester STRICTEMENT identique à classifyClient() de sellsy.js :
+  // une facture est "pharmacie" si et seulement si classifyClient renverrait 'Pharmacie'.
+  function classifyClientLikeSellsy(inv, companyTypeMap) {
+    if (inv.rate_category_id === 215340) return 'B2C';
+    const rawName = inv.company_name || '';
+    const name = rawName.toLowerCase();
     const companyId = inv.related?.[0]?.id ? String(inv.related[0].id) : null;
-
-    // 1. Jamais B2C
-    if (inv.rate_category_id === 215340) return false;
-    // 2. Exclusions explicites par nom
-    if (name.includes('blissim') || name.includes('bradery')) return false;
-    if (name.includes('figaro') || name.includes('media ')) return false;
-    // 3. Type client Sellsy en priorité
+    // 1.5 DOM-TOM : reclassement forcé (Sanisco + Marques & Beautés)
+    const nDom = name.normalize('NFD').replace(/[̀-ͯ]/g, '');
+    if (nDom.includes('sanisco') || (nDom.includes('marques') && nDom.includes('beaute'))) return 'DomTom';
+    // 1.6 Outlet : reclassement forcé
+    if (name.includes('blissim') || name.includes('bradery') || name.includes('symmetric')) return 'Outlet';
+    // 1.7 Pharmacie : reclassement forcé (Capucins, Wellpharma)
+    if (name.includes('capucins') || name.includes('wellpharma') || name.includes('well pharma')) return 'Pharmacie';
+    // 1.8 E-retailer : reclassement forcé (Atida, Dhygietal, DivaBox)
+    if (name.includes('atida') || name.includes('dhygietal') || name.includes('divabox') || name.includes('divaboc')) return 'Eretailer';
+    // 2. Type client Sellsy en priorité (sauf Autre)
     if (companyId && companyTypeMap[companyId] && companyTypeMap[companyId] !== 'Autre') {
-      return companyTypeMap[companyId] === 'Pharmacie';
+      return companyTypeMap[companyId];
     }
-    // 4. Règles nom en fallback
-    if (name.includes('printemps') || name.includes('samaritaine')) return false; // Grand Compte
-    if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco') || name.includes('dhygietal')) return true;
-
-    return false;
+    // 3. Règles nom en fallback
+    if (name.includes('printemps') || name.includes('samaritaine')) return 'Grand Compte';
+    if (name.includes('figaro') || name.includes('media ')) return 'Marketing';
+    if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco') || name.includes('dhygietal') || name.includes('atida') || name.includes('divabox') || name.includes('divaboc')) return 'Pharmacie';
+    return 'Autre';
+  }
+  function isPharmacy(inv, companyTypeMap) {
+    return classifyClientLikeSellsy(inv, companyTypeMap) === 'Pharmacie';
   }
 
   function getCacheTTL(dateStart, dateEnd) {
@@ -84,8 +94,8 @@ export default async function handler(req, res) {
     const prevDateStart = dateStart.replace(String(currentYear), String(prevYear));
     const prevDateEnd = dateEnd.replace(String(currentYear), String(prevYear));
 
-    // v15 : fix classification pharmacies (même logique que sellsy.js)
-    const cacheKey = `sellsy:pharmacy-breakdown:v15:${dateStart}:${dateEnd}`;
+    // v16 : classification alignée sur sellsy.js (E-retailer/DOM-TOM/Capucins) + exclusion des acomptes
+    const cacheKey = `sellsy:pharmacy-breakdown:v16:${dateStart}:${dateEnd}`;
     const ttl = getCacheTTL(dateStart, dateEnd);
     const cached = await cacheGet(cacheKey);
     // On ignore un cache vide (0 facture pharmacie = faux "0" d'un incident passé) : il sera recalculé.
@@ -117,7 +127,7 @@ export default async function handler(req, res) {
         const lastDay = new Date(year, month + 1, 0).getDate();
         const mStart = `${year}-${pad(month + 1)}-01`;
         const mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
-        let monthData = await cacheGet(`sellsy:pharmacy-breakdown:v15:${mStart}:${mEnd}`);
+        let monthData = await cacheGet(`sellsy:pharmacy-breakdown:v16:${mStart}:${mEnd}`);
         // Un mois en cache mais vide (faux "0") est traité comme manquant.
         if (monthData && !((monthData.N?.totalPharmacyInvoices || 0) > 0)) monthData = null;
         // Un mois manquant dans un cumul MULTI-mois est recalculé SEUL (appel au même endpoint
@@ -220,7 +230,7 @@ export default async function handler(req, res) {
 
       while (true) {
         const r = await fetch(
-          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=subject&field[]=company_name&field[]=related&field[]=rate_category_id`,
+          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=subject&field[]=company_name&field[]=related&field[]=rate_category_id&field[]=is_deposit`,
           {
             method: 'POST',
             headers: { Authorization: `Bearer ${access_token}`, 'Content-Type': 'application/json' },
@@ -236,6 +246,8 @@ export default async function handler(req, res) {
         const items = data?.data || [];
 
         for (const inv of items) {
+          // Exclure les acomptes, comme sellsy.js (sinon le total dépasse le CA Pharmacie)
+          if (inv.is_deposit) continue;
           // ✅ Même logique de classification que sellsy.js
           if (!isPharmacy(inv, companyTypeMap)) continue;
 
