@@ -891,12 +891,12 @@ function updateTempsEcouleBadges(seg) {
   const b2bEl = document.getElementById('tempsEcouleB2B');
   const b2cEl = document.getElementById('tempsEcouleB2C');
   if (!b2bEl || !b2cEl) return;
-  // Temps écoulé : B2B en jours ouvrés, B2C en jours calendaires
-  const ratioB2B = getProratioForPeriod(true);
+  // Temps écoulé en jours calendaires (B2B comme B2C)
+  const ratioB2B = getProratioForPeriod(false);
   const ratioB2C = getProratioForPeriod(false);
   const showB2B = (seg === 'total' || seg === 'b2b') && ratioB2B !== null;
   const showB2C = (seg === 'total' || seg === 'b2c') && ratioB2C !== null;
-  b2bEl.textContent = showB2B ? `⏱ B2B : ${Math.round(ratioB2B * 100)}% écoulé (j. ouvrés)` : '';
+  b2bEl.textContent = showB2B ? `⏱ B2B : ${Math.round(ratioB2B * 100)}% écoulé (j. calendaires)` : '';
   b2cEl.textContent = showB2C ? `⏱ B2C : ${Math.round(ratioB2C * 100)}% écoulé (j. calendaires)` : '';
   b2bEl.style.display = showB2B ? 'inline' : 'none';
   b2cEl.style.display = showB2C ? 'inline' : 'none';
@@ -1193,19 +1193,18 @@ function getProratioForPeriod(useWorkdays) {
       return startDate.getDate() / monthEnd.getDate();
     }
   }
-  // Pour 'week' : jours de la semaine écoulés dans le mois en cours
+  // Pour 'week' : temps écoulé DANS LA SEMAINE (B2B jours ouvrés, B2C jours calendaires)
   if (currentMode === 'week') {
-    if (endDate.getFullYear() !== 2026) return null;
-    // On prend la fin de semaine (ou aujourd'hui si semaine en cours) comme référence
-    const refDay = today < endDate ? today : endDate;
-    const monthStart = new Date(refDay.getFullYear(), refDay.getMonth(), 1);
-    const monthEnd   = new Date(refDay.getFullYear(), refDay.getMonth() + 1, 0);
+    const refDay = today < endDate ? today : endDate; // aujourd'hui, ou fin de semaine si passée
+    if (refDay < startDate) return null; // semaine à venir
     if (useWorkdays) {
-      const totalWD   = countWorkdays(monthStart, monthEnd);
-      const elapsedWD = countWorkdays(monthStart, refDay);
-      return totalWD > 0 ? elapsedWD / totalWD : null;
+      const totalWD   = countWorkdays(startDate, endDate);
+      const elapsedWD = countWorkdays(startDate, refDay);
+      return totalWD > 0 ? Math.min(1, elapsedWD / totalWD) : null;
     } else {
-      return refDay.getDate() / monthEnd.getDate();
+      const totalDays = Math.round((endDate - startDate) / 86400000) + 1;
+      const elapsedDays = Math.round((refDay - startDate) / 86400000) + 1;
+      return totalDays > 0 ? Math.min(1, elapsedDays / totalDays) : null;
     }
   }
   // Pour 'quarter' : temps écoulé dans le trimestre (B2B jours ouvrés, B2C jours calendaires)
@@ -1363,8 +1362,8 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
   }
   wrap.style.display = 'block';
   const pct = Math.round(((caVal / 1000) / budVal) * 100);
-  // Temps écoulé : B2B en jours ouvrés, B2C/Total en jours calendaires (selon useWorkdays)
-  const ratio = getProratioForPeriod(useWorkdays);
+  // Temps écoulé en jours calendaires (B2B comme B2C), cohérent avec le budget calendaire
+  const ratio = getProratioForPeriod(false);
   const expectedPct = ratio !== null ? Math.round(ratio * 100) : null;
   const fillColor = pct >= 100 ? '#1D9E75' : (expectedPct !== null && pct < expectedPct - 3 ? '#D85A30' : '#74A1D6');
   drawArcGauge(canvasId, pct, expectedPct, fillColor, budVal, caVal);
