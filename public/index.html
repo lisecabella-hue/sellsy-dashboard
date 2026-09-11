@@ -1272,20 +1272,20 @@ function drawArcGauge(canvasId, realPct, expectedPct, color, budgetKe, caEuros) 
     const expAngle = startAngle + (Math.min(expectedPct, 100) / 100) * Math.PI;
     const rx = cx + (r) * Math.cos(expAngle);
     const ry = cy + (r) * Math.sin(expAngle);
-    // Ligne du curseur
-    const r1 = r - lw * 1.2, r2 = r + lw * 1.2;
+    // Ligne du curseur (plus marquée pour bien voir "où on devrait être")
+    const r1 = r - lw * 1.5, r2 = r + lw * 1.5;
     const x1 = cx + r1 * Math.cos(expAngle), y1 = cy + r1 * Math.sin(expAngle);
     const x2 = cx + r2 * Math.cos(expAngle), y2 = cy + r2 * Math.sin(expAngle);
     ctx.beginPath();
     ctx.moveTo(x1, y1);
     ctx.lineTo(x2, y2);
     ctx.strokeStyle = '#1a1a1a';
-    ctx.lineWidth = 2.5;
-    ctx.lineCap = 'butt';
+    ctx.lineWidth = 3.5;
+    ctx.lineCap = 'round';
     ctx.stroke();
-    // Petit losange au bout
+    // Point au bout
     ctx.beginPath();
-    ctx.arc(rx, ry, 3, 0, 2 * Math.PI);
+    ctx.arc(rx, ry, 4, 0, 2 * Math.PI);
     ctx.fillStyle = '#1a1a1a';
     ctx.fill();
   }
@@ -1371,9 +1371,18 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
       resteEl.style.color = '#1D9E75';
     }
   }
-  // Statut rythme (retiré : trop d'infos, gardait doublon avec "Reste à faire")
+  // Sous la jauge : où on DEVRAIT être (temps écoulé), pour lire clairement le cran
   const statusEl = document.getElementById(statusId);
-  if (statusEl) statusEl.textContent = '';
+  if (statusEl) {
+    if (expectedPct !== null) {
+      const onTrack = pct >= expectedPct;
+      statusEl.innerHTML = `⏱ On devrait être à <strong>${expectedPct}%</strong> (temps écoulé)`;
+      statusEl.style.color = onTrack ? '#1D9E75' : '#D85A30';
+      statusEl.style.fontSize = '11px';
+    } else {
+      statusEl.textContent = '';
+    }
+  }
 }
 function updateBudgetB2CB2BDisplay(caB2C, caB2B) {
   // Budget B2B/B2C = somme des budgets par catégorie, pour que la carte du haut cadre
