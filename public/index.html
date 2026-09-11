@@ -1224,6 +1224,21 @@ function getProratioForPeriod(useWorkdays) {
   }
   return null;
 }
+// Temps écoulé "global" (carte Total) : moyenne du temps écoulé B2B (jours ouvrés) et
+// B2C (jours calendaires), pondérée par le poids budgétaire de chaque segment.
+function getBlendedProratio() {
+  const rB2B = getProratioForPeriod(true);
+  const rB2C = getProratioForPeriod(false);
+  if (rB2B === null && rB2C === null) return null;
+  const a = (rB2B === null) ? rB2C : rB2B;
+  const b = (rB2C === null) ? rB2B : rB2C;
+  const budB2B = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer']
+    .reduce((s, c) => s + getTypeClientBudgetForPeriod(c), 0);
+  const budB2C = getTypeClientBudgetForPeriod('B2C') + getTypeClientBudgetForPeriod('Outlet');
+  const total = budB2B + budB2C;
+  if (total <= 0) return b; // pas de budget → on retombe sur le calendaire
+  return (budB2B * a + budB2C * b) / total;
+}
 // Calcule le budget proratisé pour la période courante
 function getBudgetForCurrentPeriod(budgetArr) {
   const dates = getDates();
@@ -1362,8 +1377,9 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
   }
   wrap.style.display = 'block';
   const pct = Math.round(((caVal / 1000) / budVal) * 100);
-  // Temps écoulé : B2B en jours ouvrés (100% le vendredi), B2C/Total en jours calendaires
-  const ratio = getProratioForPeriod(useWorkdays);
+  // Temps écoulé : B2B en jours ouvrés, B2C en jours calendaires. Pour la carte Total,
+  // moyenne des deux pondérée par le poids budgétaire de chaque segment.
+  const ratio = (canvasId === 'gaugeTotal') ? getBlendedProratio() : getProratioForPeriod(useWorkdays);
   const expectedPct = ratio !== null ? Math.round(ratio * 100) : null;
   const fillColor = pct >= 100 ? '#1D9E75' : (expectedPct !== null && pct < expectedPct - 3 ? '#D85A30' : '#74A1D6');
   drawArcGauge(canvasId, pct, expectedPct, fillColor, budVal, caVal);
