@@ -207,6 +207,7 @@
         <button class="period-btn" id="btnYesterday" onclick="setPeriod('yesterday')">Hier</button>
         <button class="period-btn" id="btnWeek" onclick="setPeriod('week')">Cette semaine</button>
         <button class="period-btn active" id="btnMonth" onclick="setPeriod('month')">Ce mois</button>
+        <button class="period-btn" id="btnQuarter" onclick="setPeriod('quarter')">Trimestre</button>
         <button class="period-btn" id="btnYtd" onclick="setPeriod('ytd')">Cumul YTD</button>
         <button class="period-btn" id="btnCustom" onclick="setPeriod('custom')">Période</button>
       </div>
@@ -218,6 +219,15 @@
           <option value="9">Octobre</option><option value="10">Novembre</option><option value="11">Décembre</option>
         </select>
         <select id="selYear"></select>
+      </div>
+      <div class="date-selectors" id="selectorsQuarter" style="display:none;">
+        <select id="selQuarter">
+          <option value="0">T1 (Jan–Mars)</option>
+          <option value="1">T2 (Avr–Juin)</option>
+          <option value="2">T3 (Juil–Sept)</option>
+          <option value="3">T4 (Oct–Déc)</option>
+        </select>
+        <select id="selQuarterYear"></select>
       </div>
       <div class="date-selectors" id="selectorsYtd" style="display:none;">
         <select id="selYtdMonth">
@@ -1378,7 +1388,7 @@ function updateBudgetDisplay(totalCA, budgetArr) {
     .reduce((s, c) => s + getTypeClientBudgetForPeriod(c), 0);
   renderArcGauge('budgetBarWrap', 'gaugeTotal', 'budgetStatusTotal', totalCA, arr, false, null, 'mCAResteAFaire', totalBudgetKe);
 }
-[document.getElementById('selYear'), document.getElementById('selYtdYear')].forEach(el => {
+[document.getElementById('selYear'), document.getElementById('selYtdYear'), document.getElementById('selQuarterYear')].forEach(el => {
   if (!el) return;
   for(let y = now.getFullYear(); y >= 2015; y--) {
     const opt = document.createElement('option');
@@ -1387,15 +1397,17 @@ function updateBudgetDisplay(totalCA, budgetArr) {
 });
 if (document.getElementById('selMonth')) document.getElementById('selMonth').value = now.getMonth();
 if (document.getElementById('selYtdMonth')) document.getElementById('selYtdMonth').value = now.getMonth();
+if (document.getElementById('selQuarter')) document.getElementById('selQuarter').value = Math.floor(now.getMonth() / 3);
 if (document.getElementById('dateFrom')) document.getElementById('dateFrom').value = todayStr;
 if (document.getElementById('dateTo')) document.getElementById('dateTo').value = todayStr;
 function setPeriod(mode) {
   currentMode = mode;
-  ['today','yesterday','week','month','ytd','custom'].forEach(m => {
+  ['today','yesterday','week','month','quarter','ytd','custom'].forEach(m => {
     const btn = document.getElementById('btn' + m.charAt(0).toUpperCase() + m.slice(1));
     if(btn) btn.classList.toggle('active', m === mode);
   });
   document.getElementById('selectorsMonth').style.display = mode === 'month' ? 'flex' : 'none';
+  document.getElementById('selectorsQuarter').style.display = mode === 'quarter' ? 'flex' : 'none';
   document.getElementById('selectorsYtd').style.display = mode === 'ytd' ? 'flex' : 'none';
   document.getElementById('selectorsCustom').style.display = mode === 'custom' ? 'flex' : 'none';
 }
@@ -1448,6 +1460,14 @@ function getDates() {
     const year = parseInt(document.getElementById('selYear').value);
     const lastDay = new Date(year, month+1, 0).getDate();
     return { dateStart: `${year}-${pad(month+1)}-01`, dateEnd: `${year}-${pad(month+1)}-${pad(lastDay)}`, label: `${months[month]} ${year}` };
+  }
+  if (currentMode === 'quarter') {
+    const q = parseInt(document.getElementById('selQuarter').value);
+    const year = parseInt(document.getElementById('selQuarterYear').value);
+    const startMonth = q * 3;
+    const endMonth = q * 3 + 2;
+    const lastDay = new Date(year, endMonth+1, 0).getDate();
+    return { dateStart: `${year}-${pad(startMonth+1)}-01`, dateEnd: `${year}-${pad(endMonth+1)}-${pad(lastDay)}`, label: `T${q+1} ${year} — ${months[startMonth]} à ${months[endMonth]}` };
   }
   if (currentMode === 'ytd') {
     const month = parseInt(document.getElementById('selYtdMonth').value);
