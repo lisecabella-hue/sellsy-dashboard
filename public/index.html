@@ -1592,8 +1592,8 @@ async function renderQuarterPace(refDateStr) {
     const perDay = reste / remDays;
     el.innerHTML = `<span style="color:#888;font-weight:500;">Rythme T${q+1} :</span> <span style="color:#D85A30;">${fmt(perDay)}/j</span> <span style="color:#aaa;font-weight:400;">(${remDays} ${remLabel} restants)</span>`;
   };
-  // Total & B2C : jours calendaires restants ; B2B : jours ouvrés restants
-  render(paceIds.total, budTotal, doneTotal, remainingCal, 'j');
+  // Total & B2B : jours ouvrés restants ; B2C : jours calendaires restants
+  render(paceIds.total, budTotal, doneTotal, remainingWD, 'j ouvrés');
   render(paceIds.b2b, budB2B, doneB2B, remainingWD, 'j ouvrés');
   render(paceIds.b2c, budB2C, doneB2C, remainingCal, 'j');
 }
