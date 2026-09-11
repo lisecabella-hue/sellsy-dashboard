@@ -2079,7 +2079,21 @@ async function loadData() {
   try {
     const caResp = await fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=total`);
     if (!caResp.ok) throw new Error('Erreur API');
-    const caData = await caResp.json();
+    let caData = await caResp.json();
+    // Temps réel (aujourd'hui/hier/semaine) : pas de cache. Si Sellsy répond
+    // momentanément 0 (surcharge/blip), on réessaie automatiquement une fois
+    // avant d'afficher, au lieu que l'utilisateur doive recliquer sur "Voir".
+    if ((currentMode === 'today' || currentMode === 'yesterday' || currentMode === 'week')
+        && (caData._totalCA || 0) === 0) {
+      await new Promise(r => setTimeout(r, 900));
+      try {
+        const retryResp = await fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=total`);
+        if (retryResp.ok) {
+          const retryData = await retryResp.json();
+          if ((retryData._totalCA || 0) > 0) caData = retryData;
+        }
+      } catch {}
+    }
     lastCaData = caData;
     applySegment(caData);
     renderQuarterPace(dateStart);
