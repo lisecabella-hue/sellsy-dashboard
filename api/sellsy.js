@@ -122,6 +122,7 @@ export default async function handler(req, res) {
           _countAvoirs: 0,
           _caByType: {},
           _avoirsByType: {},
+          _avoirsByClient: {},
           _caB2BGeo: { France: 0, DomTom: 0 },
           _top30B2B: {},
           _enseigneDetail: [],
@@ -150,6 +151,9 @@ export default async function handler(req, res) {
           for (const [type, amount] of Object.entries(m._avoirsByType || {})) {
             aggregated._avoirsByType[type] = (aggregated._avoirsByType[type] || 0) + amount;
           }
+          for (const [name, amount] of Object.entries(m._avoirsByClient || {})) {
+            aggregated._avoirsByClient[name] = (aggregated._avoirsByClient[name] || 0) + amount;
+          }
           for (const client of (m._top30B2B || [])) {
             if (!b2bByClient[client.name]) b2bByClient[client.name] = { ca: 0, nbFactures: 0 };
             b2bByClient[client.name].ca += client.ca;
@@ -166,6 +170,9 @@ export default async function handler(req, res) {
         }
         for (const key of Object.keys(aggregated._avoirsByType)) {
           aggregated._avoirsByType[key] = Math.round(aggregated._avoirsByType[key] * 100) / 100;
+        }
+        for (const key of Object.keys(aggregated._avoirsByClient)) {
+          aggregated._avoirsByClient[key] = Math.round(aggregated._avoirsByClient[key] * 100) / 100;
         }
         aggregated._top30B2B = Object.entries(b2bByClient)
           .map(([name, data]) => ({ name, ca: Math.round(data.ca * 100) / 100, nbFactures: data.nbFactures }))
@@ -450,6 +457,13 @@ export default async function handler(req, res) {
       avoirsByType[type] = (avoirsByType[type] || 0) + amount;
     }
     for (const k of Object.keys(avoirsByType)) avoirsByType[k] = Math.round(avoirsByType[k] * 100) / 100;
+    // Avoirs par client (pour afficher les tops clients en net)
+    const avoirsByClient = {};
+    for (const c of allCredits) {
+      const name = c.company_name || 'Inconnu';
+      avoirsByClient[name] = (avoirsByClient[name] || 0) + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0);
+    }
+    for (const k of Object.keys(avoirsByClient)) avoirsByClient[k] = Math.round(avoirsByClient[k] * 100) / 100;
     const result = {
       _totalCA: Math.round(totalCA * 100) / 100,
       _totalCABrut: Math.round(totalCA * 100) / 100,
@@ -471,6 +485,7 @@ export default async function handler(req, res) {
       _countAvoirs: allCredits.length,
       _caByType: caByType,
       _avoirsByType: avoirsByType,
+      _avoirsByClient: avoirsByClient,
       _top30B2B: top30B2B,
       _top30B2C: top30B2C,
       _enseigneDetail: enseigneDetail,
