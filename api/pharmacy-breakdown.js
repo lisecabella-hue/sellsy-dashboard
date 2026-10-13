@@ -31,7 +31,10 @@ export default async function handler(req, res) {
 
   function categorize(subject) {
     const s = (subject || '').trim().toLowerCase();
-    if (!s) return 'Non classifié'; // objet vide
+    const sNorm = s.normalize('NFD').replace(/[̀-ͯ]/g, ''); // sans accents
+    // Rappel de lot "repulpant lèvre" → Précommandes
+    if (sNorm.includes('repulpant') && sNorm.includes('levre')) return 'Précommandes';
+    if (!s) return 'Réassort'; // objet vide → réassort (le reste)
     if (s.includes('sav implant')) return 'Implantation';
     if (s.includes('sav preco')) return 'Précommandes';
     if (s.includes('sav')) return 'Réassort';
@@ -40,7 +43,7 @@ export default async function handler(req, res) {
     if (s.includes('preco')) return 'Précommandes';
     if (s.includes('reassort') || s.includes('ug')) return 'Réassort';
     if (s.includes('dotation') || s.includes('marketing') || s.includes('seminaire') || s.includes('animation')) return 'Coffres';
-    return 'Non classifié'; // objet non reconnu
+    return 'Réassort'; // tout le reste → réassort
   }
 
   // ⚠️ Doit rester STRICTEMENT identique à classifyClient() de sellsy.js :
@@ -95,7 +98,7 @@ export default async function handler(req, res) {
     const prevDateEnd = dateEnd.replace(String(currentYear), String(prevYear));
 
     // v16 : classification alignée sur sellsy.js (E-retailer/DOM-TOM/Capucins) + exclusion des acomptes
-    const cacheKey = `sellsy:pharmacy-breakdown:v16:${dateStart}:${dateEnd}`;
+    const cacheKey = `sellsy:pharmacy-breakdown:v17:${dateStart}:${dateEnd}`;
     const ttl = getCacheTTL(dateStart, dateEnd);
     const cached = await cacheGet(cacheKey);
     // On ignore un cache vide (0 facture pharmacie = faux "0" d'un incident passé) : il sera recalculé.
@@ -127,7 +130,7 @@ export default async function handler(req, res) {
         const lastDay = new Date(year, month + 1, 0).getDate();
         const mStart = `${year}-${pad(month + 1)}-01`;
         const mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
-        let monthData = await cacheGet(`sellsy:pharmacy-breakdown:v16:${mStart}:${mEnd}`);
+        let monthData = await cacheGet(`sellsy:pharmacy-breakdown:v17:${mStart}:${mEnd}`);
         // Un mois en cache mais vide (faux "0") est traité comme manquant.
         if (monthData && !((monthData.N?.totalPharmacyInvoices || 0) > 0)) monthData = null;
         // Un mois manquant dans un cumul MULTI-mois est recalculé SEUL (appel au même endpoint
