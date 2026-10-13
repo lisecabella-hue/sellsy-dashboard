@@ -773,8 +773,21 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
         <div style="font-size:11px;padding-left:20px;">${budgetText}</div>
       </div>`;
     }).join('');
+    // Bloc avoirs : les types de commande ci-dessus sont en CA BRUT. On affiche à part le
+    // montant des avoirs pharmacies (non rattachables à un type de commande) + le CA net.
+    const avoirsPharma = (lastCaData && lastCaData._avoirsByType && lastCaData._avoirsByType['Pharmacie']) || 0;
+    if (avoirsPharma > 0) {
+      legend.innerHTML += `<div style="display:flex;flex-direction:column;gap:3px;border-top:1px solid #eee;padding-top:10px;margin-top:4px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="width:12px;height:12px;border-radius:3px;background:#D85A30;display:inline-block;flex-shrink:0;"></span>
+          <span style="font-size:13px;font-weight:500;">Avoirs pharmacies</span>
+          <span style="font-size:12px;color:#D85A30;font-weight:600;">− ${fmt(avoirsPharma)}</span>
+        </div>
+        <div style="font-size:11px;padding-left:20px;color:#1a1a1a;">CA net pharmacies : <strong>${fmt(total - avoirsPharma)}</strong></div>
+      </div>`;
+    }
     document.getElementById('pharmacyBreakdownSubtitle').textContent =
-      `Pharmacies — période sélectionnée${data._fromCache ? ' (cache)' : ''}`;
+      `Pharmacies — CA brut par type de commande, avoirs à part${data._fromCache ? ' (cache)' : ''}`;
   } catch(e) {
     document.getElementById('pharmacyBreakdownSubtitle').textContent = 'Erreur de chargement';
     card.style.display = 'none';
