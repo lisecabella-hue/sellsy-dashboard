@@ -32,20 +32,13 @@ export default async function handler(req, res) {
     } catch {}
   }
   function getCacheTTL(dateStart, dateEnd) {
+    // Tout ce qui se termine AVANT aujourd'hui est figé 30 jours (les jours passés ne bougent
+    // plus, hors rattrapage de facturation géré par la préchauffe). Toute période qui va
+    // jusqu'à aujourd'hui (ou au-delà) n'est pas mise en cache en bloc : elle est servie via
+    // le découpage [début → hier] (figé) + [aujourd'hui] (recalculé en direct).
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth() + 1;
-    const endDate = new Date(dateEnd);
-    const endYear = endDate.getFullYear();
-    const endMonth = endDate.getMonth() + 1;
-    if (dateStart === dateEnd) return 0;
-    if (endYear === currentYear && endMonth === currentMonth) {
-      const startDate = new Date(dateStart);
-      const diffDays = Math.round((endDate - startDate) / 86400000);
-      if (diffDays <= 6) return 0; // aujourd'hui et cette semaine : temps réel
-      return 900; // 15 min pour le mois en cours
-    }
-    if (endDate < now) return 60 * 60 * 24 * 30;
+    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    if (dateEnd < todayStr) return 60 * 60 * 24 * 30;
     return 0;
   }
   const TYPE_CLIENT_MAP = {
@@ -55,6 +48,54 @@ export default async function handler(req, res) {
     3957579: 'Marketing',
     3957580: 'Grand Compte'
   };
+  // Agrège plusieurs résultats (mois ou "parties" début→hier + aujourd'hui) en un seul.
+  function aggregateParts(parts) {
+    const r2 = v => Math.round(v * 100) / 100;
+    const agg = {
+      _totalCA: 0, _totalCABrut: 0, _totalAvoirs: 0, _totalCAB2C: 0, _totalCAB2B: 0,
+      _totalCAB2CNet: 0, _totalCAB2BNet: 0, _countB2C: 0, _countB2B: 0, _count: 0, _countAvoirs: 0,
+      _caByType: {}, _avoirsByType: {}, _avoirsByClient: {}, _caB2BGeo: { France: 0, DomTom: 0 },
+      _top30B2B: [], _top30B2C: [], _enseigneDetail: [], pagination: { total: 0 }
+    };
+    const b2bByClient = {}, b2cByClient = {}, enseigneByClient = {};
+    for (const m of parts) {
+      if (!m) continue;
+      agg._totalCA += m._totalCA || 0;
+      agg._totalCABrut += m._totalCABrut || 0;
+      agg._totalAvoirs += m._totalAvoirs || 0;
+      agg._totalCAB2C += m._totalCAB2C || 0;
+      agg._totalCAB2B += m._totalCAB2B || 0;
+      agg._totalCAB2CNet += m._totalCAB2CNet || 0;
+      agg._totalCAB2BNet += m._totalCAB2BNet || 0;
+      agg._caB2BGeo.France += m._caB2BGeo?.France || 0;
+      agg._caB2BGeo.DomTom += m._caB2BGeo?.DomTom || 0;
+      agg._countB2C += m._countB2C || 0;
+      agg._countB2B += m._countB2B || 0;
+      agg._count += m._count || 0;
+      agg._countAvoirs += m._countAvoirs || 0;
+      agg.pagination.total += m.pagination?.total || 0;
+      for (const [t, a] of Object.entries(m._caByType || {})) agg._caByType[t] = (agg._caByType[t] || 0) + a;
+      for (const [t, a] of Object.entries(m._avoirsByType || {})) agg._avoirsByType[t] = (agg._avoirsByType[t] || 0) + a;
+      for (const [n, a] of Object.entries(m._avoirsByClient || {})) agg._avoirsByClient[n] = (agg._avoirsByClient[n] || 0) + a;
+      for (const c of (m._top30B2B || [])) { if (!b2bByClient[c.name]) b2bByClient[c.name] = { ca: 0, nbFactures: 0 }; b2bByClient[c.name].ca += c.ca; b2bByClient[c.name].nbFactures += c.nbFactures; }
+      for (const c of (m._top30B2C || [])) { if (!b2cByClient[c.name]) b2cByClient[c.name] = { ca: 0, nbFactures: 0 }; b2cByClient[c.name].ca += c.ca; b2cByClient[c.name].nbFactures += c.nbFactures; }
+      for (const c of (m._enseigneDetail || [])) { if (!enseigneByClient[c.name]) enseigneByClient[c.name] = { ca: 0, nbFactures: 0 }; enseigneByClient[c.name].ca += c.ca; enseigneByClient[c.name].nbFactures += c.nbFactures; }
+    }
+    for (const k of Object.keys(agg._caByType)) agg._caByType[k] = r2(agg._caByType[k]);
+    for (const k of Object.keys(agg._avoirsByType)) agg._avoirsByType[k] = r2(agg._avoirsByType[k]);
+    for (const k of Object.keys(agg._avoirsByClient)) agg._avoirsByClient[k] = r2(agg._avoirsByClient[k]);
+    agg._top30B2B = Object.entries(b2bByClient).map(([name, d]) => ({ name, ca: r2(d.ca), nbFactures: d.nbFactures })).sort((a, b) => b.ca - a.ca).slice(0, 30);
+    agg._top30B2C = Object.entries(b2cByClient).map(([name, d]) => ({ name, ca: r2(d.ca), nbFactures: d.nbFactures })).sort((a, b) => b.ca - a.ca).slice(0, 30);
+    agg._enseigneDetail = Object.entries(enseigneByClient).map(([name, d]) => ({ name, ca: r2(d.ca), nbFactures: d.nbFactures })).sort((a, b) => b.ca - a.ca);
+    agg._totalCA = r2(agg._totalCA); agg._totalCABrut = r2(agg._totalCABrut); agg._totalAvoirs = r2(agg._totalAvoirs);
+    agg._totalCAB2C = r2(agg._totalCAB2C); agg._totalCAB2B = r2(agg._totalCAB2B);
+    agg._totalCAB2CNet = r2(agg._totalCAB2CNet); agg._totalCAB2BNet = r2(agg._totalCAB2BNet);
+    agg._caB2BGeo.France = r2(agg._caB2BGeo.France); agg._caB2BGeo.DomTom = r2(agg._caB2BGeo.DomTom);
+    agg._tauxAvoirs = agg._totalCA > 0 ? Math.round((agg._totalAvoirs / agg._totalCA) * 10000) / 100 : 0;
+    agg._panierMoyenB2C = agg._countB2C > 0 ? r2(agg._totalCAB2C / agg._countB2C) : 0;
+    agg._panierMoyenB2B = agg._countB2B > 0 ? r2(agg._totalCAB2B / agg._countB2B) : 0;
+    return agg;
+  }
   const cacheKey = `sellsy:${CACHE_VERSION}:${mode}:${dateStart}:${dateEnd}`;
   const ttl = getCacheTTL(dateStart, dateEnd);
   if (ttl > 0 && kvUrl && kvToken) {
@@ -108,101 +149,30 @@ export default async function handler(req, res) {
         cachedMonths.push(monthData);
       }
       if (allFoundInCache && cachedMonths.length > 0 && cachedMonths.length === months.length) {
-        const aggregated = {
-          _totalCA: 0,
-          _totalCABrut: 0,
-          _totalAvoirs: 0,
-          _totalCAB2C: 0,
-          _totalCAB2B: 0,
-          _totalCAB2CNet: 0,
-          _totalCAB2BNet: 0,
-          _countB2C: 0,
-          _countB2B: 0,
-          _count: 0,
-          _countAvoirs: 0,
-          _caByType: {},
-          _avoirsByType: {},
-          _avoirsByClient: {},
-          _caB2BGeo: { France: 0, DomTom: 0 },
-          _top30B2B: {},
-          _enseigneDetail: [],
-          pagination: { total: 0 }
-        };
-        const b2bByClient = {};
-        const enseigneByClient = {};
-        for (const m of cachedMonths) {
-          aggregated._totalCA += m._totalCA || 0;
-          aggregated._totalCABrut += m._totalCABrut || 0;
-          aggregated._totalAvoirs += m._totalAvoirs || 0;
-          aggregated._totalCAB2C += m._totalCAB2C || 0;
-          aggregated._totalCAB2B += m._totalCAB2B || 0;
-          aggregated._totalCAB2CNet += m._totalCAB2CNet || 0;
-          aggregated._totalCAB2BNet += m._totalCAB2BNet || 0;
-          aggregated._caB2BGeo.France += m._caB2BGeo?.France || 0;
-          aggregated._caB2BGeo.DomTom += m._caB2BGeo?.DomTom || 0;
-          aggregated._countB2C += m._countB2C || 0;
-          aggregated._countB2B += m._countB2B || 0;
-          aggregated._count += m._count || 0;
-          aggregated._countAvoirs += m._countAvoirs || 0;
-          aggregated.pagination.total += m.pagination?.total || 0;
-          for (const [type, amount] of Object.entries(m._caByType || {})) {
-            aggregated._caByType[type] = (aggregated._caByType[type] || 0) + amount;
-          }
-          for (const [type, amount] of Object.entries(m._avoirsByType || {})) {
-            aggregated._avoirsByType[type] = (aggregated._avoirsByType[type] || 0) + amount;
-          }
-          for (const [name, amount] of Object.entries(m._avoirsByClient || {})) {
-            aggregated._avoirsByClient[name] = (aggregated._avoirsByClient[name] || 0) + amount;
-          }
-          for (const client of (m._top30B2B || [])) {
-            if (!b2bByClient[client.name]) b2bByClient[client.name] = { ca: 0, nbFactures: 0 };
-            b2bByClient[client.name].ca += client.ca;
-            b2bByClient[client.name].nbFactures += client.nbFactures;
-          }
-          for (const client of (m._enseigneDetail || [])) {
-            if (!enseigneByClient[client.name]) enseigneByClient[client.name] = { ca: 0, nbFactures: 0 };
-            enseigneByClient[client.name].ca += client.ca;
-            enseigneByClient[client.name].nbFactures += client.nbFactures;
-          }
-        }
-        for (const key of Object.keys(aggregated._caByType)) {
-          aggregated._caByType[key] = Math.round(aggregated._caByType[key] * 100) / 100;
-        }
-        for (const key of Object.keys(aggregated._avoirsByType)) {
-          aggregated._avoirsByType[key] = Math.round(aggregated._avoirsByType[key] * 100) / 100;
-        }
-        for (const key of Object.keys(aggregated._avoirsByClient)) {
-          aggregated._avoirsByClient[key] = Math.round(aggregated._avoirsByClient[key] * 100) / 100;
-        }
-        aggregated._top30B2B = Object.entries(b2bByClient)
-          .map(([name, data]) => ({ name, ca: Math.round(data.ca * 100) / 100, nbFactures: data.nbFactures }))
-          .sort((a, b) => b.ca - a.ca)
-          .slice(0, 30);
-        aggregated._enseigneDetail = Object.entries(enseigneByClient)
-          .map(([name, data]) => ({ name, ca: Math.round(data.ca * 100) / 100, nbFactures: data.nbFactures }))
-          .sort((a, b) => b.ca - a.ca);
-        aggregated._totalCA = Math.round(aggregated._totalCA * 100) / 100;
-        aggregated._totalCABrut = Math.round(aggregated._totalCABrut * 100) / 100;
-        aggregated._totalAvoirs = Math.round(aggregated._totalAvoirs * 100) / 100;
-        aggregated._totalCAB2C = Math.round(aggregated._totalCAB2C * 100) / 100;
-        aggregated._totalCAB2B = Math.round(aggregated._totalCAB2B * 100) / 100;
-        aggregated._totalCAB2CNet = Math.round(aggregated._totalCAB2CNet * 100) / 100;
-        aggregated._totalCAB2BNet = Math.round(aggregated._totalCAB2BNet * 100) / 100;
-        aggregated._caB2BGeo.France = Math.round(aggregated._caB2BGeo.France * 100) / 100;
-        aggregated._caB2BGeo.DomTom = Math.round(aggregated._caB2BGeo.DomTom * 100) / 100;
-        aggregated._tauxAvoirs = aggregated._totalCA > 0
-          ? Math.round((aggregated._totalAvoirs / aggregated._totalCA) * 10000) / 100
-          : 0;
-        aggregated._panierMoyenB2C = aggregated._countB2C > 0
-          ? Math.round((aggregated._totalCAB2C / aggregated._countB2C) * 100) / 100
-          : 0;
-        aggregated._panierMoyenB2B = aggregated._countB2B > 0
-          ? Math.round((aggregated._totalCAB2B / aggregated._countB2B) * 100) / 100
-          : 0;
-        // On ne met en cache l'agrégat que s'il est non vide (sécurité anti faux "0").
+        const aggregated = aggregateParts(cachedMonths);
         if (ttl > 0 && aggregated._totalCA > 0) await cacheSet(cacheKey, aggregated, ttl);
         return res.status(200).json({ ...aggregated, _fromCache: true, _aggregatedFromMonths: cachedMonths.length });
       }
+    }
+    // Découpage "aujourd'hui" : si la période commence avant aujourd'hui et va jusqu'à
+    // aujourd'hui (ou au-delà), on sert [début → hier] depuis le cache (figé) et on ne
+    // recalcule en direct que la journée d'aujourd'hui, puis on additionne les deux.
+    const nowSplit = new Date();
+    const todayStr = `${nowSplit.getFullYear()}-${pad(nowSplit.getMonth() + 1)}-${pad(nowSplit.getDate())}`;
+    const yd = new Date(nowSplit); yd.setDate(nowSplit.getDate() - 1);
+    const yStr = `${yd.getFullYear()}-${pad(yd.getMonth() + 1)}-${pad(yd.getDate())}`;
+    if (dateStart < todayStr && dateEnd >= todayStr) {
+      const base = `https://${req.headers.host}`;
+      try {
+        const [pastR, todayR] = await Promise.all([
+          fetch(`${base}/api/sellsy?dateStart=${dateStart}&dateEnd=${yStr}&mode=total`).then(r => r.ok ? r.json() : null),
+          fetch(`${base}/api/sellsy?dateStart=${todayStr}&dateEnd=${todayStr}&mode=total`).then(r => r.ok ? r.json() : null)
+        ]);
+        if (pastR && pastR._totalCA !== undefined) {
+          const aggregated = aggregateParts([pastR, todayR].filter(Boolean));
+          return res.status(200).json({ ...aggregated, _splitToday: true });
+        }
+      } catch {}
     }
   }
   try {
@@ -414,8 +384,11 @@ export default async function handler(req, res) {
     const creditBody = JSON.stringify({
       filters: { date: { start: dateStart, end: dateEnd } }
     });
+    // Si la récupération des avoirs échoue (saturation Sellsy / 429), on le signale pour
+    // NE PAS mettre en cache un faux "0 avoir" (qui resterait figé ensuite).
+    let creditsFailed = false;
     const fetchCreditPage = async (offset) => {
-      for (let attempt = 0; attempt < 3; attempt++) {
+      for (let attempt = 0; attempt < 4; attempt++) {
         const resp = await fetch(
           `https://api.sellsy.com/v2/credit-notes/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=rate_category_id&field[]=company_name&field[]=related`,
           {
@@ -425,9 +398,10 @@ export default async function handler(req, res) {
           }
         );
         if (resp.status === 429) { await sleep(1000 * (attempt + 1)); continue; }
-        if (!resp.ok) return { data: [] };
+        if (!resp.ok) { await sleep(400 * (attempt + 1)); continue; }
         return await resp.json();
       }
+      creditsFailed = true; // échec après toutes les tentatives
       return { data: [] };
     };
     const firstCreditPage = await fetchCreditPage(0);
@@ -491,14 +465,14 @@ export default async function handler(req, res) {
       _enseigneDetail: enseigneDetail,
       pagination: { total }
     };
-    const isComplete = allInvoices.length >= total;
+    const isComplete = allInvoices.length >= total && !creditsFailed;
     // Ne JAMAIS mettre en cache un résultat vide/incomplet : si Sellsy est saturé (429) ou
-    // renvoie une liste vide, on obtiendrait 0 € — et le cacher figerait un faux 0
-    // (surtout 30 jours pour un mois passé). On n'enregistre que si on a bien récupéré des factures.
+    // renvoie une liste vide, on obtiendrait 0 € (ou 0 avoir) — et le cacher figerait un faux 0
+    // (surtout 30 jours pour un mois passé). On n'enregistre que si factures ET avoirs sont OK.
     if (ttl > 0 && kvUrl && isComplete && total > 0 && allInvoices.length > 0) {
       await cacheSet(cacheKey, result, ttl);
     }
-    return res.status(200).json({ ...result, _complete: isComplete });
+    return res.status(200).json({ ...result, _complete: isComplete, _creditsFailed: creditsFailed });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
