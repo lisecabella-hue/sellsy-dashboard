@@ -10,6 +10,10 @@ export default async function handler(req, res) {
   const pad = n => String(n).padStart(2, '0');
   const base = `https://${req.headers.host}`;
   const scope = (req.query.scope || 'current').toLowerCase();
+  // ?force=1 : recalcule chaque mois à neuf (ignore le cache) pour rebâtir les caches
+  // avec le détail à jour (avoirs ventilés par catégorie/client). À lancer quand Sellsy est calme.
+  const force = req.query.force === '1';
+  const nc = force ? '&nocache=1' : '';
   const now = new Date();
   const curYear = now.getFullYear();
   const curMonth = now.getMonth(); // 0-11
@@ -46,7 +50,7 @@ export default async function handler(req, res) {
     const t0 = Date.now();
     const out = { period: `${ds}→${de}` };
     try {
-      const r = await fetch(`${base}/api/sellsy?dateStart=${ds}&dateEnd=${de}&mode=total`);
+      const r = await fetch(`${base}/api/sellsy?dateStart=${ds}&dateEnd=${de}&mode=total${nc}`);
       const j = await r.json();
       out.sellsyOk = r.ok;
       out.totalCA = j._totalCA ?? null;
@@ -56,7 +60,7 @@ export default async function handler(req, res) {
     }
     // Préchauffe aussi la carte "CA par type de commande — Pharmacies" (la plus lourde)
     try {
-      const r2 = await fetch(`${base}/api/pharmacy-breakdown?dateStart=${ds}&dateEnd=${de}`);
+      const r2 = await fetch(`${base}/api/pharmacy-breakdown?dateStart=${ds}&dateEnd=${de}${nc}`);
       out.pharmaOk = r2.ok;
     } catch (e) {
       out.pharmaOk = false;
