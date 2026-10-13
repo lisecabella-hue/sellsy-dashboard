@@ -2033,15 +2033,36 @@ let histoBrutInstance = null;
 function renderHistoBrut() {
   const el = document.getElementById('histoBrut');
   if (!el || !lastCaData || typeof Chart === 'undefined') return;
-  const brutReel   = lastCaData._totalCABrut || 0;
-  const avoirs     = lastCaData._totalAvoirs || 0;
-  const brutBudget = (getBudgetForCurrentPeriod(budget2026) || 0) * 1000;
+  const seg = currentSegment;
+  const brutByType = lastCaData._caByTypeBrut || lastCaData._caByType || {};
+  const avo = lastCaData._avoirsByType || {};
+  const B2B_C = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer'];
+  const B2C_C = ['B2C', 'Outlet'];
+  let brutReel, avoirs, brutBudget, segLabel;
+  if (seg === 'b2b') {
+    brutReel   = B2B_C.reduce((s, k) => s + (brutByType[k] || 0), 0);
+    avoirs     = B2B_C.reduce((s, k) => s + (avo[k] || 0), 0);
+    brutBudget = (getBudgetForCurrentPeriod(budgetB2B2026) || 0) * 1000;
+    segLabel = ' B2B';
+  } else if (seg === 'b2c') {
+    brutReel   = B2C_C.reduce((s, k) => s + (brutByType[k] || 0), 0);
+    avoirs     = B2C_C.reduce((s, k) => s + (avo[k] || 0), 0);
+    brutBudget = (getBudgetForCurrentPeriod(budgetB2C2026) || 0) * 1000;
+    segLabel = ' B2C';
+  } else {
+    brutReel   = lastCaData._totalCABrut || 0;
+    avoirs     = lastCaData._totalAvoirs || 0;
+    brutBudget = (getBudgetForCurrentPeriod(budget2026) || 0) * 1000;
+    segLabel = '';
+  }
+  const sub = document.getElementById('histoBrutSubtitle');
+  if (sub) sub.textContent = `Vue d'ensemble de la période${segLabel} — les autres vues sont en CA net (après avoirs)`;
   const ctx = el.getContext('2d');
   if (histoBrutInstance) histoBrutInstance.destroy();
   histoBrutInstance = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: ['CA brut réel', 'CA brut reforecast', 'Avoirs'],
+      labels: [`CA brut réel${segLabel}`, `CA brut reforecast${segLabel}`, `Avoirs${segLabel}`],
       datasets: [{
         data: [brutReel, brutBudget, avoirs],
         backgroundColor: ['#1D9E75', '#74A1D6', '#D85A30'],
