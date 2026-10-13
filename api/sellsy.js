@@ -101,7 +101,10 @@ export default async function handler(req, res) {
   }
   const cacheKey = `sellsy:${CACHE_VERSION}:${mode}:${dateStart}:${dateEnd}`;
   const ttl = getCacheTTL(dateStart, dateEnd);
-  if (ttl > 0 && kvUrl && kvToken && !noCache) {
+  // Les périodes multi-mois (trimestre, YTD…) ne sont JAMAIS servies depuis un agrégat figé :
+  // elles sont toujours reconstruites à partir des caches mensuels (donc toujours à jour).
+  const isMultiMonth = dateStart.slice(0, 7) !== dateEnd.slice(0, 7);
+  if (ttl > 0 && kvUrl && kvToken && !noCache && !isMultiMonth) {
     const cached = await cacheGet(cacheKey);
     // On ignore un cache vide (faux "0" d'un incident passé) : il sera recalculé.
     if (cached && (cached.pagination?.total || 0) > 0) {
@@ -153,7 +156,8 @@ export default async function handler(req, res) {
       }
       if (allFoundInCache && cachedMonths.length > 0 && cachedMonths.length === months.length) {
         const aggregated = aggregateParts(cachedMonths);
-        if (ttl > 0 && aggregated._totalCA > 0) await cacheSet(cacheKey, aggregated, ttl);
+        // On NE met PAS en cache l'agrégat multi-mois : il est reconstruit à la volée depuis
+        // les caches mensuels (toujours à jour, évite un agrégat figé/obsolète).
         return res.status(200).json({ ...aggregated, _fromCache: true, _aggregatedFromMonths: cachedMonths.length });
       }
     }
