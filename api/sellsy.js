@@ -121,6 +121,7 @@ export default async function handler(req, res) {
           _count: 0,
           _countAvoirs: 0,
           _caByType: {},
+          _avoirsByType: {},
           _caB2BGeo: { France: 0, DomTom: 0 },
           _top30B2B: {},
           _enseigneDetail: [],
@@ -146,6 +147,9 @@ export default async function handler(req, res) {
           for (const [type, amount] of Object.entries(m._caByType || {})) {
             aggregated._caByType[type] = (aggregated._caByType[type] || 0) + amount;
           }
+          for (const [type, amount] of Object.entries(m._avoirsByType || {})) {
+            aggregated._avoirsByType[type] = (aggregated._avoirsByType[type] || 0) + amount;
+          }
           for (const client of (m._top30B2B || [])) {
             if (!b2bByClient[client.name]) b2bByClient[client.name] = { ca: 0, nbFactures: 0 };
             b2bByClient[client.name].ca += client.ca;
@@ -159,6 +163,9 @@ export default async function handler(req, res) {
         }
         for (const key of Object.keys(aggregated._caByType)) {
           aggregated._caByType[key] = Math.round(aggregated._caByType[key] * 100) / 100;
+        }
+        for (const key of Object.keys(aggregated._avoirsByType)) {
+          aggregated._avoirsByType[key] = Math.round(aggregated._avoirsByType[key] * 100) / 100;
         }
         aggregated._top30B2B = Object.entries(b2bByClient)
           .map(([name, data]) => ({ name, ca: Math.round(data.ca * 100) / 100, nbFactures: data.nbFactures }))
@@ -248,19 +255,23 @@ export default async function handler(req, res) {
       if (ttl > 0 && kvUrl) await cacheSet(cacheKey, listData, ttl);
       return res.status(200).json(listData);
     }
-    const fetchPage = async (offset, retries = 3) => {
+    const fetchPage = async (offset, retries = 4) => {
       for (let attempt = 0; attempt < retries; attempt++) {
-        const resp = await fetch(
-          `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit&field[]=rate_category_id&field[]=company_name&field[]=related&field[]=subject`,
-          {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
-            body
-          }
-        );
-        if (resp.status === 429) { await sleep(1000 * (attempt + 1)); continue; }
-        if (!resp.ok) return { data: [] };
-        return await resp.json();
+        try {
+          const resp = await fetch(
+            `https://api.sellsy.com/v2/invoices/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=id&field[]=is_deposit&field[]=rate_category_id&field[]=company_name&field[]=related&field[]=subject`,
+            {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
+              body
+            }
+          );
+          if (resp.status === 429) { await sleep(1000 * (attempt + 1)); continue; }
+          // On réessaie aussi sur les autres erreurs (au lieu d'abandonner et de renvoyer vide,
+          // ce qui produisait un faux "0" transitoire).
+          if (!resp.ok) { await sleep(500 * (attempt + 1)); continue; }
+          return await resp.json();
+        } catch { await sleep(500 * (attempt + 1)); continue; }
       }
       return { data: [] };
     };
@@ -431,6 +442,14 @@ export default async function handler(req, res) {
       acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
     const totalAvoirsB2B = creditsB2B.reduce((acc, c) =>
       acc + parseFloat((c.amounts && c.amounts.total_excl_tax) || 0), 0);
+    // Avoirs par catégorie (même logique de classification que les factures)
+    const avoirsByType = {};
+    for (const c of allCredits) {
+      const type = classifyClient(c);
+      const amount = parseFloat((c.amounts && c.amounts.total_excl_tax) || 0);
+      avoirsByType[type] = (avoirsByType[type] || 0) + amount;
+    }
+    for (const k of Object.keys(avoirsByType)) avoirsByType[k] = Math.round(avoirsByType[k] * 100) / 100;
     const result = {
       _totalCA: Math.round(totalCA * 100) / 100,
       _totalCABrut: Math.round(totalCA * 100) / 100,
@@ -451,6 +470,7 @@ export default async function handler(req, res) {
       _count: allInvoices.length,
       _countAvoirs: allCredits.length,
       _caByType: caByType,
+      _avoirsByType: avoirsByType,
       _top30B2B: top30B2B,
       _top30B2C: top30B2C,
       _enseigneDetail: enseigneDetail,
