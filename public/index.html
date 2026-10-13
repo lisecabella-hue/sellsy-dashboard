@@ -2533,7 +2533,8 @@ function openBudgetModalWithFin() {
       ${TYPE_CLIENT_BUDGET_CATS.map(cat => `<input type="number" id="budgetAvoirsTC_${cat}_${i}" value="${(budgetAvoirsTypeClient[cat] || [])[i] || 0}" placeholder="0" style="padding:6px 8px;border:1px solid #f6d3c6;border-radius:6px;font-size:13px;text-align:center;" />`).join('')}
     </div>`
   ).join('');
-  avB2BSection.innerHTML = `<p style="font-size:13px;font-weight:600;color:#D85A30;margin-bottom:12px;">↩️ Budget AVOIRS par type de client B2B (k€)</p>
+  avB2BSection.innerHTML = `<p style="font-size:13px;font-weight:600;color:#D85A30;margin-bottom:4px;">↩️ Budget AVOIRS par type de client B2B (k€)</p>
+    <p style="font-size:11px;color:#888;margin-bottom:12px;">Pharmacie = France + Belgique &amp; Luxembourg</p>
     <div style="display:grid;grid-template-columns:80px ${TYPE_CLIENT_BUDGET_CATS.map(() => '1fr').join(' ')};gap:8px;align-items:center;border-bottom:1px solid #e5e5e5;padding-bottom:8px;margin-bottom:4px;">
       <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>${avB2BCols}
     </div>${avB2BInputs}`;
