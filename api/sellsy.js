@@ -10,6 +10,9 @@ export default async function handler(req, res) {
   const kvToken = process.env.KV_REST_API_TOKEN;
   const { dateStart, dateEnd, mode } = req.query;
   if (!dateStart || !dateEnd) return res.status(400).json({ error: 'dateStart and dateEnd required' });
+  // ?nocache=1 (ou refresh=1) : ignore la lecture du cache et force un recalcul frais,
+  // qui réécrit ensuite le cache (pratique pour débloquer une valeur figée à tort).
+  const noCache = req.query.nocache === '1' || req.query.refresh === '1';
   const CACHE_VERSION = 'v12';
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const pad = n => String(n).padStart(2, '0');
@@ -98,14 +101,14 @@ export default async function handler(req, res) {
   }
   const cacheKey = `sellsy:${CACHE_VERSION}:${mode}:${dateStart}:${dateEnd}`;
   const ttl = getCacheTTL(dateStart, dateEnd);
-  if (ttl > 0 && kvUrl && kvToken) {
+  if (ttl > 0 && kvUrl && kvToken && !noCache) {
     const cached = await cacheGet(cacheKey);
     // On ignore un cache vide (faux "0" d'un incident passé) : il sera recalculé.
     if (cached && (cached.pagination?.total || 0) > 0) {
       return res.status(200).json({ ...cached, _fromCache: true });
     }
   }
-  if (mode === 'total' && kvUrl && kvToken) {
+  if (mode === 'total' && kvUrl && kvToken && !noCache) {
     const start = new Date(dateStart);
     const end = new Date(dateEnd);
     const startDay = start.getUTCDate();
@@ -231,6 +234,36 @@ export default async function handler(req, res) {
       const listData = await listResp.json();
       if (ttl > 0 && kvUrl) await cacheSet(cacheKey, listData, ttl);
       return res.status(200).json(listData);
+    }
+    // Avoirs D'ABORD : ils sont peu nombreux (souvent 1 page). En les récupérant AVANT la
+    // pagination des factures, ils ne se font plus brider par le rate limit Sellsy.
+    const creditBody = JSON.stringify({
+      filters: { date: { start: dateStart, end: dateEnd } }
+    });
+    let creditsFailed = false;
+    const fetchCreditPage = async (offset) => {
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const resp = await fetch(
+          `https://api.sellsy.com/v2/credit-notes/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=rate_category_id&field[]=company_name&field[]=related`,
+          { method: 'POST', headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' }, body: creditBody }
+        );
+        if (resp.status === 429) { await sleep(1000 * (attempt + 1)); continue; }
+        if (!resp.ok) { await sleep(400 * (attempt + 1)); continue; }
+        return await resp.json();
+      }
+      creditsFailed = true;
+      return { data: [] };
+    };
+    const firstCreditPage = await fetchCreditPage(0);
+    const totalCredits = firstCreditPage.pagination?.total || 0;
+    let allCredits = [...(firstCreditPage.data || [])];
+    if (totalCredits > 100) {
+      const totalCreditPages = Math.ceil(totalCredits / 100);
+      for (let p = 1; p < totalCreditPages; p++) {
+        const page = await fetchCreditPage(p * 100);
+        allCredits = allCredits.concat(page.data || []);
+        await sleep(300);
+      }
     }
     const fetchPage = async (offset, retries = 4) => {
       for (let attempt = 0; attempt < retries; attempt++) {
@@ -381,40 +414,6 @@ export default async function handler(req, res) {
       .map(([name, data]) => ({ name, ca: Math.round(data.ca * 100) / 100, nbFactures: data.nbFactures }))
       .sort((a, b) => b.ca - a.ca)
       .slice(0, 30);
-    const creditBody = JSON.stringify({
-      filters: { date: { start: dateStart, end: dateEnd } }
-    });
-    // Si la récupération des avoirs échoue (saturation Sellsy / 429), on le signale pour
-    // NE PAS mettre en cache un faux "0 avoir" (qui resterait figé ensuite).
-    let creditsFailed = false;
-    const fetchCreditPage = async (offset) => {
-      for (let attempt = 0; attempt < 4; attempt++) {
-        const resp = await fetch(
-          `https://api.sellsy.com/v2/credit-notes/search?limit=100&offset=${offset}&field[]=amounts.total_excl_tax&field[]=rate_category_id&field[]=company_name&field[]=related`,
-          {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${access_token}`, 'Content-Type': 'application/json' },
-            body: creditBody
-          }
-        );
-        if (resp.status === 429) { await sleep(1000 * (attempt + 1)); continue; }
-        if (!resp.ok) { await sleep(400 * (attempt + 1)); continue; }
-        return await resp.json();
-      }
-      creditsFailed = true; // échec après toutes les tentatives
-      return { data: [] };
-    };
-    const firstCreditPage = await fetchCreditPage(0);
-    const totalCredits = firstCreditPage.pagination?.total || 0;
-    let allCredits = [...(firstCreditPage.data || [])];
-    if (totalCredits > 100) {
-      const totalCreditPages = Math.ceil(totalCredits / 100);
-      for (let p = 1; p < totalCreditPages; p++) {
-        const page = await fetchCreditPage(p * 100);
-        allCredits = allCredits.concat(page.data || []);
-        await sleep(300);
-      }
-    }
     const creditsB2C = allCredits.filter(c => B2C_TYPES.includes(classifyClient(c)));
     const creditsB2B = allCredits.filter(c => B2B_TYPES.includes(classifyClient(c)));
     const totalAvoirsCA = allCredits.reduce((acc, c) =>
