@@ -98,7 +98,7 @@ export default async function handler(req, res) {
     const prevDateEnd = dateEnd.replace(String(currentYear), String(prevYear));
 
     // v16 : classification alignée sur sellsy.js (E-retailer/DOM-TOM/Capucins) + exclusion des acomptes
-    const cacheKey = `sellsy:pharmacy-breakdown:v17:${dateStart}:${dateEnd}`;
+    const cacheKey = `sellsy:pharmacy-breakdown:v18:${dateStart}:${dateEnd}`;
     const ttl = getCacheTTL(dateStart, dateEnd);
     const cached = await cacheGet(cacheKey);
     // On ignore un cache vide (0 facture pharmacie = faux "0" d'un incident passé) : il sera recalculé.
@@ -130,7 +130,7 @@ export default async function handler(req, res) {
         const lastDay = new Date(year, month + 1, 0).getDate();
         const mStart = `${year}-${pad(month + 1)}-01`;
         const mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
-        let monthData = await cacheGet(`sellsy:pharmacy-breakdown:v17:${mStart}:${mEnd}`);
+        let monthData = await cacheGet(`sellsy:pharmacy-breakdown:v18:${mStart}:${mEnd}`);
         // Un mois en cache mais vide (faux "0") est traité comme manquant.
         if (monthData && !((monthData.N?.totalPharmacyInvoices || 0) > 0)) monthData = null;
         // Un mois manquant dans un cumul MULTI-mois est recalculé SEUL (appel au même endpoint
@@ -254,17 +254,19 @@ export default async function handler(req, res) {
           // ✅ Même logique de classification que sellsy.js
           if (!isPharmacy(inv, companyTypeMap)) continue;
 
-          totalPharmacyInvoices++;
           const cat = categorize(inv.subject);
           const amount = parseFloat(inv.amounts?.total_excl_tax || 0);
-          totals[cat] += amount;
-          counts[cat]++;
-
-          const relatedId = inv.related?.[0]?.id;
-          if (relatedId) {
-            pharmacyIds.add(String(relatedId));
-            if (cat === 'Réassort') reassortPharmacyIds.add(String(relatedId));
-            if (cat === 'Implantation') implantationPharmacyIds.add(String(relatedId));
+          totals[cat] += amount; // CA inchangé (toutes les factures)
+          // Nombre de factures & panier moyen : uniquement les factures à CA > 0
+          if (amount > 0) {
+            totalPharmacyInvoices++;
+            counts[cat]++;
+            const relatedId = inv.related?.[0]?.id;
+            if (relatedId) {
+              pharmacyIds.add(String(relatedId));
+              if (cat === 'Réassort') reassortPharmacyIds.add(String(relatedId));
+              if (cat === 'Implantation') implantationPharmacyIds.add(String(relatedId));
+            }
           }
         }
 
