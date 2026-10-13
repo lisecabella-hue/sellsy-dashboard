@@ -281,6 +281,7 @@
           <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:4px;">Avoirs déduits</p>
           <p style="font-size:26px;font-weight:500;line-height:1;color:#D85A30;" id="mAvoirsMontant">—</p>
           <p style="font-size:10px;color:#aaa;margin-top:3px;" id="mAvoirsTaux"></p>
+          <p style="font-size:10px;margin-top:4px;line-height:1.35;" id="mAvoirsVsBudget"></p>
         </div>
       </div>
     </div>
@@ -998,6 +999,25 @@ function applySegment(caData) {
   setTxt('mCANetB2C', fmt(caNetB2C));
   setTxt('mAvoirsMontant', avoirsTotal > 0 ? '− ' + fmt(avoirsTotal) : fmt(0));
   setTxt('mAvoirsTaux', tauxAvoirs > 0 ? `${tauxAvoirs.toLocaleString('fr-FR')}% du CA brut` : '');
+  // Avoirs réels vs avoirs prévus au budget (saisis dans le panneau Budget, en k€)
+  const vsBudgetEl = document.getElementById('mAvoirsVsBudget');
+  if (vsBudgetEl) {
+    const budgetAvoirsEuros = (getBudgetForCurrentPeriod(budgetAvoirs2026) || 0) * 1000;
+    if (budgetAvoirsEuros > 0) {
+      const pr = getProratioForPeriod(false); // jours calendaires ; null si période non proratisable
+      const prorated = (pr !== null && pr >= 0 && pr < 0.999);
+      const expected = prorated ? budgetAvoirsEuros * pr : budgetAvoirsEuros;
+      const ecart = avoirsTotal - expected;         // >0 = plus d'avoirs que prévu (défavorable)
+      const color = ecart > 0 ? '#D85A30' : '#1D9E75';
+      const sign  = ecart >= 0 ? '+' : '−';
+      vsBudgetEl.innerHTML =
+        `<span style="color:#aaa;">Budget avoirs : ${fmt(budgetAvoirsEuros)}</span>` +
+        (prorated ? `<br><span style="color:#aaa;">Attendu à ce jour : ${fmt(expected)}</span>` : '') +
+        `<br><span style="color:${color};font-weight:600;">Écart : ${sign} ${fmt(Math.abs(ecart))}</span>`;
+    } else {
+      vsBudgetEl.innerHTML = '';
+    }
+  }
   document.getElementById('mCAB2B').textContent = fmt(caB2BFromTypes);
   document.getElementById('mCAB2C').textContent = fmt(caB2CSiteOutlet);
   document.getElementById('mAvgB2C').textContent = fmt(panierB2C);
@@ -1081,9 +1101,11 @@ const monthsShort = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oc
 const DEFAULT_BUDGET     = [1617, 1151, 3439, 1267, 1722, 2085, 1498, 814, 1319, 2401, 1461, 1483];
 const DEFAULT_BUDGET_B2C = [0,0,0,0,0,0,0,0,0,0,0,0];
 const DEFAULT_BUDGET_B2B = [0,0,0,0,0,0,0,0,0,0,0,0];
+const DEFAULT_BUDGET_AVOIRS = [0,0,0,0,0,0,0,0,0,0,0,0];
 let budget2026    = [...DEFAULT_BUDGET];
 let budgetB2C2026 = [...DEFAULT_BUDGET_B2C];
 let budgetB2B2026 = [...DEFAULT_BUDGET_B2B];
+let budgetAvoirs2026 = [...DEFAULT_BUDGET_AVOIRS];
 function loadBudgetLocal() {
   try {
     const saved = localStorage.getItem('budget2026');
@@ -1092,6 +1114,8 @@ function loadBudgetLocal() {
     if (savedB2C) budgetB2C2026 = JSON.parse(savedB2C);
     const savedB2B = localStorage.getItem('budgetB2B2026');
     if (savedB2B) budgetB2B2026 = JSON.parse(savedB2B);
+    const savedAvoirs = localStorage.getItem('budgetAvoirs2026');
+    if (savedAvoirs) budgetAvoirs2026 = JSON.parse(savedAvoirs);
   } catch {}
 }
 loadBudgetLocal();
@@ -1159,18 +1183,20 @@ function updateBanners(monthIndex) {
 function openBudgetModal() {
   const grid = document.getElementById('budgetGrid');
   grid.innerHTML = `
-    <div style="grid-column:1/-1; display:grid; grid-template-columns: 80px 1fr 1fr 1fr; gap:8px; align-items:center; border-bottom:1px solid #e5e5e5; padding-bottom:8px; margin-bottom:4px;">
+    <div style="grid-column:1/-1; display:grid; grid-template-columns: 70px 1fr 1fr 1fr 1fr; gap:8px; align-items:center; border-bottom:1px solid #e5e5e5; padding-bottom:8px; margin-bottom:4px;">
       <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>
       <span style="font-size:11px;color:#888;font-weight:600;text-align:center;">Total (k€)</span>
       <span style="font-size:11px;color:#74A1D6;font-weight:600;text-align:center;">B2C (k€)</span>
       <span style="font-size:11px;color:#1D9E75;font-weight:600;text-align:center;">B2B (k€)</span>
+      <span style="font-size:11px;color:#D85A30;font-weight:600;text-align:center;">Avoirs (k€)</span>
     </div>
     ${months.map((m, i) => `
-    <div style="grid-column:1/-1; display:grid; grid-template-columns: 80px 1fr 1fr 1fr; gap:8px; align-items:center;">
+    <div style="grid-column:1/-1; display:grid; grid-template-columns: 70px 1fr 1fr 1fr 1fr; gap:8px; align-items:center;">
       <span style="font-size:12px;color:#444;">${m}</span>
       <input type="number" id="budget_${i}" value="${budget2026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center;" />
       <input type="number" id="budgetB2C_${i}" value="${budgetB2C2026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #c5d9ef;border-radius:6px;font-size:13px;text-align:center;" />
       <input type="number" id="budgetB2B_${i}" value="${budgetB2B2026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #a8dcc8;border-radius:6px;font-size:13px;text-align:center;" />
+      <input type="number" id="budgetAvoirs_${i}" value="${budgetAvoirs2026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #f6d3c6;border-radius:6px;font-size:13px;text-align:center;" />
     </div>`).join('')}`;
   document.getElementById('budgetModal').classList.add('open');
   document.getElementById('saveMsg').style.display = 'none';
@@ -1180,9 +1206,11 @@ function saveBudget() {
   budget2026    = months.map((_, i) => parseFloat(document.getElementById(`budget_${i}`).value) || 0);
   budgetB2C2026 = months.map((_, i) => parseFloat(document.getElementById(`budgetB2C_${i}`).value) || 0);
   budgetB2B2026 = months.map((_, i) => parseFloat(document.getElementById(`budgetB2B_${i}`).value) || 0);
+  budgetAvoirs2026 = months.map((_, i) => parseFloat(document.getElementById(`budgetAvoirs_${i}`).value) || 0);
   localStorage.setItem('budget2026',    JSON.stringify(budget2026));
   localStorage.setItem('budgetB2C2026', JSON.stringify(budgetB2C2026));
   localStorage.setItem('budgetB2B2026', JSON.stringify(budgetB2B2026));
+  localStorage.setItem('budgetAvoirs2026', JSON.stringify(budgetAvoirs2026));
   document.getElementById('saveMsg').style.display = 'block';
   setTimeout(() => {
     closeBudgetModal();
@@ -2635,6 +2663,7 @@ async function loadBudgetsFromServer() {
     if (data.budget2026)        { budget2026 = data.budget2026;               localStorage.setItem('budget2026', JSON.stringify(budget2026)); }
     if (data.budgetB2C2026)     { budgetB2C2026 = data.budgetB2C2026;         localStorage.setItem('budgetB2C2026', JSON.stringify(budgetB2C2026)); }
     if (data.budgetB2B2026)     { budgetB2B2026 = data.budgetB2B2026;         localStorage.setItem('budgetB2B2026', JSON.stringify(budgetB2B2026)); }
+    if (data.budgetAvoirs2026)  { budgetAvoirs2026 = data.budgetAvoirs2026;   localStorage.setItem('budgetAvoirs2026', JSON.stringify(budgetAvoirs2026)); }
     if (data.budgetCM12026)     { budgetCM12026 = data.budgetCM12026;         localStorage.setItem('budgetCM12026', JSON.stringify(budgetCM12026)); }
     if (data.budgetCM22026)     { budgetCM22026 = data.budgetCM22026;         localStorage.setItem('budgetCM22026', JSON.stringify(budgetCM22026)); }
     if (data.budgetEBITDA2026)  { budgetEBITDA2026 = data.budgetEBITDA2026;   localStorage.setItem('budgetEBITDA2026', JSON.stringify(budgetEBITDA2026)); }
@@ -2655,7 +2684,7 @@ function saveBudgetsToServer() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      budget2026, budgetB2C2026, budgetB2B2026,
+      budget2026, budgetB2C2026, budgetB2B2026, budgetAvoirs2026,
       budgetCM12026, budgetCM22026, budgetEBITDA2026,
       budgetPharmacy, budgetTypeClient, budgetTypeClient2
     })
