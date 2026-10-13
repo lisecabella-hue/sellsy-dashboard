@@ -1183,20 +1183,18 @@ function updateBanners(monthIndex) {
 function openBudgetModal() {
   const grid = document.getElementById('budgetGrid');
   grid.innerHTML = `
-    <div style="grid-column:1/-1; display:grid; grid-template-columns: 70px 1fr 1fr 1fr 1fr; gap:8px; align-items:center; border-bottom:1px solid #e5e5e5; padding-bottom:8px; margin-bottom:4px;">
+    <div style="grid-column:1/-1; display:grid; grid-template-columns: 80px 1fr 1fr 1fr; gap:8px; align-items:center; border-bottom:1px solid #e5e5e5; padding-bottom:8px; margin-bottom:4px;">
       <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>
       <span style="font-size:11px;color:#888;font-weight:600;text-align:center;">Total (k€)</span>
       <span style="font-size:11px;color:#74A1D6;font-weight:600;text-align:center;">B2C (k€)</span>
       <span style="font-size:11px;color:#1D9E75;font-weight:600;text-align:center;">B2B (k€)</span>
-      <span style="font-size:11px;color:#D85A30;font-weight:600;text-align:center;">Avoirs (k€)</span>
     </div>
     ${months.map((m, i) => `
-    <div style="grid-column:1/-1; display:grid; grid-template-columns: 70px 1fr 1fr 1fr 1fr; gap:8px; align-items:center;">
+    <div style="grid-column:1/-1; display:grid; grid-template-columns: 80px 1fr 1fr 1fr; gap:8px; align-items:center;">
       <span style="font-size:12px;color:#444;">${m}</span>
       <input type="number" id="budget_${i}" value="${budget2026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;text-align:center;" />
       <input type="number" id="budgetB2C_${i}" value="${budgetB2C2026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #c5d9ef;border-radius:6px;font-size:13px;text-align:center;" />
       <input type="number" id="budgetB2B_${i}" value="${budgetB2B2026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #a8dcc8;border-radius:6px;font-size:13px;text-align:center;" />
-      <input type="number" id="budgetAvoirs_${i}" value="${budgetAvoirs2026[i]}" placeholder="0" style="padding:6px 8px;border:1px solid #f6d3c6;border-radius:6px;font-size:13px;text-align:center;" />
     </div>`).join('')}`;
   document.getElementById('budgetModal').classList.add('open');
   document.getElementById('saveMsg').style.display = 'none';
@@ -1206,11 +1204,9 @@ function saveBudget() {
   budget2026    = months.map((_, i) => parseFloat(document.getElementById(`budget_${i}`).value) || 0);
   budgetB2C2026 = months.map((_, i) => parseFloat(document.getElementById(`budgetB2C_${i}`).value) || 0);
   budgetB2B2026 = months.map((_, i) => parseFloat(document.getElementById(`budgetB2B_${i}`).value) || 0);
-  budgetAvoirs2026 = months.map((_, i) => parseFloat(document.getElementById(`budgetAvoirs_${i}`).value) || 0);
   localStorage.setItem('budget2026',    JSON.stringify(budget2026));
   localStorage.setItem('budgetB2C2026', JSON.stringify(budgetB2C2026));
   localStorage.setItem('budgetB2B2026', JSON.stringify(budgetB2B2026));
-  localStorage.setItem('budgetAvoirs2026', JSON.stringify(budgetAvoirs2026));
   document.getElementById('saveMsg').style.display = 'block';
   setTimeout(() => {
     closeBudgetModal();
@@ -1852,6 +1848,39 @@ function saveTypeClientBudget() {
   localStorage.setItem('budgetTypeClient', JSON.stringify(budgetTypeClient));
   localStorage.setItem('budgetTypeClient2', JSON.stringify(budgetTypeClient2));
 }
+// Budget d'AVOIRS par catégorie (même structure que le budget CA par catégorie)
+let budgetAvoirsTypeClient = {};
+TYPE_CLIENT_BUDGET_CATS.forEach(cat => { budgetAvoirsTypeClient[cat] = Array(12).fill(0); });
+let budgetAvoirsTypeClient2 = {};
+TYPE_CLIENT_BUDGET_CATS2.forEach(cat => { budgetAvoirsTypeClient2[cat] = Array(12).fill(0); });
+function loadAvoirsTypeClientBudget() {
+  try {
+    const s = localStorage.getItem('budgetAvoirsTypeClient'); if (s) budgetAvoirsTypeClient = JSON.parse(s);
+    const s2 = localStorage.getItem('budgetAvoirsTypeClient2'); if (s2) budgetAvoirsTypeClient2 = JSON.parse(s2);
+  } catch {}
+}
+loadAvoirsTypeClientBudget();
+// Total mensuel du budget d'avoirs = somme de toutes les catégories (alimente la carte CA net)
+function recomputeTotalAvoirsBudget() {
+  const totals = Array(12).fill(0);
+  for (const cat of TYPE_CLIENT_BUDGET_CATS)  { const a = budgetAvoirsTypeClient[cat]  || []; for (let m=0;m<12;m++) totals[m] += (a[m] || 0); }
+  for (const cat of TYPE_CLIENT_BUDGET_CATS2) { const a = budgetAvoirsTypeClient2[cat] || []; for (let m=0;m<12;m++) totals[m] += (a[m] || 0); }
+  budgetAvoirs2026 = totals;
+  try { localStorage.setItem('budgetAvoirs2026', JSON.stringify(budgetAvoirs2026)); } catch {}
+}
+recomputeTotalAvoirsBudget();
+function saveAvoirsTypeClientBudget() {
+  localStorage.setItem('budgetAvoirsTypeClient', JSON.stringify(budgetAvoirsTypeClient));
+  localStorage.setItem('budgetAvoirsTypeClient2', JSON.stringify(budgetAvoirsTypeClient2));
+  recomputeTotalAvoirsBudget();
+}
+// Budget d'avoirs (k€) d'une catégorie (clé DATA, ex 'B2C') pour la période courante
+function getAvoirsBudgetForPeriod(cat) {
+  const budgetCat = cat === 'B2C' ? 'Site' : cat;
+  const map = TYPE_CLIENT_BUDGET_CATS2.includes(budgetCat) ? budgetAvoirsTypeClient2 : budgetAvoirsTypeClient;
+  const arr = map[budgetCat] || Array(12).fill(0);
+  return getBudgetForCurrentPeriod(arr) || 0; // en k€
+}
 function getTypeClientBudgetForPeriod(cat) {
   const budgetCat = cat === 'B2C' ? 'Site' : cat;
   const map = TYPE_CLIENT_BUDGET_CATS2.includes(budgetCat) ? budgetTypeClient2 : budgetTypeClient;
@@ -2020,6 +2049,8 @@ function renderCANetByCategory(caByType) {
   if (cats.length === 0) { body.innerHTML = '<span style="color:#aaa;font-size:13px;">En attente de données...</span>'; return; }
   cats.sort((a, b) => (caByType[b] || 0) - (caByType[a] || 0));
   const maxBrut = Math.max(...cats.map(c => caByType[c] || 0), 1);
+  const pr = getProratioForPeriod(false); // prorata calendaire ; null si période non proratisable
+  const prorated = (pr !== null && pr >= 0 && pr < 0.999);
   body.innerHTML = cats.map(cat => {
     const brut = caByType[cat] || 0;
     const avoir = avoirs[cat] || 0;
@@ -2027,6 +2058,19 @@ function renderCANetByCategory(caByType) {
     const color = TYPE_CLIENT_COLORS[cat] || '#aaa';
     const brutPct = Math.round((brut / maxBrut) * 100);
     const netPct = Math.round((Math.max(net, 0) / maxBrut) * 100);
+    // Avoirs réels vs budget d'avoirs de la catégorie
+    const avoirBudget = (getAvoirsBudgetForPeriod(cat) || 0) * 1000; // €
+    let avoirLine = '';
+    if (avoirBudget > 0 || avoir > 0) {
+      const expected = prorated ? avoirBudget * pr : avoirBudget;
+      const ecart = avoir - expected;              // >0 = plus d'avoirs que prévu (défavorable)
+      const ecartColor = ecart > 0 ? '#D85A30' : '#1D9E75';
+      const sign = ecart >= 0 ? '+' : '−';
+      avoirLine = `<div style="font-size:11px;color:#999;margin-top:3px;">`
+        + `Avoirs : réel <strong style="color:#D85A30;">−${fmt(avoir)}</strong>`
+        + (avoirBudget > 0 ? ` · budget ${prorated ? 'attendu ' : ''}−${fmt(expected)} · <span style="color:${ecartColor};font-weight:600;">écart ${sign}${fmt(Math.abs(ecart))}</span>` : '')
+        + `</div>`;
+    }
     return `<div style="margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:5px;flex-wrap:wrap;">
         <span style="font-size:13px;font-weight:500;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${color};margin-right:6px;"></span>${displayLabel(cat)}</span>
@@ -2036,6 +2080,7 @@ function renderCANetByCategory(caByType) {
         <div style="position:absolute;top:0;left:0;height:100%;width:${brutPct}%;background:${color};opacity:0.3;border-radius:5px;"></div>
         <div style="position:absolute;top:0;left:0;height:100%;width:${netPct}%;background:${color};border-radius:5px;"></div>
       </div>
+      ${avoirLine}
     </div>`;
   }).join('');
 }
@@ -2478,6 +2523,36 @@ function openBudgetModalWithFin() {
       <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>${tc2Cols}
     </div>${tc2Inputs}`;
   grid.appendChild(tc2Section);
+  // Budget d'AVOIRS par catégorie — B2B
+  const avB2BSection = document.createElement('div');
+  avB2BSection.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
+  const avB2BCols = TYPE_CLIENT_BUDGET_CATS.map(c => `<span style="font-size:11px;color:${TYPE_CLIENT_COLORS[c]};font-weight:600;text-align:center;">${displayLabel(c)} (k€)</span>`).join('');
+  const avB2BInputs = months.map((m, i) =>
+    `<div style="display:grid;grid-template-columns:80px ${TYPE_CLIENT_BUDGET_CATS.map(() => '1fr').join(' ')};gap:8px;align-items:center;margin-bottom:4px;">
+      <span style="font-size:12px;color:#444;">${m}</span>
+      ${TYPE_CLIENT_BUDGET_CATS.map(cat => `<input type="number" id="budgetAvoirsTC_${cat}_${i}" value="${(budgetAvoirsTypeClient[cat] || [])[i] || 0}" placeholder="0" style="padding:6px 8px;border:1px solid #f6d3c6;border-radius:6px;font-size:13px;text-align:center;" />`).join('')}
+    </div>`
+  ).join('');
+  avB2BSection.innerHTML = `<p style="font-size:13px;font-weight:600;color:#D85A30;margin-bottom:12px;">↩️ Budget AVOIRS par type de client B2B (k€)</p>
+    <div style="display:grid;grid-template-columns:80px ${TYPE_CLIENT_BUDGET_CATS.map(() => '1fr').join(' ')};gap:8px;align-items:center;border-bottom:1px solid #e5e5e5;padding-bottom:8px;margin-bottom:4px;">
+      <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>${avB2BCols}
+    </div>${avB2BInputs}`;
+  grid.appendChild(avB2BSection);
+  // Budget d'AVOIRS par catégorie — Site / Outlet / Marketing / Autre
+  const avB2CSection = document.createElement('div');
+  avB2CSection.style.cssText = 'grid-column:1/-1;margin-top:16px;border-top:1px solid #e5e5e5;padding-top:16px;';
+  const avB2CCols = TYPE_CLIENT_BUDGET_CATS2.map(c => `<span style="font-size:11px;color:${TYPE_CLIENT_COLORS[c] || '#888'};font-weight:600;text-align:center;">${displayLabel(c)} (k€)</span>`).join('');
+  const avB2CInputs = months.map((m, i) =>
+    `<div style="display:grid;grid-template-columns:80px ${TYPE_CLIENT_BUDGET_CATS2.map(() => '1fr').join(' ')};gap:8px;align-items:center;margin-bottom:4px;">
+      <span style="font-size:12px;color:#444;">${m}</span>
+      ${TYPE_CLIENT_BUDGET_CATS2.map(cat => `<input type="number" id="budgetAvoirsTC2_${cat}_${i}" value="${(budgetAvoirsTypeClient2[cat] || [])[i] || 0}" placeholder="0" style="padding:6px 8px;border:1px solid #f6d3c6;border-radius:6px;font-size:13px;text-align:center;" />`).join('')}
+    </div>`
+  ).join('');
+  avB2CSection.innerHTML = `<p style="font-size:13px;font-weight:600;color:#D85A30;margin-bottom:12px;">↩️ Budget AVOIRS Site / Outlet / Marketing / Autre (k€)</p>
+    <div style="display:grid;grid-template-columns:80px ${TYPE_CLIENT_BUDGET_CATS2.map(() => '1fr').join(' ')};gap:8px;align-items:center;border-bottom:1px solid #e5e5e5;padding-bottom:8px;margin-bottom:4px;">
+      <span style="font-size:11px;color:#888;font-weight:600;">Mois</span>${avB2CCols}
+    </div>${avB2CInputs}`;
+  grid.appendChild(avB2CSection);
 }
 function saveBudgetWithFin() {
   saveBudget();
@@ -2498,6 +2573,14 @@ function saveBudgetWithFin() {
     budgetTypeClient2[cat] = months.map((_, i) => parseFloat(document.getElementById(`budgetTC2_${cat}_${i}`)?.value) || 0);
   });
   saveTypeClientBudget();
+  // Budget d'avoirs par catégorie
+  TYPE_CLIENT_BUDGET_CATS.forEach(cat => {
+    budgetAvoirsTypeClient[cat] = months.map((_, i) => parseFloat(document.getElementById(`budgetAvoirsTC_${cat}_${i}`)?.value) || 0);
+  });
+  TYPE_CLIENT_BUDGET_CATS2.forEach(cat => {
+    budgetAvoirsTypeClient2[cat] = months.map((_, i) => parseFloat(document.getElementById(`budgetAvoirsTC2_${cat}_${i}`)?.value) || 0);
+  });
+  saveAvoirsTypeClientBudget();
   // Centralise tous les budgets côté serveur pour que tout le monde voie les mêmes valeurs
   saveBudgetsToServer();
 }
@@ -2663,13 +2746,15 @@ async function loadBudgetsFromServer() {
     if (data.budget2026)        { budget2026 = data.budget2026;               localStorage.setItem('budget2026', JSON.stringify(budget2026)); }
     if (data.budgetB2C2026)     { budgetB2C2026 = data.budgetB2C2026;         localStorage.setItem('budgetB2C2026', JSON.stringify(budgetB2C2026)); }
     if (data.budgetB2B2026)     { budgetB2B2026 = data.budgetB2B2026;         localStorage.setItem('budgetB2B2026', JSON.stringify(budgetB2B2026)); }
-    if (data.budgetAvoirs2026)  { budgetAvoirs2026 = data.budgetAvoirs2026;   localStorage.setItem('budgetAvoirs2026', JSON.stringify(budgetAvoirs2026)); }
     if (data.budgetCM12026)     { budgetCM12026 = data.budgetCM12026;         localStorage.setItem('budgetCM12026', JSON.stringify(budgetCM12026)); }
     if (data.budgetCM22026)     { budgetCM22026 = data.budgetCM22026;         localStorage.setItem('budgetCM22026', JSON.stringify(budgetCM22026)); }
     if (data.budgetEBITDA2026)  { budgetEBITDA2026 = data.budgetEBITDA2026;   localStorage.setItem('budgetEBITDA2026', JSON.stringify(budgetEBITDA2026)); }
     if (data.budgetPharmacy)    { budgetPharmacy = data.budgetPharmacy;       localStorage.setItem('budgetPharmacy', JSON.stringify(budgetPharmacy)); }
     if (data.budgetTypeClient)  { budgetTypeClient = data.budgetTypeClient;   localStorage.setItem('budgetTypeClient', JSON.stringify(budgetTypeClient)); }
     if (data.budgetTypeClient2) { budgetTypeClient2 = data.budgetTypeClient2; localStorage.setItem('budgetTypeClient2', JSON.stringify(budgetTypeClient2)); }
+    if (data.budgetAvoirsTypeClient)  { budgetAvoirsTypeClient = data.budgetAvoirsTypeClient;   localStorage.setItem('budgetAvoirsTypeClient', JSON.stringify(budgetAvoirsTypeClient)); }
+    if (data.budgetAvoirsTypeClient2) { budgetAvoirsTypeClient2 = data.budgetAvoirsTypeClient2; localStorage.setItem('budgetAvoirsTypeClient2', JSON.stringify(budgetAvoirsTypeClient2)); }
+    recomputeTotalAvoirsBudget();
     // Re-render de tout ce qui dépend des budgets, si déjà affiché à l'écran
     if (lastCaData) applySegment(lastCaData);
     const dates = getDates();
@@ -2684,9 +2769,10 @@ function saveBudgetsToServer() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      budget2026, budgetB2C2026, budgetB2B2026, budgetAvoirs2026,
+      budget2026, budgetB2C2026, budgetB2B2026,
       budgetCM12026, budgetCM22026, budgetEBITDA2026,
-      budgetPharmacy, budgetTypeClient, budgetTypeClient2
+      budgetPharmacy, budgetTypeClient, budgetTypeClient2,
+      budgetAvoirsTypeClient, budgetAvoirsTypeClient2
     })
   }).catch(() => {});
 }
