@@ -1197,6 +1197,9 @@ function countWorkdays(start, end) {
   }
   return count;
 }
+// Jours ouvrés par trimestre (vacances incluses), index 0=T1 … 3=T4.
+// T3 : 3 semaines de congés en août ; T4 : congés en décembre.
+const QUARTER_WORKDAYS = { 0: 63, 1: 61, 2: 51, 3: 59 };
 // Calcule le prorata temps écoulé selon le mode courant
 // Pour month : se base sur le mois sélectionné vs aujourd'hui
 // Pour today/week : se base sur les jours écoulés du mois en cours
@@ -1254,7 +1257,8 @@ function getProratioForPeriod(useWorkdays) {
     if (todayMid < startDate) return null; // trimestre à venir
     const refEnd = todayMid > endDate ? endDate : todayMid; // borné au trimestre
     if (useWorkdays) {
-      const totalWD   = countWorkdays(startDate, endDate);
+      const q = Math.floor(startDate.getMonth() / 3);
+      const totalWD   = QUARTER_WORKDAYS[q] || countWorkdays(startDate, endDate); // jours ouvrés vacances incluses
       const elapsedWD = countWorkdays(startDate, refEnd);
       return totalWD > 0 ? Math.min(1, elapsedWD / totalWD) : null;
     } else {
@@ -1280,8 +1284,20 @@ function getBlendedProratio() {
   if (total <= 0) return b; // pas de budget → on retombe sur le calendaire
   return (budB2B * a + budB2C * b) / total;
 }
-// Calcule le budget proratisé pour la période courante
-function getBudgetForCurrentPeriod(budgetArr) {
+// Nb de jours ouvrés dans un mois (lun-ven hors fériés)
+function workdaysInMonth(year, month) {
+  return countWorkdays(new Date(year, month, 1), new Date(year, month + 1, 0));
+}
+// Un jour est-il ouvré (lun-ven hors jours fériés) ?
+function isWorkday(dt) {
+  const dow = dt.getDay();
+  const ds = `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  return dow !== 0 && dow !== 6 && !joursFeries(dt.getFullYear()).includes(ds);
+}
+// Calcule le budget proratisé pour la période courante.
+// useWorkdays=true → le budget du jour = budget mensuel ÷ jours OUVRÉS du mois (pour le B2B) ;
+// false → ÷ jours calendaires (B2C).
+function getBudgetForCurrentPeriod(budgetArr, useWorkdays = false) {
   const dates = getDates();
   if (!dates) return 0;
   const { dateStart, dateEnd } = dates;
@@ -1294,13 +1310,24 @@ function getBudgetForCurrentPeriod(budgetArr) {
   }
   if ((currentMode === 'today' || currentMode === 'yesterday') && startDate.getFullYear() === 2026) {
     const m = startDate.getMonth();
+    if (useWorkdays) {
+      if (!isWorkday(startDate)) return 0; // pas de cible un jour non ouvré
+      const wd = workdaysInMonth(2026, m);
+      return wd > 0 ? Math.round(budgetArr[m] / wd * 10) / 10 : 0;
+    }
     return Math.round(budgetArr[m] / new Date(2026, m+1, 0).getDate() * 10) / 10;
   }
   let t = 0;
   const days = Math.round((endDate - startDate) / 86400000) + 1;
   for (let d = 0; d < days; d++) {
     const day = new Date(startDate); day.setDate(startDate.getDate() + d);
-    if (day.getFullYear() === 2026) { const m = day.getMonth(); t += budgetArr[m] / new Date(2026, m+1, 0).getDate(); }
+    if (day.getFullYear() !== 2026) continue;
+    const m = day.getMonth();
+    if (useWorkdays) {
+      if (isWorkday(day)) { const wd = workdaysInMonth(2026, m); if (wd > 0) t += budgetArr[m] / wd; }
+    } else {
+      t += budgetArr[m] / new Date(2026, m+1, 0).getDate();
+    }
   }
   return Math.round(t * 10) / 10;
 }
@@ -1592,7 +1619,11 @@ async function renderQuarterPace(refDateStr) {
   // Jours restants après le jour affiché, jusqu'à la fin du trimestre
   const nextDay = new Date(ref); nextDay.setDate(ref.getDate() + 1);
   const remainingCal = Math.max(0, Math.round((qEnd - nextDay) / 86400000) + 1);      // calendaires (B2C)
-  const remainingWD  = nextDay > qEnd ? 0 : countWorkdays(nextDay, qEnd);              // ouvrés (B2B)
+  // Jours ouvrés restants (B2B) = total ouvrés du trimestre (vacances incluses) − déjà écoulés
+  const qStartDate = new Date(year, qStartMonth, 1, 12, 0, 0);
+  const totalQWD = QUARTER_WORKDAYS[q] || countWorkdays(qStartDate, qEnd);
+  const elapsedQWD = countWorkdays(qStartDate, ref);
+  const remainingWD = Math.max(0, totalQWD - elapsedQWD);                              // ouvrés (B2B)
   // Objectifs trimestre (€) par segment = somme des budgets catégorie sur les 3 mois
   const B2B_CATS = ['Pharmacie','Grand Compte','Monoprix','DomTom','Eretailer'];
   const B2C_CATS_Q = ['B2C','Outlet'];
@@ -1841,15 +1872,18 @@ function saveAvoirsTypeClientBudget() {
   recomputeTotalAvoirsBudget();
 }
 // Budget d'avoirs (k€) d'une catégorie (clé DATA, ex 'B2C') pour la période courante
-function getAvoirsBudgetForPeriod(cat) {
+function getAvoirsBudgetForPeriod(cat, useWorkdays = false) {
   const budgetCat = cat === 'B2C' ? 'Site' : cat;
   const map = TYPE_CLIENT_BUDGET_CATS2.includes(budgetCat) ? budgetAvoirsTypeClient2 : budgetAvoirsTypeClient;
   const arr = map[budgetCat] || Array(12).fill(0);
-  return getBudgetForCurrentPeriod(arr) || 0; // en k€
+  return getBudgetForCurrentPeriod(arr, useWorkdays) || 0; // en k€
 }
-// Budget NET d'une catégorie (k€) = budget CA brut − budget avoirs, pour la période courante
+// Budget NET d'une catégorie (k€) = budget CA brut − budget avoirs, pour la période courante.
+// Le budget du jour des catégories B2B est réparti sur les jours OUVRÉS (pas calendaires).
+const B2B_BUDGET_CATS = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer'];
 function getNetTypeClientBudgetForPeriod(cat) {
-  return getTypeClientBudgetForPeriod(cat) - getAvoirsBudgetForPeriod(cat);
+  const useWD = B2B_BUDGET_CATS.includes(cat);
+  return getTypeClientBudgetForPeriod(cat, useWD) - getAvoirsBudgetForPeriod(cat, useWD);
 }
 // Transforme les données Sellsy d'une période en NET (CA − avoirs) partout : total, par
 // catégorie, B2B/B2C et tops clients. Idempotent (flag _netApplied). On conserve le brut
@@ -1874,27 +1908,11 @@ function netifyCaData(d) {
   d._netApplied = true;
   return d;
 }
-function getTypeClientBudgetForPeriod(cat) {
+function getTypeClientBudgetForPeriod(cat, useWorkdays = false) {
   const budgetCat = cat === 'B2C' ? 'Site' : cat;
   const map = TYPE_CLIENT_BUDGET_CATS2.includes(budgetCat) ? budgetTypeClient2 : budgetTypeClient;
   const arr = map[budgetCat] || Array(12).fill(0);
-  const dates = getDates();
-  if (!dates) return 0;
-  const { dateStart, dateEnd } = dates;
-  const start = new Date(dateStart + 'T12:00:00');
-  const end = new Date(dateEnd + 'T12:00:00');
-  if (start.getFullYear() !== 2026 && end.getFullYear() !== 2026) return 0;
-  let total = 0;
-  if (currentMode === 'month' && start.getFullYear() === 2026) return arr[start.getMonth()];
-  if (currentMode === 'ytd' && end.getFullYear() === 2026) {
-    for (let m = 0; m <= end.getMonth(); m++) total += arr[m]; return total;
-  }
-  const days = Math.round((end - start) / 86400000) + 1;
-  for (let d = 0; d < days; d++) {
-    const day = new Date(start); day.setDate(start.getDate() + d);
-    if (day.getFullYear() === 2026) { const m = day.getMonth(); total += arr[m] / new Date(2026, m+1, 0).getDate(); }
-  }
-  return Math.round(total * 10) / 10;
+  return getBudgetForCurrentPeriod(arr, useWorkdays);
 }
 function renderTypeClientPieChart(caByType, universeCats) {
   const ctx = document.getElementById('typeClientPieChart').getContext('2d');
