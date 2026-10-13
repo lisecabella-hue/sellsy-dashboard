@@ -665,13 +665,17 @@ function getPharmacyBudgetForPeriod(cat, dateStart, dateEnd) {
   }
   return Math.round(total * 10) / 10;
 }
-function renderPharmacyDonut(canvasId, data, existingChart, totalInvoices) {
+function renderPharmacyDonut(canvasId, data, existingChart, totalInvoices, avoirs = 0, centerTotal = null) {
   const ctx = document.getElementById(canvasId).getContext('2d');
   if (existingChart) existingChart.destroy();
   const labels = Object.keys(PHARMACY_COLORS).filter(k => (data[k] || 0) > 0);
   const values = labels.map(k => data[k] || 0);
-  const total = values.reduce((a, b) => a + b, 0);
   const colors = labels.map(l => PHARMACY_COLORS[l] || '#aaa');
+  // On compte les avoirs comme une part du donut (en orange).
+  if (avoirs > 0) { labels.push('Avoirs'); values.push(avoirs); colors.push('#D85A30'); }
+  const total = values.reduce((a, b) => a + b, 0);
+  // Valeur affichée au centre : le CA NET (brut − avoirs) si fourni, sinon la somme.
+  const centerValue = (centerTotal != null) ? centerTotal : total;
   const chart = new Chart(ctx, {
     type: 'doughnut',
     data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#fff', hoverOffset: 6 }] },
@@ -695,10 +699,11 @@ function renderPharmacyDonut(canvasId, data, existingChart, totalInvoices) {
           ctx.fillStyle = '#1a1a1a';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(fmt(total), cx, cy - 10);
-          ctx.font = '11px -apple-system, sans-serif';
+          ctx.fillText(fmt(centerValue), cx, cy - 16);
+          ctx.font = '10px -apple-system, sans-serif';
           ctx.fillStyle = '#888';
-          ctx.fillText(`${totalInvoices || 0} factures`, cx, cy + 10);
+          ctx.fillText(avoirs > 0 ? 'CA net' : `${totalInvoices || 0} factures`, cx, cy + 2);
+          if (avoirs > 0) ctx.fillText(`${totalInvoices || 0} factures`, cx, cy + 16);
           ctx.restore();
         }
       },
@@ -750,9 +755,11 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
       N.nbPharmaImplantation !== undefined ? N.nbPharmaImplantation : '—';
     document.getElementById('pharmacyPanierImplantation').textContent =
       N.panierMoyenImplantation !== undefined ? fmt(N.panierMoyenImplantation) : '—';
-    // Le donut et la légende ne dépendent d'aucune requête lourde : affichage immédiat.
-    pharmacyChartN = renderPharmacyDonut('pharmacyDonutN', montants, pharmacyChartN, N.totalPharmacyInvoices);
     const total = Object.values(montants).reduce((a, b) => a + b, 0);
+    const avoirsPharma = (lastCaData && lastCaData._avoirsByType && lastCaData._avoirsByType['Pharmacie']) || 0;
+    // Le donut et la légende ne dépendent d'aucune requête lourde : affichage immédiat.
+    // On compte les avoirs dans le donut (part orange) et on affiche le CA NET au centre.
+    pharmacyChartN = renderPharmacyDonut('pharmacyDonutN', montants, pharmacyChartN, N.totalPharmacyInvoices, avoirsPharma, total - avoirsPharma);
     const legend = document.getElementById('pharmacyLegend');
     legend.innerHTML = Object.keys(PHARMACY_COLORS).filter(cat => cat !== 'Coffres').map(cat => {
       const val = montants[cat] || 0;
@@ -775,7 +782,6 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
     }).join('');
     // Bloc avoirs : les types de commande ci-dessus sont en CA BRUT. On affiche à part le
     // montant des avoirs pharmacies (non rattachables à un type de commande) + le CA net.
-    const avoirsPharma = (lastCaData && lastCaData._avoirsByType && lastCaData._avoirsByType['Pharmacie']) || 0;
     if (avoirsPharma > 0) {
       legend.innerHTML += `<div style="display:flex;flex-direction:column;gap:3px;border-top:1px solid #eee;padding-top:10px;margin-top:4px;">
         <div style="display:flex;align-items:center;gap:8px;">
