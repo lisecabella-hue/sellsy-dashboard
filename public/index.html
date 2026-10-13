@@ -258,6 +258,32 @@
       <span id="tempsEcouleB2B" style="display:none;font-size:12px;color:#1D9E75;font-weight:500;background:#f0faf6;padding:3px 10px;border-radius:20px;border:1px solid #c8eadb;"></span>
       <span id="tempsEcouleB2C" style="display:none;font-size:12px;color:#74A1D6;font-weight:500;background:#f0f5fc;padding:3px 10px;border-radius:20px;border:1px solid #c5d9f0;"></span>
     </div>
+    <!-- Carte CA NET (après avoirs) — non comparable au budget -->
+    <div class="metric-card" style="padding:18px 24px;border-radius:16px;border:1px solid #e5e5e5;background:#fafafa;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+        <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#555;margin:0;">CA net (après avoirs)</p>
+        <span style="font-size:11px;color:#D85A30;background:#fdf0ec;border:1px solid #f6d3c6;border-radius:12px;padding:2px 10px;">⚠️ Non comparable au budget (le budget est fixé sur le CA brut)</span>
+      </div>
+      <div style="display:flex;gap:40px;flex-wrap:wrap;">
+        <div>
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:4px;">CA net total</p>
+          <p style="font-size:26px;font-weight:500;line-height:1;" id="mCANetTotal">—</p>
+        </div>
+        <div>
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#1D9E75;margin-bottom:4px;">CA net B2B</p>
+          <p style="font-size:26px;font-weight:500;line-height:1;" id="mCANetB2B">—</p>
+        </div>
+        <div>
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#74A1D6;margin-bottom:4px;">CA net B2C</p>
+          <p style="font-size:26px;font-weight:500;line-height:1;" id="mCANetB2C">—</p>
+        </div>
+        <div>
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:4px;">Avoirs déduits</p>
+          <p style="font-size:26px;font-weight:500;line-height:1;color:#D85A30;" id="mAvoirsMontant">—</p>
+          <p style="font-size:10px;color:#aaa;margin-top:3px;" id="mAvoirsTaux"></p>
+        </div>
+      </div>
+    </div>
     <!-- Ligne de jauges style compteur : Total + B2B + B2C -->
     <div id="gaugesRow" style="display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:14px;margin-bottom:16px;">
         <!-- TOTAL -->
@@ -948,6 +974,18 @@ function applySegment(caData) {
   if (blockB2C)   blockB2C.style.display   = (seg === 'total' || seg === 'b2c') ? '' : 'none';
   // Valeurs
   document.getElementById('mCA').textContent    = fmt(caTotal);
+  // Carte "CA net (après avoirs)" — net global, net B2B, net B2C, et montant des avoirs
+  const avoirsTotal = caData._totalAvoirs || 0;
+  const caNetTotal = caTotal - avoirsTotal;
+  const caNetB2B = (typeof caData._totalCAB2BNet === 'number') ? caData._totalCAB2BNet : caB2BFromTypes;
+  const caNetB2C = (typeof caData._totalCAB2CNet === 'number') ? caData._totalCAB2CNet : caB2CSiteOutlet;
+  const tauxAvoirs = caData._tauxAvoirs || 0;
+  const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setTxt('mCANetTotal', fmt(caNetTotal));
+  setTxt('mCANetB2B', fmt(caNetB2B));
+  setTxt('mCANetB2C', fmt(caNetB2C));
+  setTxt('mAvoirsMontant', avoirsTotal > 0 ? '− ' + fmt(avoirsTotal) : fmt(0));
+  setTxt('mAvoirsTaux', tauxAvoirs > 0 ? `${tauxAvoirs.toLocaleString('fr-FR')}% du CA brut` : '');
   document.getElementById('mCAB2B').textContent = fmt(caB2BFromTypes);
   document.getElementById('mCAB2C').textContent = fmt(caB2CSiteOutlet);
   document.getElementById('mAvgB2C').textContent = fmt(panierB2C);
@@ -1864,6 +1902,9 @@ function renderTypeClientPieChart(caByType, universeCats) {
     const val = caByType[cat] || 0;
     const pct = total > 0 ? Math.round((val / total) * 100) : 0;
     const budgetVal = getTypeClientBudgetForPeriod(cat);
+    // Avoirs et CA net de la catégorie (si des avoirs existent)
+    const avoirCat = (lastCaData && lastCaData._avoirsByType && lastCaData._avoirsByType[cat]) || 0;
+    const netCat = val - avoirCat;
 
     let detailHtml;
     if (isResteMode) {
@@ -1910,6 +1951,7 @@ function renderTypeClientPieChart(caByType, universeCats) {
         <span style="font-size:13px;font-weight:500;">${displayLabel(cat)}</span>
         <span style="font-size:12px;color:#888;">${pct}% — ${fmt(val)}</span>
       </div>
+      ${avoirCat > 0 ? `<div style="font-size:11px;padding-left:20px;color:#D85A30;">net : <strong>${fmt(netCat)}</strong> <span style="color:#aaa;">(avoirs −${fmt(avoirCat)})</span></div>` : ''}
       <div style="font-size:11px;padding-left:20px;display:flex;gap:10px;">${detailHtml}</div>
     </div>`;
   })(); });
@@ -2103,17 +2145,17 @@ async function loadData() {
     const caResp = await fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=total`);
     if (!caResp.ok) throw new Error('Erreur API');
     let caData = await caResp.json();
-    // Temps réel (aujourd'hui/hier/semaine) : pas de cache. Si Sellsy répond
-    // momentanément 0 (surcharge/blip), on réessaie automatiquement une fois
-    // avant d'afficher, au lieu que l'utilisateur doive recliquer sur "Voir".
-    if ((currentMode === 'today' || currentMode === 'yesterday' || currentMode === 'week')
-        && (caData._totalCA || 0) === 0) {
-      await new Promise(r => setTimeout(r, 900));
+    // Si le CA revient à 0 (Sellsy momentanément surchargé), on réessaie automatiquement
+    // plusieurs fois — en patientant un peu plus à chaque essai — avant d'afficher,
+    // au lieu d'afficher un faux 0 ou que tu doives recliquer sur "Voir".
+    for (let tryN = 1; tryN <= 3 && (caData._totalCA || 0) === 0; tryN++) {
+      setStatus('spin', `Chargement… (tentative ${tryN + 1})`);
+      await new Promise(r => setTimeout(r, 1200 * tryN));
       try {
         const retryResp = await fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=total`);
         if (retryResp.ok) {
           const retryData = await retryResp.json();
-          if ((retryData._totalCA || 0) > 0) caData = retryData;
+          if ((retryData._totalCA || 0) > 0) { caData = retryData; break; }
         }
       } catch {}
     }
