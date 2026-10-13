@@ -408,6 +408,17 @@
         </div>
       </div>
     </div>
+    <div class="chart-card" id="caNetByCatCard" style="margin-bottom:24px;">
+      <div class="chart-header">
+        <div>
+          <p class="chart-title">CA par catégorie — brut & net</p>
+          <p class="chart-subtitle">Barre claire = CA brut (facturé) · barre pleine = CA net (après avoirs)</p>
+        </div>
+      </div>
+      <div id="caNetByCatBody" style="padding:8px 0;">
+        <span style="color:#aaa;font-size:13px;">En attente de données...</span>
+      </div>
+    </div>
     <div class="chart-card">
       <div class="chart-header">
         <div>
@@ -1034,6 +1045,9 @@ function applySegment(caData) {
       if (shopifyCard) shopifyCard.style.display = 'none';
     }
   }
+  // La carte "CA par catégorie — brut & net" suit la répartition (masquée en B2C)
+  const caNetByCatCardEl = document.getElementById('caNetByCatCard');
+  if (caNetByCatCardEl) caNetByCatCardEl.style.display = (seg === 'b2c') ? 'none' : '';
   if (seg === 'b2c') {
     if (typeClientRow) typeClientRow.style.display = 'none';
   } else {
@@ -1966,6 +1980,35 @@ function renderTypeClientPieChart(caByType, universeCats) {
     legendGroupBlock(B2C_CATS, '#FDF0F5', '#F6D3E3') +
     legendGroupBlock(otherCatsLegend, '#F2F2F2', '#DDDDDD');
   document.getElementById('typeClientSubtitle').textContent = 'Période sélectionnée';
+  renderCANetByCategory(caByType);
+}
+// Graphe par catégorie : CA brut vs CA net (après avoirs)
+function renderCANetByCategory(caByType) {
+  const body = document.getElementById('caNetByCatBody');
+  if (!body) return;
+  const avoirs = (lastCaData && lastCaData._avoirsByType) || {};
+  const cats = Object.keys(caByType).filter(k => (caByType[k] || 0) > 0 || (avoirs[k] || 0) > 0);
+  if (cats.length === 0) { body.innerHTML = '<span style="color:#aaa;font-size:13px;">En attente de données...</span>'; return; }
+  cats.sort((a, b) => (caByType[b] || 0) - (caByType[a] || 0));
+  const maxBrut = Math.max(...cats.map(c => caByType[c] || 0), 1);
+  body.innerHTML = cats.map(cat => {
+    const brut = caByType[cat] || 0;
+    const avoir = avoirs[cat] || 0;
+    const net = brut - avoir;
+    const color = TYPE_CLIENT_COLORS[cat] || '#aaa';
+    const brutPct = Math.round((brut / maxBrut) * 100);
+    const netPct = Math.round((Math.max(net, 0) / maxBrut) * 100);
+    return `<div style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:5px;flex-wrap:wrap;">
+        <span style="font-size:13px;font-weight:500;"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${color};margin-right:6px;"></span>${displayLabel(cat)}</span>
+        <span style="font-size:12px;color:#888;">CA brut : <strong style="color:#1a1a1a;">${fmt(brut)}</strong> &nbsp;·&nbsp; CA net : <strong style="color:#1a1a1a;">${fmt(net)}</strong>${avoir > 0 ? ` <span style="color:#D85A30;">(avoirs −${fmt(avoir)})</span>` : ''}</span>
+      </div>
+      <div style="position:relative;background:#f0f0f0;height:10px;border-radius:5px;">
+        <div style="position:absolute;top:0;left:0;height:100%;width:${brutPct}%;background:${color};opacity:0.3;border-radius:5px;"></div>
+        <div style="position:absolute;top:0;left:0;height:100%;width:${netPct}%;background:${color};border-radius:5px;"></div>
+      </div>
+    </div>`;
+  }).join('');
 }
 function setVs(id, current, prev, prevYear) {
   const el = document.getElementById(id);
