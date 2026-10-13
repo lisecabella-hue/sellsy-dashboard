@@ -258,50 +258,21 @@
       <span id="tempsEcouleB2B" style="display:none;font-size:12px;color:#1D9E75;font-weight:500;background:#f0faf6;padding:3px 10px;border-radius:20px;border:1px solid #c8eadb;"></span>
       <span id="tempsEcouleB2C" style="display:none;font-size:12px;color:#74A1D6;font-weight:500;background:#f0f5fc;padding:3px 10px;border-radius:20px;border:1px solid #c5d9f0;"></span>
     </div>
-    <!-- Carte CA NET (après avoirs) — non comparable au budget -->
-    <div class="metric-card" style="padding:18px 24px;border-radius:16px;border:1px solid #e5e5e5;background:#fafafa;margin-bottom:16px;">
-      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
-        <p style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#555;margin:0;">CA net (après avoirs)</p>
-        <span style="font-size:11px;color:#D85A30;background:#fdf0ec;border:1px solid #f6d3c6;border-radius:12px;padding:2px 10px;">⚠️ Non comparable au budget (le budget est fixé sur le CA brut)</span>
-      </div>
-      <div style="display:flex;gap:40px;flex-wrap:wrap;">
-        <div>
-          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:4px;">CA net total</p>
-          <p style="font-size:26px;font-weight:500;line-height:1;" id="mCANetTotal">—</p>
-        </div>
-        <div>
-          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#1D9E75;margin-bottom:4px;">CA net B2B</p>
-          <p style="font-size:26px;font-weight:500;line-height:1;" id="mCANetB2B">—</p>
-        </div>
-        <div>
-          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#74A1D6;margin-bottom:4px;">CA net B2C</p>
-          <p style="font-size:26px;font-weight:500;line-height:1;" id="mCANetB2C">—</p>
-        </div>
-        <div>
-          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:4px;">Avoirs déduits</p>
-          <p style="font-size:26px;font-weight:500;line-height:1;color:#D85A30;" id="mAvoirsMontant">—</p>
-          <p style="font-size:10px;color:#aaa;margin-top:3px;" id="mAvoirsTaux"></p>
-          <p style="font-size:10px;margin-top:4px;line-height:1.35;" id="mAvoirsVsBudget"></p>
-        </div>
-      </div>
-    </div>
-    <!-- CA par catégorie — brut & net -->
-    <div class="chart-card" id="caNetByCatCard" style="margin-bottom:16px;">
+    <!-- Histogramme global : CA brut réel vs reforecast & avoirs (toutes les autres vues sont en NET) -->
+    <div class="chart-card" id="histoBrutCard" style="margin-bottom:16px;">
       <div class="chart-header">
         <div>
-          <p class="chart-title">CA par catégorie — brut & net</p>
-          <p class="chart-subtitle">Barre claire = CA brut (facturé) · barre pleine = CA net (après avoirs)</p>
+          <p class="chart-title">CA brut réel · reforecast · avoirs</p>
+          <p class="chart-subtitle" id="histoBrutSubtitle">Vue d'ensemble de la période — toutes les autres vues sont en CA net (après avoirs)</p>
         </div>
       </div>
-      <div id="caNetByCatBody" style="padding:8px 0;">
-        <span style="color:#aaa;font-size:13px;">En attente de données...</span>
-      </div>
+      <div class="chart-container" style="height:230px;"><canvas id="histoBrut"></canvas></div>
     </div>
     <!-- Ligne de jauges style compteur : Total + B2B + B2C -->
     <div id="gaugesRow" style="display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:14px;margin-bottom:16px;">
         <!-- TOTAL -->
         <div id="blockTotal" class="metric-card" style="padding:24px 28px;border-radius:16px;border:1px solid #e5e5e5;">
-          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#888;margin-bottom:12px;">CA Total HT Brut (hors remises Monoprix et avoirs)</p>
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#888;margin-bottom:12px;">CA Total HT Net (après avoirs)</p>
           <p style="font-size:34px;font-weight:500;line-height:1;" id="mCA">—</p>
           <p style="font-size:12px;margin-top:6px;font-weight:500;" id="mCAVs"></p>
           <p style="font-size:11px;margin-top:5px;color:#bbb;" id="mCABudgetLabel"></p>
@@ -986,38 +957,9 @@ function applySegment(caData) {
   if (blockB2B)   blockB2B.style.display   = (seg === 'total' || seg === 'b2b') ? '' : 'none';
   if (blockB2C)   blockB2C.style.display   = (seg === 'total' || seg === 'b2c') ? '' : 'none';
   // Valeurs
-  document.getElementById('mCA').textContent    = fmt(caTotal);
-  // Carte "CA net (après avoirs)" — net global, net B2B, net B2C, et montant des avoirs
-  const avoirsTotal = caData._totalAvoirs || 0;
-  const caNetTotal = caTotal - avoirsTotal;
-  const caNetB2B = (typeof caData._totalCAB2BNet === 'number') ? caData._totalCAB2BNet : caB2BFromTypes;
-  const caNetB2C = (typeof caData._totalCAB2CNet === 'number') ? caData._totalCAB2CNet : caB2CSiteOutlet;
-  const tauxAvoirs = caData._tauxAvoirs || 0;
-  const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-  setTxt('mCANetTotal', fmt(caNetTotal));
-  setTxt('mCANetB2B', fmt(caNetB2B));
-  setTxt('mCANetB2C', fmt(caNetB2C));
-  setTxt('mAvoirsMontant', avoirsTotal > 0 ? '− ' + fmt(avoirsTotal) : fmt(0));
-  setTxt('mAvoirsTaux', tauxAvoirs > 0 ? `${tauxAvoirs.toLocaleString('fr-FR')}% du CA brut` : '');
-  // Avoirs réels vs avoirs prévus au budget (saisis dans le panneau Budget, en k€)
-  const vsBudgetEl = document.getElementById('mAvoirsVsBudget');
-  if (vsBudgetEl) {
-    const budgetAvoirsEuros = (getBudgetForCurrentPeriod(budgetAvoirs2026) || 0) * 1000;
-    if (budgetAvoirsEuros > 0) {
-      const pr = getProratioForPeriod(false); // jours calendaires ; null si période non proratisable
-      const prorated = (pr !== null && pr >= 0 && pr < 0.999);
-      const expected = prorated ? budgetAvoirsEuros * pr : budgetAvoirsEuros;
-      const ecart = avoirsTotal - expected;         // >0 = plus d'avoirs que prévu (défavorable)
-      const color = ecart > 0 ? '#D85A30' : '#1D9E75';
-      const sign  = ecart >= 0 ? '+' : '−';
-      vsBudgetEl.innerHTML =
-        `<span style="color:#aaa;">Budget avoirs : ${fmt(budgetAvoirsEuros)}</span>` +
-        (prorated ? `<br><span style="color:#aaa;">Attendu à ce jour : ${fmt(expected)}</span>` : '') +
-        `<br><span style="color:${color};font-weight:600;">Écart : ${sign} ${fmt(Math.abs(ecart))}</span>`;
-    } else {
-      vsBudgetEl.innerHTML = '';
-    }
-  }
+  document.getElementById('mCA').textContent    = fmt(caTotal); // net
+  // Histogramme global de la période : CA brut réel / CA brut reforecast / avoirs
+  renderHistoBrut();
   document.getElementById('mCAB2B').textContent = fmt(caB2BFromTypes);
   document.getElementById('mCAB2C').textContent = fmt(caB2CSiteOutlet);
   document.getElementById('mAvgB2C').textContent = fmt(panierB2C);
@@ -1066,9 +1008,6 @@ function applySegment(caData) {
       if (shopifyCard) shopifyCard.style.display = 'none';
     }
   }
-  // La carte "CA par catégorie — brut & net" suit la répartition (masquée en B2C)
-  const caNetByCatCardEl = document.getElementById('caNetByCatCard');
-  if (caNetByCatCardEl) caNetByCatCardEl.style.display = (seg === 'b2c') ? 'none' : '';
   if (seg === 'b2c') {
     if (typeClientRow) typeClientRow.style.display = 'none';
   } else {
@@ -1503,8 +1442,8 @@ function updateBudgetB2CB2BDisplay(caB2C, caB2B) {
   // Budget B2B/B2C = somme des budgets par catégorie, pour que la carte du haut cadre
   // exactement avec la somme de la légende (mêmes arrondis, aucune double saisie).
   const b2bBudgetKe = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer']
-    .reduce((s, c) => s + getTypeClientBudgetForPeriod(c), 0);
-  const b2cBudgetKe = getTypeClientBudgetForPeriod('B2C') + getTypeClientBudgetForPeriod('Outlet');
+    .reduce((s, c) => s + getNetTypeClientBudgetForPeriod(c), 0);
+  const b2cBudgetKe = getNetTypeClientBudgetForPeriod('B2C') + getNetTypeClientBudgetForPeriod('Outlet');
   renderArcGauge('budgetBarB2BWrap', 'gaugeB2B', 'budgetStatusB2B', caB2B, budgetB2B2026, true,  'mB2BBudgetLabel', 'mB2BResteAFaire', b2bBudgetKe);
   renderArcGauge('budgetBarB2CWrap', 'gaugeB2C', 'budgetStatusB2C', caB2C, budgetB2C2026, false, 'mB2CBudgetLabel', 'mB2CResteAFaire', b2cBudgetKe);
 }
@@ -1512,7 +1451,7 @@ function updateBudgetDisplay(totalCA, budgetArr) {
   const arr = budgetArr || budget2026;
   // Budget Total = somme de toutes les catégories, pour cadrer avec la somme de la légende.
   const totalBudgetKe = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer', 'B2C', 'Outlet', 'Marketing', 'Autre']
-    .reduce((s, c) => s + getTypeClientBudgetForPeriod(c), 0);
+    .reduce((s, c) => s + getNetTypeClientBudgetForPeriod(c), 0);
   renderArcGauge('budgetBarWrap', 'gaugeTotal', 'budgetStatusTotal', totalCA, arr, false, null, 'mCAResteAFaire', totalBudgetKe);
 }
 [document.getElementById('selYear'), document.getElementById('selYtdYear'), document.getElementById('selQuarterYear')].forEach(el => {
@@ -1639,7 +1578,13 @@ async function renderQuarterPace(refDateStr) {
   const B2B_CATS = ['Pharmacie','Grand Compte','Monoprix','DomTom','Eretailer'];
   const B2C_CATS_Q = ['B2C','Outlet'];
   const OTHER_CATS = ['Marketing','Autre'];
-  const sumCats = cats => { let s = 0; for (let m = qStartMonth; m <= qEndMonth; m++) for (const c of cats) s += catBudgetMonth(c, m); return s * 1000; };
+  // Budget NET = budget CA brut − budget avoirs (le dashboard est en net)
+  const avoirsCatMonth = (c, m) => {
+    const bc = c === 'B2C' ? 'Site' : c;
+    const map = TYPE_CLIENT_BUDGET_CATS2.includes(bc) ? budgetAvoirsTypeClient2 : budgetAvoirsTypeClient;
+    return (map[bc] || [])[m] || 0;
+  };
+  const sumCats = cats => { let s = 0; for (let m = qStartMonth; m <= qEndMonth; m++) for (const c of cats) s += (catBudgetMonth(c, m) - avoirsCatMonth(c, m)); return s * 1000; };
   const budB2B = sumCats(B2B_CATS);
   const budB2C = sumCats(B2C_CATS_Q);
   const budTotal = sumCats([...B2B_CATS, ...B2C_CATS_Q, ...OTHER_CATS]);
@@ -1651,6 +1596,7 @@ async function renderQuarterPace(refDateStr) {
     const r = await fetch(`/api/sellsy?dateStart=${qStart}&dateEnd=${qEndStr}&mode=total`);
     if (!r.ok) { clearAll(); return; }
     qData = await r.json();
+    netifyCaData(qData); // pace trimestre en net
   } catch { clearAll(); return; }
   // Si on a changé de période entre-temps, ne rien afficher
   if (currentMode !== 'today' && currentMode !== 'yesterday') { clearAll(); return; }
@@ -1744,8 +1690,9 @@ function renderPieChart(caB2C, caB2B) {
     }]
   });
   const dates = getDates();
-  const budB2C = dates ? getBudgetB2CForPeriod(dates.dateStart, dates.dateEnd) : 0;
-  const budB2B = dates ? getBudgetB2BForPeriod(dates.dateStart, dates.dateEnd) : 0;
+  // Budgets NET (budget CA brut − budget avoirs) pour cadrer avec le CA net affiché
+  const budB2C = getNetTypeClientBudgetForPeriod('B2C') + getNetTypeClientBudgetForPeriod('Outlet');
+  const budB2B = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer'].reduce((s, c) => s + getNetTypeClientBudgetForPeriod(c), 0);
   function legendItem(label, val, color) {
     const pct = total > 0 ? Math.round((val / total) * 100) : 0;
     let budText = '';
@@ -1881,6 +1828,33 @@ function getAvoirsBudgetForPeriod(cat) {
   const arr = map[budgetCat] || Array(12).fill(0);
   return getBudgetForCurrentPeriod(arr) || 0; // en k€
 }
+// Budget NET d'une catégorie (k€) = budget CA brut − budget avoirs, pour la période courante
+function getNetTypeClientBudgetForPeriod(cat) {
+  return getTypeClientBudgetForPeriod(cat) - getAvoirsBudgetForPeriod(cat);
+}
+// Transforme les données Sellsy d'une période en NET (CA − avoirs) partout : total, par
+// catégorie, B2B/B2C et tops clients. Idempotent (flag _netApplied). On conserve le brut
+// (_totalCABrut, _caByTypeBrut) pour l'histogramme global.
+function netifyCaData(d) {
+  if (!d || d._netApplied) return d;
+  const avo = d._avoirsByType || {};
+  const brut = d._caByType || {};
+  const net = {};
+  for (const k of Object.keys(brut)) net[k] = Math.round(((brut[k] || 0) - (avo[k] || 0)) * 100) / 100;
+  for (const k of Object.keys(avo)) if (!(k in net)) net[k] = Math.round((-(avo[k] || 0)) * 100) / 100;
+  d._caByTypeBrut = brut;
+  d._caByType = net;
+  if (typeof d._totalCABrut !== 'number') d._totalCABrut = d._totalCA || 0;
+  d._totalCA = Math.round(((d._totalCA || 0) - (d._totalAvoirs || 0)) * 100) / 100;
+  if (typeof d._totalCAB2BNet === 'number') d._totalCAB2B = d._totalCAB2BNet;
+  if (typeof d._totalCAB2CNet === 'number') d._totalCAB2C = d._totalCAB2CNet;
+  const avoCli = d._avoirsByClient || {};
+  const netTop = arr => (arr || []).map(c => ({ ...c, ca: Math.round(((c.ca || 0) - (avoCli[c.name] || 0)) * 100) / 100 })).sort((a, b) => b.ca - a.ca);
+  if (d._top30B2B) d._top30B2B = netTop(d._top30B2B);
+  if (d._top30B2C) d._top30B2C = netTop(d._top30B2C);
+  d._netApplied = true;
+  return d;
+}
 function getTypeClientBudgetForPeriod(cat) {
   const budgetCat = cat === 'B2C' ? 'Site' : cat;
   const map = TYPE_CLIENT_BUDGET_CATS2.includes(budgetCat) ? budgetTypeClient2 : budgetTypeClient;
@@ -1971,13 +1945,9 @@ function renderTypeClientPieChart(caByType, universeCats) {
   }
   const itemsHtmlByCat = {};
   legendCats.forEach(cat => { itemsHtmlByCat[cat] = (() => {
-    const val = caByType[cat] || 0;
+    const val = caByType[cat] || 0; // déjà NET (CA − avoirs)
     const pct = total > 0 ? Math.round((val / total) * 100) : 0;
-    const budgetVal = getTypeClientBudgetForPeriod(cat);
-    // Avoirs et CA net de la catégorie (si des avoirs existent)
-    const avoirCat = (lastCaData && lastCaData._avoirsByType && lastCaData._avoirsByType[cat]) || 0;
-    const netCat = val - avoirCat;
-
+    const budgetVal = getNetTypeClientBudgetForPeriod(cat); // budget NET
     let detailHtml;
     if (isResteMode) {
       if (budgetVal > 0 || val > 0) {
@@ -2023,7 +1993,6 @@ function renderTypeClientPieChart(caByType, universeCats) {
         <span style="font-size:13px;font-weight:500;">${displayLabel(cat)}</span>
         <span style="font-size:12px;color:#888;">${pct}% — ${fmt(val)}</span>
       </div>
-      ${avoirCat > 0 ? `<div style="font-size:11px;padding-left:20px;color:#D85A30;">net : <strong>${fmt(netCat)}</strong> <span style="color:#aaa;">(avoirs −${fmt(avoirCat)})</span></div>` : ''}
       <div style="font-size:11px;padding-left:20px;display:flex;gap:10px;">${detailHtml}</div>
     </div>`;
   })(); });
@@ -2038,9 +2007,58 @@ function renderTypeClientPieChart(caByType, universeCats) {
     legendGroupBlock(B2C_CATS, '#FDF0F5', '#F6D3E3') +
     legendGroupBlock(otherCatsLegend, '#F2F2F2', '#DDDDDD');
   document.getElementById('typeClientSubtitle').textContent = 'Période sélectionnée';
-  renderCANetByCategory(caByType);
 }
 // Graphe par catégorie : CA brut vs CA net (après avoirs)
+// Histogramme global de la période : CA brut réel · CA brut reforecast · avoirs (en €)
+let histoBrutInstance = null;
+function renderHistoBrut() {
+  const el = document.getElementById('histoBrut');
+  if (!el || !lastCaData || typeof Chart === 'undefined') return;
+  const brutReel   = lastCaData._totalCABrut || 0;
+  const avoirs     = lastCaData._totalAvoirs || 0;
+  const brutBudget = (getBudgetForCurrentPeriod(budget2026) || 0) * 1000;
+  const ctx = el.getContext('2d');
+  if (histoBrutInstance) histoBrutInstance.destroy();
+  histoBrutInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['CA brut réel', 'CA brut reforecast', 'Avoirs'],
+      datasets: [{
+        data: [brutReel, brutBudget, avoirs],
+        backgroundColor: ['#1D9E75', '#74A1D6', '#D85A30'],
+        borderRadius: 6, maxBarThickness: 90
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      layout: { padding: { top: 24 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => ' ' + fmt(c.raw) } }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => (v / 1000).toLocaleString('fr-FR') + ' k€' } },
+        x: { grid: { display: false } }
+      }
+    },
+    plugins: [{
+      id: 'histoLabels',
+      afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        const meta = chart.getDatasetMeta(0);
+        meta.data.forEach((bar, i) => {
+          const val = chart.data.datasets[0].data[i];
+          ctx.save();
+          ctx.fillStyle = '#1a1a1a';
+          ctx.font = 'bold 12px -apple-system, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(fmt(val), bar.x, bar.y - 6);
+          ctx.restore();
+        });
+      }
+    }]
+  });
+}
 function renderCANetByCategory(caByType) {
   const body = document.getElementById('caNetByCatBody');
   if (!body) return;
@@ -2118,6 +2136,7 @@ async function loadMonthlyChart(year, upToMonth) {
     );
   }
   const results = await Promise.all(promises);
+  results.forEach(r => netifyCaData(r)); // évolution en CA net
   for (let m = 0; m <= upToMonth; m++) {
     const caByTypeN = results[m*2]._caByType || {};
     const caByTypeP = results[m*2+1]._caByType || {};
@@ -2134,7 +2153,13 @@ async function loadMonthlyChart(year, upToMonth) {
     }
     currentYearData.push(Math.round(curVal / 1000 * 10) / 10);
     prevYearData.push(Math.round(prevVal / 1000 * 10) / 10);
-    if (year === 2026) budgetData.push(currentSegment === 'b2b' ? budgetB2B2026[m] : currentSegment === 'b2c' ? budgetB2C2026[m] : budget2026[m]);
+    if (year === 2026) {
+      // Budget NET = budget CA brut − budget avoirs (avoirs tous en B2B)
+      const netBud = currentSegment === 'b2b' ? (budgetB2B2026[m] - budgetAvoirs2026[m])
+        : currentSegment === 'b2c' ? budgetB2C2026[m]
+        : (budget2026[m] - budgetAvoirs2026[m]);
+      budgetData.push(Math.round(netBud * 10) / 10);
+    }
   }
   renderChart(labels, currentYearData, prevYearData, budgetData, year);
   document.getElementById('chartSubtitle').textContent = `CA mensuel en k€ — ${year} vs ${year-1}${year === 2026 ? ' vs Budget' : ''}`;
@@ -2144,10 +2169,9 @@ async function loadMonthlyChart(year, upToMonth) {
 function renderChart(labels, currentData, prevData, budgetData, year) {
   const ctx = document.getElementById('caChart').getContext('2d');
   if (caChartInstance) caChartInstance.destroy();
-  // Calcul des % de réalisation vs budget pour les étiquettes
-  const activeBudget = currentSegment === 'b2b' ? budgetB2B2026 : currentSegment === 'b2c' ? budgetB2C2026 : budget2026;
+  // Calcul des % de réalisation vs budget NET pour les étiquettes (budgetData est déjà net)
   const pctData = year === 2026 && budgetData.length > 0
-    ? labels.map((_, i) => activeBudget[i] > 0 ? Math.round((currentData[i] / activeBudget[i]) * 100) : null)
+    ? labels.map((_, i) => budgetData[i] > 0 ? Math.round((currentData[i] / budgetData[i]) * 100) : null)
     : [];
   const datasets = [
     { label: `${year}`, data: currentData, borderColor: '#1a1a1a', backgroundColor: 'rgba(26,26,26,0.05)', borderWidth: 2.5, pointRadius: 5, pointBackgroundColor: '#1a1a1a', tension: 0.3, fill: true },
@@ -2276,6 +2300,7 @@ async function loadData() {
         }
       } catch {}
     }
+    netifyCaData(caData); // tout le dashboard est en CA net (après avoirs)
     lastCaData = caData;
     applySegment(caData);
     renderQuarterPace(dateStart);
@@ -2297,6 +2322,7 @@ async function loadData() {
     fetch(`/api/sellsy?dateStart=${prevDates.dateStart}&dateEnd=${prevDates.dateEnd}&mode=total`)
       .then(r => r.json())
       .then(prev => {
+        netifyCaData(prev); // comparaison N-1 en net aussi
         const seg = currentSegment;
         const prevByType = prev._caByType || {};
         const prevB2C = (prevByType['B2C']||0) + (prevByType['Outlet']||0);
