@@ -293,7 +293,7 @@
         </div>
         <!-- B2B — Dont Pharma (vue B2B uniquement) -->
         <div id="blockB2BPharma" class="metric-card" style="display:none;padding:24px 24px;border-radius:16px;border:1px solid #c8eadb;background:linear-gradient(145deg, #edf8f3 0%, #f8fdfb 100%);">
-          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#1D9E75;margin-bottom:12px;">Dont CA Pharma (net)</p>
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#1D9E75;margin-bottom:12px;">Dont CA Pharma (net, incl. Luxembourg)</p>
           <p style="font-size:28px;font-weight:500;line-height:1;" id="mB2BPharma">—</p>
           <p style="font-size:11px;margin-top:5px;color:#aaa;" id="mB2BPharmaPct"></p>
         </div>
@@ -814,7 +814,7 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
       </div>`;
     }
     document.getElementById('pharmacyBreakdownSubtitle').textContent =
-      `Périmètre : pharmacies France uniquement (hors DOM-TOM, Monoprix, Enseignes, E-retailers) · hors acomptes · CA brut par type de commande, avoirs à part${data._fromCache ? ' (cache)' : ''}`;
+      `Périmètre : pharmacies France + Luxembourg (hors DOM-TOM, Monoprix, Enseignes, E-retailers) · hors acomptes · CA brut par type de commande, avoirs à part${data._fromCache ? ' (cache)' : ''}`;
   } catch(e) {
     document.getElementById('pharmacyBreakdownSubtitle').textContent = 'Erreur de chargement';
     card.style.display = 'none';
@@ -1852,7 +1852,7 @@ const TYPE_CLIENT_DISPLAY = {
   'B2C': 'Site - B2C',
   'Site': 'Site - B2C',
   'Outlet': 'Outlet - B2C',
-  'Pharmacie': 'Pharmacie - B2B',
+  'Pharmacie': 'Pharmacie (incl. Luxembourg) - B2B',
   'Monoprix': 'Monoprix - B2B',
   'DomTom': 'DOM-TOM - B2B',
   'Grand Compte': 'Enseigne - B2B',
