@@ -49,9 +49,7 @@ export default async function handler(req, res) {
     3562349: 'Monoprix',
     3562350: 'Autre',
     3957579: 'Marketing',
-    // Le tag Sellsy "Grand Compte" ne force plus la catégorie : l'Enseigne est déterminée
-    // par le nom (Samaritaine/Printemps). Les autres (Apothical, Rocade…) retombent en Autre.
-    3957580: 'Autre'
+    3957580: 'Grand Compte'
   };
   // Agrège plusieurs résultats (mois ou "parties" début→hier + aujourd'hui) en un seul.
   function aggregateParts(parts) {
@@ -196,7 +194,7 @@ export default async function handler(req, res) {
     });
     if (!tokenResp.ok) throw new Error('Auth failed');
     const { access_token } = await tokenResp.json();
-    const companyCacheKey = `sellsy:companies:type_client:v4`;
+    const companyCacheKey = `sellsy:companies:type_client:v2`;
     let companyTypeMap = await cacheGet(companyCacheKey);
     if (!companyTypeMap) {
       companyTypeMap = {};
@@ -204,7 +202,7 @@ export default async function handler(req, res) {
       let hasMoreCompanies = true;
       while (hasMoreCompanies) {
         const compResp = await fetch(
-          `https://api.sellsy.com/v2/companies?limit=100&offset=${companyOffset}&field[]=id&field[]=_embed&field[]=legal_france&embed[]=cf.135940`,
+          `https://api.sellsy.com/v2/companies?limit=100&offset=${companyOffset}&field[]=id&field[]=_embed&embed[]=cf.135940`,
           { headers: { 'Authorization': `Bearer ${access_token}` } }
         );
         if (!compResp.ok) break;
@@ -217,9 +215,6 @@ export default async function handler(req, res) {
             const label = TYPE_CLIENT_MAP[typeField.value] || 'B2C';
             companyTypeMap[company.id] = label;
           }
-          // Pays via le n° de TVA (préfixe) : LU → Luxembourg (catégorie dédiée). Prioritaire.
-          const vat = (company.legal_france?.vat || '').replace(/\s/g, '').toUpperCase();
-          if (vat.slice(0, 2) === 'LU') companyTypeMap[company.id] = 'Luxembourg';
         }
         const totalCompanies = compData.pagination?.total || 0;
         companyOffset += 100;
@@ -342,8 +337,6 @@ export default async function handler(req, res) {
       if (inv.rate_category_id === B2C_CATEGORY_ID) return 'B2C';
       const name = (inv.company_name || '').toLowerCase();
       const companyId = inv.related?.[0]?.id;
-      // 1.45 Luxembourg (pays via TVA "LU") : catégorie dédiée, prioritaire sur tout le reste
-      if (companyId && companyTypeMap[companyId] === 'Luxembourg') return 'Luxembourg';
       // 1.5 DOM-TOM : reclassement forcé, avant même le tag Sellsy
       if (isDomTomOverride(inv.company_name)) return 'DomTom';
       // 1.6 Outlet : reclassement forcé, avant même le tag Sellsy
@@ -357,8 +350,7 @@ export default async function handler(req, res) {
         return companyTypeMap[companyId];
       }
       // 3. Règles nom en fallback (clients sans type renseigné dans Sellsy)
-      // Enseigne = uniquement Samaritaine / Printemps (grands magasins), PAS "Pharmacie du Printemps"
-      if ((name.includes('printemps') || name.includes('samaritaine')) && !name.includes('pharmacie')) return 'Grand Compte';
+      if (name.includes('printemps') || name.includes('samaritaine')) return 'Grand Compte';
       if (name.includes('figaro') || name.includes('media ')) return 'Marketing';
       if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco') || name.includes('dhygietal') || name.includes('atida') || name.includes('divabox') || name.includes('divaboc')) return 'Pharmacie';
       // 4. Sinon Autre
@@ -375,7 +367,7 @@ export default async function handler(req, res) {
       caByType[key] = Math.round(caByType[key] * 100) / 100;
     }
     const B2C_TYPES = ['B2C', 'Outlet'];
-    const B2B_TYPES = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer', 'Luxembourg'];
+    const B2B_TYPES = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer'];
     const invoicesB2CNew = filteredInvoices.filter(inv => B2C_TYPES.includes(classifyClient(inv)));
     const invoicesB2BNew = filteredInvoices.filter(inv => B2B_TYPES.includes(classifyClient(inv)));
     const totalCA = filteredInvoices.reduce((acc, inv) =>
