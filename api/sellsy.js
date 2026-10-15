@@ -49,7 +49,9 @@ export default async function handler(req, res) {
     3562349: 'Monoprix',
     3562350: 'Autre',
     3957579: 'Marketing',
-    3957580: 'Grand Compte'
+    // Le tag Sellsy "Grand Compte" ne force plus la catégorie : l'Enseigne est déterminée
+    // par le nom (Samaritaine/Printemps). Les autres (Apothical, Rocade…) retombent en Autre.
+    3957580: 'Autre'
   };
   // Agrège plusieurs résultats (mois ou "parties" début→hier + aujourd'hui) en un seul.
   function aggregateParts(parts) {
@@ -194,7 +196,22 @@ export default async function handler(req, res) {
     });
     if (!tokenResp.ok) throw new Error('Auth failed');
     const { access_token } = await tokenResp.json();
-    const companyCacheKey = `sellsy:companies:type_client:v2`;
+    // DEBUG TEMPORAIRE : /api/sellsy?debugCompany=<id> → renvoie la fiche société brute Sellsy
+    // (pour repérer le champ pays). À retirer ensuite.
+    if (req.query.debugCompany) {
+      const cid = String(req.query.debugCompany).replace(/[^0-9]/g, '');
+      const out = {};
+      try {
+        const r1 = await fetch(`https://api.sellsy.com/v2/companies/${cid}`, { headers: { 'Authorization': `Bearer ${access_token}` } });
+        out.company = await r1.json();
+      } catch (e) { out.companyErr = e.message; }
+      try {
+        const r2 = await fetch(`https://api.sellsy.com/v2/companies/${cid}/addresses`, { headers: { 'Authorization': `Bearer ${access_token}` } });
+        out.addresses = await r2.json();
+      } catch (e) { out.addressesErr = e.message; }
+      return res.status(200).json(out);
+    }
+    const companyCacheKey = `sellsy:companies:type_client:v3`;
     let companyTypeMap = await cacheGet(companyCacheKey);
     if (!companyTypeMap) {
       companyTypeMap = {};
@@ -350,7 +367,8 @@ export default async function handler(req, res) {
         return companyTypeMap[companyId];
       }
       // 3. Règles nom en fallback (clients sans type renseigné dans Sellsy)
-      if (name.includes('printemps') || name.includes('samaritaine')) return 'Grand Compte';
+      // Enseigne = uniquement Samaritaine / Printemps (grands magasins), PAS "Pharmacie du Printemps"
+      if ((name.includes('printemps') || name.includes('samaritaine')) && !name.includes('pharmacie')) return 'Grand Compte';
       if (name.includes('figaro') || name.includes('media ')) return 'Marketing';
       if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco') || name.includes('dhygietal') || name.includes('atida') || name.includes('divabox') || name.includes('divaboc')) return 'Pharmacie';
       // 4. Sinon Autre
