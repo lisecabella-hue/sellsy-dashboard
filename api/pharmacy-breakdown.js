@@ -53,8 +53,6 @@ export default async function handler(req, res) {
     const rawName = inv.company_name || '';
     const name = rawName.toLowerCase();
     const companyId = inv.related?.[0]?.id ? String(inv.related[0].id) : null;
-    // 1.45 Luxembourg (pays via TVA "LU", mappé dans companyTypeMap) : catégorie dédiée
-    if (companyId && companyTypeMap[companyId] === 'Luxembourg') return 'Luxembourg';
     // 1.5 DOM-TOM : reclassement forcé (Sanisco + Marques & Beautés)
     const nDom = name.normalize('NFD').replace(/[̀-ͯ]/g, '');
     if (nDom.includes('sanisco') || (nDom.includes('marques') && nDom.includes('beaute'))) return 'DomTom';
@@ -69,7 +67,7 @@ export default async function handler(req, res) {
       return companyTypeMap[companyId];
     }
     // 3. Règles nom en fallback
-    if ((name.includes('printemps') || name.includes('samaritaine')) && !name.includes('pharmacie')) return 'Grand Compte';
+    if (name.includes('printemps') || name.includes('samaritaine')) return 'Grand Compte';
     if (name.includes('figaro') || name.includes('media ')) return 'Marketing';
     if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco') || name.includes('dhygietal') || name.includes('atida') || name.includes('divabox') || name.includes('divaboc')) return 'Pharmacie';
     return 'Autre';
@@ -220,7 +218,7 @@ export default async function handler(req, res) {
     });
     const { access_token } = await tokenResp.json();
 
-    const companyTypeMap = await cacheGet('sellsy:companies:type_client:v4') || {};
+    const companyTypeMap = await cacheGet('sellsy:companies:type_client:v2') || {};
 
     async function fetchAndAggregate(start, end) {
       const totals = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0, 'Non classifié': 0 };
