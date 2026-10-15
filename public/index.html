@@ -258,18 +258,22 @@
       <span id="tempsEcouleB2B" style="display:none;font-size:12px;color:#1D9E75;font-weight:500;background:#f0faf6;padding:3px 10px;border-radius:20px;border:1px solid #c8eadb;"></span>
       <span id="tempsEcouleB2C" style="display:none;font-size:12px;color:#74A1D6;font-weight:500;background:#f0f5fc;padding:3px 10px;border-radius:20px;border:1px solid #c5d9f0;"></span>
     </div>
-    <!-- Histogramme global : CA brut réel vs reforecast & avoirs (toutes les autres vues sont en NET) -->
-    <div class="chart-card" id="histoBrutCard" style="margin-bottom:16px;">
-      <div class="chart-header">
-        <div>
-          <p class="chart-title">CA brut réel · reforecast · avoirs</p>
-          <p class="chart-subtitle" id="histoBrutSubtitle">Vue d'ensemble de la période — toutes les autres vues sont en CA net (après avoirs)</p>
-        </div>
-      </div>
-      <div class="chart-container" style="height:230px;"><canvas id="histoBrut"></canvas></div>
-    </div>
     <!-- Ligne de jauges style compteur : Total + B2B + B2C -->
     <div id="gaugesRow" style="display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:14px;margin-bottom:16px;">
+        <!-- Détail B2B : Pharma / Autre (affiché uniquement en vue B2B, dans la colonne vide) -->
+        <div id="blockB2BDetail" class="metric-card" style="display:none;padding:24px 28px;border-radius:16px;border:1px solid #c8eadb;background:linear-gradient(145deg, #edf8f3 0%, #f8fdfb 100%);">
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#1D9E75;margin-bottom:14px;">Dont CA B2B (net) — par pôle</p>
+          <div style="margin-bottom:14px;">
+            <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:4px;">Dont CA Pharma</p>
+            <p style="font-size:26px;font-weight:500;line-height:1;" id="mB2BPharma">—</p>
+            <p style="font-size:11px;color:#aaa;margin-top:3px;" id="mB2BPharmaPct"></p>
+          </div>
+          <div>
+            <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:4px;">Dont CA Autre</p>
+            <p style="font-size:26px;font-weight:500;line-height:1;" id="mB2BAutre">—</p>
+            <p style="font-size:11px;color:#aaa;margin-top:3px;" id="mB2BAutrePct"></p>
+          </div>
+        </div>
         <!-- TOTAL -->
         <div id="blockTotal" class="metric-card" style="padding:24px 28px;border-radius:16px;border:1px solid #e5e5e5;">
           <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#888;margin-bottom:12px;">CA Total HT Net (après avoirs)</p>
@@ -290,7 +294,7 @@
         </div>
         <!-- B2B -->
         <div id="blockB2B" class="metric-card" style="padding:24px 24px;border-radius:16px;border:1px solid #c8eadb;background:linear-gradient(145deg, #edf8f3 0%, #f8fdfb 100%);">
-          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#1D9E75;margin-bottom:12px;">Dont CA B2B</p>
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#1D9E75;margin-bottom:12px;">Dont CA B2B (net après avoirs)</p>
           <p style="font-size:28px;font-weight:500;line-height:1;" id="mCAB2B">—</p>
           <p style="font-size:12px;margin-top:6px;font-weight:500;" id="mCAB2BVs">⏳</p>
           <p style="font-size:11px;margin-top:5px;color:#bbb;" id="mB2BBudgetLabel"></p>
@@ -303,7 +307,7 @@
         </div>
         <!-- B2C -->
         <div id="blockB2C" class="metric-card" style="padding:24px 24px;border-radius:16px;border:1px solid #c5d9f0;background:linear-gradient(145deg, #edf3fb 0%, #f7fafd 100%);">
-          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#74A1D6;margin-bottom:12px;">Dont CA B2C</p>
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#74A1D6;margin-bottom:12px;">Dont CA B2C (net après avoirs)</p>
           <p style="font-size:28px;font-weight:500;line-height:1;" id="mCAB2C">—</p>
           <p style="font-size:12px;margin-top:6px;font-weight:500;" id="mCAB2CVs">⏳</p>
           <p style="font-size:11px;margin-top:5px;color:#bbb;" id="mB2CBudgetLabel"></p>
@@ -314,6 +318,25 @@
           <p style="font-size:12px;font-weight:600;margin-top:8px;text-align:center;" id="mB2CResteAFaire"></p>
           <p style="font-size:12px;font-weight:600;margin-top:6px;text-align:center;padding-top:6px;border-top:1px dashed #c5d9f0;" id="mB2CQuarterPace"></p>
         </div>
+    </div>
+    <!-- Histogrammes : comparaison CA (brut réel vs reforecast) + comparaison avoirs -->
+    <div class="chart-card" id="histoBrutCard" style="margin-bottom:16px;">
+      <div class="chart-header">
+        <div>
+          <p class="chart-title">Comparaison CA brut &amp; avoirs</p>
+          <p class="chart-subtitle" id="histoBrutSubtitle">Vue d'ensemble de la période — toutes les autres vues sont en CA net (après avoirs)</p>
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;flex-wrap:wrap;">
+        <div style="flex:1;min-width:280px;border:1px solid #e5e5e5;border-radius:12px;padding:12px;">
+          <p style="font-size:12px;font-weight:600;color:#555;margin:0 0 8px;">Comparaison CA brut — réel vs reforecast</p>
+          <div style="height:200px;"><canvas id="histoCA"></canvas></div>
+        </div>
+        <div style="flex:1;min-width:280px;border:1px solid #f6d3c6;border-radius:12px;padding:12px;background:#fffaf8;">
+          <p style="font-size:12px;font-weight:600;color:#D85A30;margin:0 0 8px;">Comparaison avoirs — réel vs budget</p>
+          <div style="height:200px;"><canvas id="histoAvoirs"></canvas></div>
+        </div>
+      </div>
     </div>
     <!-- Camembert répartition (conservé) -->
     <div style="display:none;">
@@ -379,8 +402,8 @@
     <div class="chart-card" id="typeClientRow" style="margin-bottom:24px;">
       <div class="chart-header">
         <div>
-          <p class="chart-title">Répartition CA par type de client</p>
-          <p class="chart-subtitle" id="typeClientSubtitle">Période sélectionnée</p>
+          <p class="chart-title">Répartition CA net par type de client</p>
+          <p class="chart-subtitle" id="typeClientSubtitle">Période sélectionnée — CA net (après avoirs)</p>
         </div>
       </div>
       <div style="display:flex; align-items:center; justify-content:center; gap:48px; flex-wrap:wrap; padding:8px 0;">
@@ -395,7 +418,7 @@
     <div class="chart-card">
       <div class="chart-header">
         <div>
-          <p class="chart-title">Évolution mensuelle du CA</p>
+          <p class="chart-title">Évolution mensuelle du CA net</p>
           <p class="chart-subtitle" id="chartSubtitle">Cliquez sur Voir pour charger le graphique</p>
           <p class="chart-subtitle" style="margin-top:2px;">% = taux de réalisation vs budget</p>
         </div>
@@ -793,7 +816,7 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
       </div>`;
     }
     document.getElementById('pharmacyBreakdownSubtitle').textContent =
-      `Pharmacies — CA brut par type de commande, avoirs à part${data._fromCache ? ' (cache)' : ''}`;
+      `Périmètre : pharmacies France uniquement (hors DOM-TOM, Monoprix, Enseignes, E-retailers) · hors acomptes · CA brut par type de commande, avoirs à part${data._fromCache ? ' (cache)' : ''}`;
   } catch(e) {
     document.getElementById('pharmacyBreakdownSubtitle').textContent = 'Erreur de chargement';
     card.style.display = 'none';
@@ -975,6 +998,20 @@ function applySegment(caData) {
   if (blockTotal) blockTotal.style.display = seg === 'total' ? '' : 'none';
   if (blockB2B)   blockB2B.style.display   = (seg === 'total' || seg === 'b2b') ? '' : 'none';
   if (blockB2C)   blockB2C.style.display   = (seg === 'total' || seg === 'b2c') ? '' : 'none';
+  // Bloc détail B2B (Pharma / Autre) : visible uniquement en vue B2B, dans la colonne de gauche vide
+  const blockB2BDetail = document.getElementById('blockB2BDetail');
+  if (blockB2BDetail) {
+    blockB2BDetail.style.display = (seg === 'b2b') ? '' : 'none';
+    if (seg === 'b2b') {
+      const pharmaNet = caByTypeRaw['Pharmacie'] || 0; // net (après avoirs)
+      const autreNet  = caB2BFromTypes - pharmaNet;    // Monoprix + Enseigne + DOM-TOM + E-retailers
+      const setTxt2 = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+      setTxt2('mB2BPharma', fmt(pharmaNet));
+      setTxt2('mB2BAutre', fmt(autreNet));
+      setTxt2('mB2BPharmaPct', caB2BFromTypes > 0 ? `${Math.round(pharmaNet / caB2BFromTypes * 100)}% du B2B` : '');
+      setTxt2('mB2BAutrePct', caB2BFromTypes > 0 ? `${Math.round(autreNet / caB2BFromTypes * 100)}% du B2B` : '');
+    }
+  }
   // Valeurs
   document.getElementById('mCA').textContent    = fmt(caTotal); // net
   // Histogramme global de la période : CA brut réel / CA brut reforecast / avoirs
@@ -996,9 +1033,9 @@ function applySegment(caData) {
   currentTotalCA = ca;
   const pieTitle = document.getElementById('pieChartTitle');
   if (pieTitle) {
-    if (seg === 'b2b') pieTitle.textContent = 'Répartition CA B2B par type de client';
-    else if (seg === 'b2c') pieTitle.textContent = 'Répartition CA B2C par canal';
-    else pieTitle.textContent = 'Répartition CA par type de client';
+    if (seg === 'b2b') pieTitle.textContent = 'Répartition CA net B2B par type de client';
+    else if (seg === 'b2c') pieTitle.textContent = 'Répartition CA net B2C par canal';
+    else pieTitle.textContent = 'Répartition CA net par type de client';
   }
   const pieCard    = document.getElementById('b2cPieChart')?.closest('.chart-card');
   const typeClientRow = document.getElementById('typeClientRow');
@@ -1041,12 +1078,12 @@ function applySegment(caData) {
     }
   }
   if (seg === 'b2c') {
-    document.getElementById('top30Title').textContent = '🏆 Top 30 clients B2C';
+    document.getElementById('top30Title').textContent = '🏆 Top 30 clients B2C (CA net)';
     document.getElementById('top30PctHeader').textContent = '% du CA B2C';
     if (caData._top30B2C) renderTop30(caData._top30B2C, caB2C);
     else document.getElementById('top30Card').style.display = 'none';
   } else if (seg === 'b2b') {
-    document.getElementById('top30Title').textContent = '🏆 Top 30 clients B2B';
+    document.getElementById('top30Title').textContent = '🏆 Top 30 clients B2B (CA net)';
     document.getElementById('top30PctHeader').textContent = '% du CA B2B';
     if (caData._top30B2B) renderTop30(caData._top30B2B, caB2B);
     else document.getElementById('top30Card').style.display = 'none';
@@ -2043,79 +2080,67 @@ function renderTypeClientPieChart(caByType, universeCats) {
     legendGroupBlock(B2B_CATS_LEGEND, '#EEF0FC', '#D2D8F5') +
     legendGroupBlock(B2C_CATS, '#FDF0F5', '#F6D3E3') +
     legendGroupBlock(otherCatsLegend, '#F2F2F2', '#DDDDDD');
-  document.getElementById('typeClientSubtitle').textContent = 'Période sélectionnée';
+  document.getElementById('typeClientSubtitle').textContent = 'Période sélectionnée — CA net (après avoirs)';
 }
 // Graphe par catégorie : CA brut vs CA net (après avoirs)
-// Histogramme global de la période : CA brut réel · CA brut reforecast · avoirs (en €)
-let histoBrutInstance = null;
+// Deux histogrammes : comparaison CA brut (réel vs reforecast) + comparaison avoirs (réel vs budget)
+let histoCAInstance = null, histoAvoirsInstance = null;
 function renderHistoBrut() {
-  const el = document.getElementById('histoBrut');
-  if (!el || !lastCaData || typeof Chart === 'undefined') return;
+  if (!lastCaData || typeof Chart === 'undefined') return;
   const seg = currentSegment;
   const brutByType = lastCaData._caByTypeBrut || lastCaData._caByType || {};
   const avo = lastCaData._avoirsByType || {};
   const B2B_C = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer'];
   const B2C_C = ['B2C', 'Outlet'];
-  let brutReel, avoirs, brutBudget, segLabel;
+  let brutReel, avoirsReel, brutBudget, avoirsBudget, segLabel;
   if (seg === 'b2b') {
-    brutReel   = B2B_C.reduce((s, k) => s + (brutByType[k] || 0), 0);
-    avoirs     = B2B_C.reduce((s, k) => s + (avo[k] || 0), 0);
-    brutBudget = (getBudgetForCurrentPeriod(budgetB2B2026) || 0) * 1000;
+    brutReel     = B2B_C.reduce((s, k) => s + (brutByType[k] || 0), 0);
+    avoirsReel   = B2B_C.reduce((s, k) => s + (avo[k] || 0), 0);
+    brutBudget   = (getBudgetForCurrentPeriod(budgetB2B2026) || 0) * 1000;
+    avoirsBudget = (getBudgetForCurrentPeriod(budgetAvoirs2026) || 0) * 1000; // avoirs tous B2B
     segLabel = ' B2B';
   } else if (seg === 'b2c') {
-    brutReel   = B2C_C.reduce((s, k) => s + (brutByType[k] || 0), 0);
-    avoirs     = B2C_C.reduce((s, k) => s + (avo[k] || 0), 0);
-    brutBudget = (getBudgetForCurrentPeriod(budgetB2C2026) || 0) * 1000;
+    brutReel     = B2C_C.reduce((s, k) => s + (brutByType[k] || 0), 0);
+    avoirsReel   = B2C_C.reduce((s, k) => s + (avo[k] || 0), 0);
+    brutBudget   = (getBudgetForCurrentPeriod(budgetB2C2026) || 0) * 1000;
+    avoirsBudget = 0; // pas d'avoirs budgétés en B2C
     segLabel = ' B2C';
   } else {
-    brutReel   = lastCaData._totalCABrut || 0;
-    avoirs     = lastCaData._totalAvoirs || 0;
-    brutBudget = (getBudgetForCurrentPeriod(budget2026) || 0) * 1000;
+    brutReel     = lastCaData._totalCABrut || 0;
+    avoirsReel   = lastCaData._totalAvoirs || 0;
+    brutBudget   = (getBudgetForCurrentPeriod(budget2026) || 0) * 1000;
+    avoirsBudget = (getBudgetForCurrentPeriod(budgetAvoirs2026) || 0) * 1000;
     segLabel = '';
   }
   const sub = document.getElementById('histoBrutSubtitle');
-  if (sub) sub.textContent = `Vue d'ensemble de la période${segLabel} — les autres vues sont en CA net (après avoirs)`;
-  const ctx = el.getContext('2d');
-  if (histoBrutInstance) histoBrutInstance.destroy();
-  histoBrutInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: [`CA brut réel${segLabel}`, `CA brut reforecast${segLabel}`, `Avoirs${segLabel}`],
-      datasets: [{
-        data: [brutReel, brutBudget, avoirs],
-        backgroundColor: ['#1D9E75', '#74A1D6', '#D85A30'],
-        borderRadius: 6, maxBarThickness: 90
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      layout: { padding: { top: 24 } },
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: c => ' ' + fmt(c.raw) } }
+  if (sub) sub.textContent = `Vue d'ensemble de la période${segLabel} — toutes les autres vues sont en CA net (après avoirs)`;
+  const makeBar = (canvasId, existing, labels, data, colors) => {
+    const el = document.getElementById(canvasId);
+    if (!el) return existing;
+    if (existing) existing.destroy();
+    return new Chart(el.getContext('2d'), {
+      type: 'bar',
+      data: { labels, datasets: [{ data, backgroundColor: colors, borderRadius: 6, maxBarThickness: 70 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false, layout: { padding: { top: 22 } },
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + fmt(c.raw) } } },
+        scales: { y: { beginAtZero: true, ticks: { callback: v => (v / 1000).toLocaleString('fr-FR') + ' k€' } }, x: { grid: { display: false } } }
       },
-      scales: {
-        y: { beginAtZero: true, ticks: { callback: v => (v / 1000).toLocaleString('fr-FR') + ' k€' } },
-        x: { grid: { display: false } }
-      }
-    },
-    plugins: [{
-      id: 'histoLabels',
-      afterDatasetsDraw(chart) {
-        const { ctx } = chart;
-        const meta = chart.getDatasetMeta(0);
-        meta.data.forEach((bar, i) => {
-          const val = chart.data.datasets[0].data[i];
-          ctx.save();
-          ctx.fillStyle = '#1a1a1a';
-          ctx.font = 'bold 12px -apple-system, sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText(fmt(val), bar.x, bar.y - 6);
-          ctx.restore();
-        });
-      }
-    }]
-  });
+      plugins: [{
+        id: 'lbl',
+        afterDatasetsDraw(chart) {
+          const { ctx } = chart; const meta = chart.getDatasetMeta(0);
+          meta.data.forEach((bar, i) => {
+            const v = chart.data.datasets[0].data[i];
+            ctx.save(); ctx.fillStyle = '#1a1a1a'; ctx.font = 'bold 12px -apple-system, sans-serif';
+            ctx.textAlign = 'center'; ctx.fillText(fmt(v), bar.x, bar.y - 6); ctx.restore();
+          });
+        }
+      }]
+    });
+  };
+  histoCAInstance     = makeBar('histoCA', histoCAInstance, [`CA brut réel${segLabel}`, `Reforecast${segLabel}`], [brutReel, brutBudget], ['#1D9E75', '#74A1D6']);
+  histoAvoirsInstance = makeBar('histoAvoirs', histoAvoirsInstance, ['Avoirs réels', 'Avoirs budget'], [avoirsReel, avoirsBudget], ['#D85A30', '#F0B8A0']);
 }
 function renderCANetByCategory(caByType) {
   const body = document.getElementById('caNetByCatBody');
@@ -2220,7 +2245,7 @@ async function loadMonthlyChart(year, upToMonth) {
     }
   }
   renderChart(labels, currentYearData, prevYearData, budgetData, year);
-  document.getElementById('chartSubtitle').textContent = `CA mensuel en k€ — ${year} vs ${year-1}${year === 2026 ? ' vs Budget' : ''}`;
+  document.getElementById('chartSubtitle').textContent = `CA net mensuel en k€ — ${year} vs ${year-1}${year === 2026 ? ' vs Budget net' : ''}`;
   if (year === 2026) renderBudgetChart(labels, currentYearData, upToMonth);
   else document.getElementById('budgetChartCard').style.display = 'none';
 }
