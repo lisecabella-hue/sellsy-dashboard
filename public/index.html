@@ -293,7 +293,7 @@
         </div>
         <!-- B2B — Dont Pharma (vue B2B uniquement) -->
         <div id="blockB2BPharma" class="metric-card" style="display:none;padding:24px 24px;border-radius:16px;border:1px solid #c8eadb;background:linear-gradient(145deg, #edf8f3 0%, #f8fdfb 100%);">
-          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#1D9E75;margin-bottom:12px;">Dont CA Pharma (net, incl. Luxembourg)</p>
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#1D9E75;margin-bottom:12px;">Dont CA Pharma (net)</p>
           <p style="font-size:28px;font-weight:500;line-height:1;" id="mB2BPharma">—</p>
           <p style="font-size:11px;margin-top:5px;color:#aaa;" id="mB2BPharmaPct"></p>
         </div>
@@ -814,7 +814,7 @@ async function loadPharmacyBreakdown(dateStart, dateEnd) {
       </div>`;
     }
     document.getElementById('pharmacyBreakdownSubtitle').textContent =
-      `Périmètre : pharmacies France + Luxembourg (hors DOM-TOM, Monoprix, Enseignes, E-retailers) · hors acomptes · CA brut par type de commande, avoirs à part${data._fromCache ? ' (cache)' : ''}`;
+      `Périmètre : pharmacies France uniquement (hors Luxembourg, DOM-TOM, Monoprix, Enseignes, E-retailers) · hors acomptes · CA brut par type de commande, avoirs à part${data._fromCache ? ' (cache)' : ''}`;
   } catch(e) {
     document.getElementById('pharmacyBreakdownSubtitle').textContent = 'Erreur de chargement';
     card.style.display = 'none';
@@ -985,7 +985,8 @@ function applySegment(caData) {
                         + (caByTypeRaw['Grand Compte'] || 0)
                         + (caByTypeRaw['Monoprix'] || 0)
                         + (caByTypeRaw['DomTom'] || 0)
-                        + (caByTypeRaw['Eretailer'] || 0);
+                        + (caByTypeRaw['Eretailer'] || 0)
+                        + (caByTypeRaw['Luxembourg'] || 0);
   const caTotal    = caData._totalCA || 0;
   const panierB2C  = caData._panierMoyenB2C || 0;
   const panierB2B  = caData._panierMoyenB2B || 0;
@@ -1066,13 +1067,13 @@ function applySegment(caData) {
     if (typeClientRow) typeClientRow.style.display = 'none';
   } else {
     if (seg === 'b2b' && caData._caByType) {
-      const B2B_CATS = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer'];
+      const B2B_CATS = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer', 'Luxembourg'];
       const caByTypeB2B = Object.fromEntries(
         Object.entries(caData._caByType).filter(([k]) => B2B_CATS.includes(k))
       );
       renderTypeClientPieChart(caByTypeB2B, B2B_CATS);
     } else if (caData._caByType && Object.keys(caData._caByType).length > 0) {
-      renderTypeClientPieChart(caData._caByType, ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer', 'B2C', 'Outlet', 'Marketing', 'Autre']);
+      renderTypeClientPieChart(caData._caByType, ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer', 'Luxembourg', 'B2C', 'Outlet', 'Marketing', 'Autre']);
     }
   }
   if (seg === 'b2c') {
@@ -1312,7 +1313,7 @@ function getBlendedProratio() {
   if (rB2B === null && rB2C === null) return null;
   const a = (rB2B === null) ? rB2C : rB2B;
   const b = (rB2C === null) ? rB2B : rB2C;
-  const budB2B = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer']
+  const budB2B = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer', 'Luxembourg']
     .reduce((s, c) => s + getTypeClientBudgetForPeriod(c), 0);
   const budB2C = getTypeClientBudgetForPeriod('B2C') + getTypeClientBudgetForPeriod('Outlet');
   const total = budB2B + budB2C;
@@ -1522,7 +1523,7 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
 function updateBudgetB2CB2BDisplay(caB2C, caB2B) {
   // Budget B2B/B2C = somme des budgets par catégorie, pour que la carte du haut cadre
   // exactement avec la somme de la légende (mêmes arrondis, aucune double saisie).
-  const b2bBudgetKe = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer']
+  const b2bBudgetKe = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer', 'Luxembourg']
     .reduce((s, c) => s + getNetTypeClientBudgetForPeriod(c), 0);
   const b2cBudgetKe = getNetTypeClientBudgetForPeriod('B2C') + getNetTypeClientBudgetForPeriod('Outlet');
   renderArcGauge('budgetBarB2BWrap', 'gaugeB2B', 'budgetStatusB2B', caB2B, budgetB2B2026, true,  'mB2BBudgetLabel', 'mB2BResteAFaire', b2bBudgetKe);
@@ -1531,7 +1532,7 @@ function updateBudgetB2CB2BDisplay(caB2C, caB2B) {
 function updateBudgetDisplay(totalCA, budgetArr) {
   const arr = budgetArr || budget2026;
   // Budget Total = somme de toutes les catégories, pour cadrer avec la somme de la légende.
-  const totalBudgetKe = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer', 'B2C', 'Outlet', 'Marketing', 'Autre']
+  const totalBudgetKe = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer', 'Luxembourg', 'B2C', 'Outlet', 'Marketing', 'Autre']
     .reduce((s, c) => s + getNetTypeClientBudgetForPeriod(c), 0);
   renderArcGauge('budgetBarWrap', 'gaugeTotal', 'budgetStatusTotal', totalCA, arr, false, null, 'mCAResteAFaire', totalBudgetKe);
 }
@@ -1660,7 +1661,7 @@ async function renderQuarterPace(refDateStr) {
   const elapsedQWD = countWorkdays(qStartDate, ref);
   const remainingWD = Math.max(0, totalQWD - elapsedQWD);                              // ouvrés (B2B)
   // Objectifs trimestre (€) par segment = somme des budgets catégorie sur les 3 mois
-  const B2B_CATS = ['Pharmacie','Grand Compte','Monoprix','DomTom','Eretailer'];
+  const B2B_CATS = ['Pharmacie','Grand Compte','Monoprix','DomTom','Eretailer','Luxembourg'];
   const B2C_CATS_Q = ['B2C','Outlet'];
   const OTHER_CATS = ['Marketing','Autre'];
   // Budget NET = budget CA brut − budget avoirs (le dashboard est en net)
@@ -1686,7 +1687,7 @@ async function renderQuarterPace(refDateStr) {
   // Si on a changé de période entre-temps, ne rien afficher
   if (currentMode !== 'today' && currentMode !== 'yesterday') { clearAll(); return; }
   const tp = qData._caByType || {};
-  const doneB2B = (tp['Pharmacie']||0)+(tp['Grand Compte']||0)+(tp['Monoprix']||0)+(tp['DomTom']||0)+(tp['Eretailer']||0);
+  const doneB2B = (tp['Pharmacie']||0)+(tp['Grand Compte']||0)+(tp['Monoprix']||0)+(tp['DomTom']||0)+(tp['Eretailer']||0)+(tp['Luxembourg']||0);
   const doneB2C = (tp['B2C']||0)+(tp['Outlet']||0);
   const doneTotal = qData._totalCA || 0;
   const render = (id, budget, done, remDays, remLabel) => {
@@ -1712,7 +1713,7 @@ function renderPieChart(caB2C, caB2B) {
   const caByType = (lastCaData && lastCaData._caByType) || {};
   let labels, values, colors;
   if (seg === 'b2b') {
-    const B2B_CATS = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer'];
+    const B2B_CATS = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer', 'Luxembourg'];
     const filtered = B2B_CATS.filter(k => (caByType[k] || 0) > 0);
     labels = filtered;
     values = filtered.map(k => caByType[k] || 0);
@@ -1725,7 +1726,7 @@ function renderPieChart(caB2C, caB2B) {
     colors = filtered.map(l => TYPE_CLIENT_COLORS[l] || '#aaa');
   } else {
     const b2cTotal = (caByType['B2C'] || 0) + (caByType['Outlet'] || 0);
-    const b2bTotal = (caByType['Pharmacie'] || 0) + (caByType['Grand Compte'] || 0) + (caByType['Monoprix'] || 0) + (caByType['DomTom'] || 0) + (caByType['Eretailer'] || 0);
+    const b2bTotal = (caByType['Pharmacie'] || 0) + (caByType['Grand Compte'] || 0) + (caByType['Monoprix'] || 0) + (caByType['DomTom'] || 0) + (caByType['Eretailer'] || 0) + (caByType['Luxembourg'] || 0);
     const marketing = caByType['Marketing'] || 0;
     const autre = caByType['Autre'] || 0;
     const segments = [
@@ -1777,7 +1778,7 @@ function renderPieChart(caB2C, caB2B) {
   const dates = getDates();
   // Budgets NET (budget CA brut − budget avoirs) pour cadrer avec le CA net affiché
   const budB2C = getNetTypeClientBudgetForPeriod('B2C') + getNetTypeClientBudgetForPeriod('Outlet');
-  const budB2B = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer'].reduce((s, c) => s + getNetTypeClientBudgetForPeriod(c), 0);
+  const budB2B = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer', 'Luxembourg'].reduce((s, c) => s + getNetTypeClientBudgetForPeriod(c), 0);
   function legendItem(label, val, color) {
     const pct = total > 0 ? Math.round((val / total) * 100) : 0;
     let budText = '';
@@ -1846,17 +1847,19 @@ const TYPE_CLIENT_COLORS = {
   'Site':         '#bbb',
   'B2C':          '#bbb',
   'DomTom':       '#0FA3B1',
-  'Eretailer':    '#C2851E'
+  'Eretailer':    '#C2851E',
+  'Luxembourg':   '#8E44AD'
 };
 const TYPE_CLIENT_DISPLAY = {
   'B2C': 'Site - B2C',
   'Site': 'Site - B2C',
   'Outlet': 'Outlet - B2C',
-  'Pharmacie': 'Pharmacie (incl. Luxembourg) - B2B',
+  'Pharmacie': 'Pharmacie - B2B',
   'Monoprix': 'Monoprix - B2B',
   'DomTom': 'DOM-TOM - B2B',
   'Grand Compte': 'Enseigne - B2B',
-  'Eretailer': 'E-retailers - B2B'
+  'Eretailer': 'E-retailers - B2B',
+  'Luxembourg': 'Luxembourg - B2B'
 };
 function displayLabel(label) {
   return TYPE_CLIENT_DISPLAY[label] || label;
@@ -1915,7 +1918,7 @@ function getAvoirsBudgetForPeriod(cat, useWorkdays = false) {
 }
 // Budget NET d'une catégorie (k€) = budget CA brut − budget avoirs, pour la période courante.
 // Le budget du jour des catégories B2B est réparti sur les jours OUVRÉS (pas calendaires).
-const B2B_BUDGET_CATS = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer'];
+const B2B_BUDGET_CATS = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer', 'Luxembourg'];
 function getNetTypeClientBudgetForPeriod(cat) {
   const useWD = B2B_BUDGET_CATS.includes(cat);
   return getTypeClientBudgetForPeriod(cat, useWD) - getAvoirsBudgetForPeriod(cat, useWD);
@@ -1992,7 +1995,7 @@ function renderTypeClientPieChart(caByType, universeCats) {
   });
   // B2C cats = jours calendaires, B2B = jours ouvrés
   const B2C_CATS = ['B2C', 'Site', 'Outlet'];
-  const B2B_CATS_LEGEND = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer'];
+  const B2B_CATS_LEGEND = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer', 'Luxembourg'];
   const legendEl = document.getElementById('typeClientLegend');
   // Format simplifié "reste à faire" pour TOUTES les périodes
   const isResteMode = true;
@@ -2088,7 +2091,7 @@ function renderHistoBrut() {
   const seg = currentSegment;
   const brutByType = lastCaData._caByTypeBrut || lastCaData._caByType || {};
   const avo = lastCaData._avoirsByType || {};
-  const B2B_C = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer'];
+  const B2B_C = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer', 'Luxembourg'];
   const B2C_C = ['B2C', 'Outlet'];
   let brutReel, avoirsReel, brutBudget, avoirsBudget, segLabel;
   if (seg === 'b2b') {
@@ -2223,8 +2226,8 @@ async function loadMonthlyChart(year, upToMonth) {
     const caByTypeP = results[m*2+1]._caByType || {};
     let curVal, prevVal;
     if (currentSegment === 'b2b') {
-      curVal  = (caByTypeN['Pharmacie']||0) + (caByTypeN['Grand Compte']||0) + (caByTypeN['Monoprix']||0) + (caByTypeN['DomTom']||0) + (caByTypeN['Eretailer']||0);
-      prevVal = (caByTypeP['Pharmacie']||0) + (caByTypeP['Grand Compte']||0) + (caByTypeP['Monoprix']||0) + (caByTypeP['DomTom']||0) + (caByTypeP['Eretailer']||0);
+      curVal  = (caByTypeN['Pharmacie']||0) + (caByTypeN['Grand Compte']||0) + (caByTypeN['Monoprix']||0) + (caByTypeN['DomTom']||0) + (caByTypeN['Eretailer']||0) + (caByTypeN['Luxembourg']||0);
+      prevVal = (caByTypeP['Pharmacie']||0) + (caByTypeP['Grand Compte']||0) + (caByTypeP['Monoprix']||0) + (caByTypeP['DomTom']||0) + (caByTypeP['Eretailer']||0) + (caByTypeP['Luxembourg']||0);
     } else if (currentSegment === 'b2c') {
       curVal  = (caByTypeN['B2C']||0) + (caByTypeN['Outlet']||0);
       prevVal = (caByTypeP['B2C']||0) + (caByTypeP['Outlet']||0);
@@ -2391,7 +2394,8 @@ async function loadData() {
                 + (caByTypeRaw2['Grand Compte'] || 0)
                 + (caByTypeRaw2['Monoprix'] || 0)
                 + (caByTypeRaw2['DomTom'] || 0)
-                + (caByTypeRaw2['Eretailer'] || 0);
+                + (caByTypeRaw2['Eretailer'] || 0)
+                + (caByTypeRaw2['Luxembourg'] || 0);
     const panierB2C = caData._panierMoyenB2C || 0;
     const panierB2B = caData._panierMoyenB2B || 0;
     const t = new Date().toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
@@ -2407,7 +2411,7 @@ async function loadData() {
         const seg = currentSegment;
         const prevByType = prev._caByType || {};
         const prevB2C = (prevByType['B2C']||0) + (prevByType['Outlet']||0);
-        const prevB2B = (prevByType['Pharmacie']||0) + (prevByType['Grand Compte']||0) + (prevByType['Monoprix']||0) + (prevByType['DomTom']||0) + (prevByType['Eretailer']||0);
+        const prevB2B = (prevByType['Pharmacie']||0) + (prevByType['Grand Compte']||0) + (prevByType['Monoprix']||0) + (prevByType['DomTom']||0) + (prevByType['Eretailer']||0) + (prevByType['Luxembourg']||0);
         const prevTotal = prev._totalCA || 0;
         const prevPanierB2C = prev._panierMoyenB2C || 0;
         const prevPanierB2B = prev._panierMoyenB2B || 0;
