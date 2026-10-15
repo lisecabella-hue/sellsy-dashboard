@@ -260,20 +260,6 @@
     </div>
     <!-- Ligne de jauges style compteur : Total + B2B + B2C -->
     <div id="gaugesRow" style="display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:14px;margin-bottom:16px;">
-        <!-- Détail B2B : Pharma / Autre (affiché uniquement en vue B2B, dans la colonne vide) -->
-        <div id="blockB2BDetail" class="metric-card" style="display:none;padding:24px 28px;border-radius:16px;border:1px solid #c8eadb;background:linear-gradient(145deg, #edf8f3 0%, #f8fdfb 100%);">
-          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#1D9E75;margin-bottom:14px;">Dont CA B2B (net) — par pôle</p>
-          <div style="margin-bottom:14px;">
-            <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:4px;">Dont CA Pharma</p>
-            <p style="font-size:26px;font-weight:500;line-height:1;" id="mB2BPharma">—</p>
-            <p style="font-size:11px;color:#aaa;margin-top:3px;" id="mB2BPharmaPct"></p>
-          </div>
-          <div>
-            <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#888;margin-bottom:4px;">Dont CA Autre</p>
-            <p style="font-size:26px;font-weight:500;line-height:1;" id="mB2BAutre">—</p>
-            <p style="font-size:11px;color:#aaa;margin-top:3px;" id="mB2BAutrePct"></p>
-          </div>
-        </div>
         <!-- TOTAL -->
         <div id="blockTotal" class="metric-card" style="padding:24px 28px;border-radius:16px;border:1px solid #e5e5e5;">
           <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#888;margin-bottom:12px;">CA Total HT Net (après avoirs)</p>
@@ -304,6 +290,18 @@
           </div>
           <p style="font-size:12px;font-weight:600;margin-top:8px;text-align:center;" id="mB2BResteAFaire"></p>
           <p style="font-size:12px;font-weight:600;margin-top:6px;text-align:center;padding-top:6px;border-top:1px dashed #c8eadb;" id="mB2BQuarterPace"></p>
+        </div>
+        <!-- B2B — Dont Pharma (vue B2B uniquement) -->
+        <div id="blockB2BPharma" class="metric-card" style="display:none;padding:24px 24px;border-radius:16px;border:1px solid #c8eadb;background:linear-gradient(145deg, #edf8f3 0%, #f8fdfb 100%);">
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#1D9E75;margin-bottom:12px;">Dont CA Pharma (net)</p>
+          <p style="font-size:28px;font-weight:500;line-height:1;" id="mB2BPharma">—</p>
+          <p style="font-size:11px;margin-top:5px;color:#aaa;" id="mB2BPharmaPct"></p>
+        </div>
+        <!-- B2B — Dont Autre (vue B2B uniquement) -->
+        <div id="blockB2BAutre" class="metric-card" style="display:none;padding:24px 24px;border-radius:16px;border:1px solid #c8eadb;background:linear-gradient(145deg, #edf8f3 0%, #f8fdfb 100%);">
+          <p style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:#1D9E75;margin-bottom:12px;">Dont CA Autre B2B (net)</p>
+          <p style="font-size:28px;font-weight:500;line-height:1;" id="mB2BAutre">—</p>
+          <p style="font-size:11px;margin-top:5px;color:#aaa;" id="mB2BAutrePct"></p>
         </div>
         <!-- B2C -->
         <div id="blockB2C" class="metric-card" style="padding:24px 24px;border-radius:16px;border:1px solid #c5d9f0;background:linear-gradient(145deg, #edf3fb 0%, #f7fafd 100%);">
@@ -998,19 +996,19 @@ function applySegment(caData) {
   if (blockTotal) blockTotal.style.display = seg === 'total' ? '' : 'none';
   if (blockB2B)   blockB2B.style.display   = (seg === 'total' || seg === 'b2b') ? '' : 'none';
   if (blockB2C)   blockB2C.style.display   = (seg === 'total' || seg === 'b2c') ? '' : 'none';
-  // Bloc détail B2B (Pharma / Autre) : visible uniquement en vue B2B, dans la colonne de gauche vide
-  const blockB2BDetail = document.getElementById('blockB2BDetail');
-  if (blockB2BDetail) {
-    blockB2BDetail.style.display = (seg === 'b2b') ? '' : 'none';
-    if (seg === 'b2b') {
-      const pharmaNet = caByTypeRaw['Pharmacie'] || 0; // net (après avoirs)
-      const autreNet  = caB2BFromTypes - pharmaNet;    // Monoprix + Enseigne + DOM-TOM + E-retailers
-      const setTxt2 = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
-      setTxt2('mB2BPharma', fmt(pharmaNet));
-      setTxt2('mB2BAutre', fmt(autreNet));
-      setTxt2('mB2BPharmaPct', caB2BFromTypes > 0 ? `${Math.round(pharmaNet / caB2BFromTypes * 100)}% du B2B` : '');
-      setTxt2('mB2BAutrePct', caB2BFromTypes > 0 ? `${Math.round(autreNet / caB2BFromTypes * 100)}% du B2B` : '');
-    }
+  // Cartes « Dont Pharma » / « Dont Autre B2B » : visibles uniquement en vue B2B
+  const blockB2BPharma = document.getElementById('blockB2BPharma');
+  const blockB2BAutre  = document.getElementById('blockB2BAutre');
+  if (blockB2BPharma) blockB2BPharma.style.display = (seg === 'b2b') ? '' : 'none';
+  if (blockB2BAutre)  blockB2BAutre.style.display  = (seg === 'b2b') ? '' : 'none';
+  if (seg === 'b2b') {
+    const pharmaNet = caByTypeRaw['Pharmacie'] || 0; // net (après avoirs)
+    const autreNet  = caB2BFromTypes - pharmaNet;    // Monoprix + Enseigne + DOM-TOM + E-retailers
+    const setTxt2 = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+    setTxt2('mB2BPharma', fmt(pharmaNet));
+    setTxt2('mB2BAutre', fmt(autreNet));
+    setTxt2('mB2BPharmaPct', caB2BFromTypes > 0 ? `${Math.round(pharmaNet / caB2BFromTypes * 100)}% du B2B` : '');
+    setTxt2('mB2BAutrePct', caB2BFromTypes > 0 ? `${Math.round(autreNet / caB2BFromTypes * 100)}% du B2B` : '');
   }
   // Valeurs
   document.getElementById('mCA').textContent    = fmt(caTotal); // net
