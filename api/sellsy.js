@@ -200,13 +200,19 @@ export default async function handler(req, res) {
     // (pour repérer le champ pays). À retirer ensuite.
     if (req.query.debugCompany) {
       const out = {};
-      // Test : l'endpoint LISTE peut-il embarquer l'adresse (pour récupérer le pays en une passe) ?
-      try {
-        const r = await fetch(`https://api.sellsy.com/v2/companies?limit=3&field[]=id&field[]=name&field[]=legal_france&embed[]=addresses&embed[]=cf.135940`, { headers: { 'Authorization': `Bearer ${access_token}` } });
-        const j = await r.json();
-        out.listStatus = r.status;
-        out.firstCompany = (j.data || [])[0] || null;
-      } catch (e) { out.listErr = e.message; }
+      const H = { headers: { 'Authorization': `Bearer ${access_token}` } };
+      const urls = {
+        full:  `https://api.sellsy.com/v2/companies?limit=3&embed[]=cf.135940`,
+        legal: `https://api.sellsy.com/v2/companies?limit=3&field[]=id&field[]=legal_france&embed[]=cf.135940`,
+        addrField: `https://api.sellsy.com/v2/companies?limit=3&field[]=id&field[]=main_address&embed[]=cf.135940`
+      };
+      for (const [k, u] of Object.entries(urls)) {
+        try {
+          const r = await fetch(u, H); const j = await r.json();
+          const c = (j.data || [])[0] || {};
+          out[k] = { status: r.status, keys: Object.keys(c), vat: c.legal_france?.vat, main_address: c.main_address, hasAddresses: !!c.addresses };
+        } catch (e) { out[k] = { err: e.message }; }
+      }
       return res.status(200).json(out);
     }
     const companyCacheKey = `sellsy:companies:type_client:v3`;
