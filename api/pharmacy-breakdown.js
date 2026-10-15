@@ -67,7 +67,7 @@ export default async function handler(req, res) {
       return companyTypeMap[companyId];
     }
     // 3. Règles nom en fallback
-    if (name.includes('printemps') || name.includes('samaritaine')) return 'Grand Compte';
+    if ((name.includes('printemps') || name.includes('samaritaine')) && !name.includes('pharmacie')) return 'Grand Compte';
     if (name.includes('figaro') || name.includes('media ')) return 'Marketing';
     if (name.includes('pharma') || name.includes('sra ') || name.includes('groupement') || name.includes('c2m') || name.includes('sanisco') || name.includes('dhygietal') || name.includes('atida') || name.includes('divabox') || name.includes('divaboc')) return 'Pharmacie';
     return 'Autre';
@@ -98,7 +98,7 @@ export default async function handler(req, res) {
     const prevDateEnd = dateEnd.replace(String(currentYear), String(prevYear));
 
     // v16 : classification alignée sur sellsy.js (E-retailer/DOM-TOM/Capucins) + exclusion des acomptes
-    const cacheKey = `sellsy:pharmacy-breakdown:v18:${dateStart}:${dateEnd}`;
+    const cacheKey = `sellsy:pharmacy-breakdown:v19:${dateStart}:${dateEnd}`;
     const ttl = getCacheTTL(dateStart, dateEnd);
     const cached = await cacheGet(cacheKey);
     // On ignore un cache vide (0 facture pharmacie = faux "0" d'un incident passé) : il sera recalculé.
@@ -130,7 +130,7 @@ export default async function handler(req, res) {
         const lastDay = new Date(year, month + 1, 0).getDate();
         const mStart = `${year}-${pad(month + 1)}-01`;
         const mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
-        let monthData = await cacheGet(`sellsy:pharmacy-breakdown:v18:${mStart}:${mEnd}`);
+        let monthData = await cacheGet(`sellsy:pharmacy-breakdown:v19:${mStart}:${mEnd}`);
         // Un mois en cache mais vide (faux "0") est traité comme manquant.
         if (monthData && !((monthData.N?.totalPharmacyInvoices || 0) > 0)) monthData = null;
         // Un mois manquant dans un cumul MULTI-mois est recalculé SEUL (appel au même endpoint
@@ -218,7 +218,7 @@ export default async function handler(req, res) {
     });
     const { access_token } = await tokenResp.json();
 
-    const companyTypeMap = await cacheGet('sellsy:companies:type_client:v2') || {};
+    const companyTypeMap = await cacheGet('sellsy:companies:type_client:v3') || {};
 
     async function fetchAndAggregate(start, end) {
       const totals = { Implantation: 0, Précommandes: 0, Réassort: 0, Coffres: 0, 'Non classifié': 0 };
