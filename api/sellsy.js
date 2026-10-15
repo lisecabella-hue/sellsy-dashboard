@@ -199,16 +199,14 @@ export default async function handler(req, res) {
     // DEBUG TEMPORAIRE : /api/sellsy?debugCompany=<id> → renvoie la fiche société brute Sellsy
     // (pour repérer le champ pays). À retirer ensuite.
     if (req.query.debugCompany) {
-      const cid = String(req.query.debugCompany).replace(/[^0-9]/g, '');
       const out = {};
+      // Test : l'endpoint LISTE peut-il embarquer l'adresse (pour récupérer le pays en une passe) ?
       try {
-        const r1 = await fetch(`https://api.sellsy.com/v2/companies/${cid}`, { headers: { 'Authorization': `Bearer ${access_token}` } });
-        out.company = await r1.json();
-      } catch (e) { out.companyErr = e.message; }
-      try {
-        const r2 = await fetch(`https://api.sellsy.com/v2/companies/${cid}/addresses`, { headers: { 'Authorization': `Bearer ${access_token}` } });
-        out.addresses = await r2.json();
-      } catch (e) { out.addressesErr = e.message; }
+        const r = await fetch(`https://api.sellsy.com/v2/companies?limit=3&field[]=id&field[]=name&field[]=legal_france&embed[]=addresses&embed[]=cf.135940`, { headers: { 'Authorization': `Bearer ${access_token}` } });
+        const j = await r.json();
+        out.listStatus = r.status;
+        out.firstCompany = (j.data || [])[0] || null;
+      } catch (e) { out.listErr = e.message; }
       return res.status(200).json(out);
     }
     const companyCacheKey = `sellsy:companies:type_client:v3`;
