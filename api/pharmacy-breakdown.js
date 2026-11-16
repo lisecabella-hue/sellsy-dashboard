@@ -84,6 +84,8 @@ export default async function handler(req, res) {
     const endYear = endDate.getFullYear();
     const endMonth = endDate.getMonth() + 1;
     if (endYear === currentYear && endMonth === currentMonth) return 900; // 15 min
+    // Année révolue (ex. 2025) : données figées → cache 1 an (comparaison N-1 toujours dispo).
+    if (endYear < currentYear) return 60 * 60 * 24 * 365;
     if (endDate < now) return 60 * 60 * 24 * 30;
     return 3600;
   }
