@@ -115,27 +115,42 @@ export default async function handler(req, res) {
     const lastDayOfEndMonth = new Date(end.getUTCFullYear(), end.getUTCMonth() + 1, 0).getUTCDate();
     const isPeriodAlignedOnMonths = startDay === 1 && endDay === lastDayOfEndMonth;
 
-    if (isPeriodAlignedOnMonths) {
-      const months = [];
+    const months = [];
+    {
       let cursor = new Date(start.getUTCFullYear(), start.getUTCMonth(), 1);
       while (cursor <= end) {
         months.push({ year: cursor.getFullYear(), month: cursor.getMonth() });
         cursor.setMonth(cursor.getMonth() + 1);
       }
-
+    }
+    const nowA = new Date();
+    const curY = nowA.getFullYear(), curM = nowA.getMonth();
+    const todayStrA = `${curY}-${pad(curM + 1)}-${pad(nowA.getDate())}`;
+    const curMonthStartStr = `${curY}-${pad(curM + 1)}-01`;
+    // Agrégation par mois pour TOUT cumul multi-mois commençant le 1er, qu'il se termine en fin
+    // de mois (passé aligné) OU aujourd'hui / dans le mois en cours (ce trimestre, YTD). Sans ça,
+    // une période finissant aujourd'hui forçait un unique recalcul de plusieurs mois en direct → timeout.
+    const canAggregate = startDay === 1 && months.length > 1 &&
+      (isPeriodAlignedOnMonths || dateEnd >= curMonthStartStr);
+    if (canAggregate) {
       let allFoundInCache = true;
       const cachedMonths = [];
 
       for (const { year, month } of months) {
+        const isFuture = year > curY || (year === curY && month > curM);
+        if (isFuture) continue; // mois à venir : pas encore de données
+        const isCurrent = year === curY && month === curM;
         const lastDay = new Date(year, month + 1, 0).getDate();
         const mStart = `${year}-${pad(month + 1)}-01`;
-        const mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
-        let monthData = await cacheGet(`sellsy:pharmacy-breakdown:v19:${mStart}:${mEnd}`);
+        let mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
+        if (isCurrent) mEnd = (dateEnd < todayStrA ? dateEnd : todayStrA); // mois en cours borné à aujourd'hui
+        // Mois complet passé → cache mensuel figé ; mois en cours → toujours recalculé via sous-requête.
+        let monthData = isCurrent ? null : await cacheGet(`sellsy:pharmacy-breakdown:v19:${mStart}:${mEnd}`);
         // Un mois en cache mais vide (faux "0") est traité comme manquant.
         if (monthData && !((monthData.N?.totalPharmacyInvoices || 0) > 0)) monthData = null;
-        // Un mois manquant dans un cumul MULTI-mois est recalculé SEUL (appel au même endpoint
-        // sur ce seul mois, qui se met en cache), au lieu de tout refaire. Pas de récursion sur 1 mois.
-        if (!monthData && months.length > 1) {
+        // Mois manquant (ou mois en cours) : recalculé SEUL via l'endpoint (qui se met en cache).
+        // Pas de récursion : une sous-requête sur un seul mois a months.length === 1.
+        if (!monthData) {
           try {
             const base = `https://${req.headers.host}`;
             const r = await fetch(`${base}/api/pharmacy-breakdown?dateStart=${mStart}&dateEnd=${mEnd}`);
