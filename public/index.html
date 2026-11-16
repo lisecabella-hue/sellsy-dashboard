@@ -1298,6 +1298,25 @@ function getProratioForPeriod(useWorkdays) {
       return totalDays > 0 ? Math.min(1, elapsedDays / totalDays) : null;
     }
   }
+  // Pour 'ytd' : le budget comparé est l'ANNUEL → temps écoulé = fraction de l'ANNÉE écoulée
+  // (jours ouvrés pour le B2B, calendaires pour le B2C), bornée à aujourd'hui.
+  if (currentMode === 'ytd') {
+    const year = startDate.getFullYear();
+    const yearStart = new Date(year, 0, 1);
+    const yearEnd   = new Date(year, 11, 31);
+    const todayMid = new Date(); todayMid.setHours(12, 0, 0, 0);
+    const refEnd = (endDate < todayMid ? endDate : todayMid); // borné à aujourd'hui
+    if (refEnd < yearStart) return null;
+    if (useWorkdays) {
+      const totalWD   = countWorkdays(yearStart, yearEnd);
+      const elapsedWD = countWorkdays(yearStart, refEnd);
+      return totalWD > 0 ? Math.min(1, elapsedWD / totalWD) : null;
+    } else {
+      const totalDays   = Math.round((yearEnd - yearStart) / 86400000) + 1;
+      const elapsedDays = Math.round((refEnd - yearStart) / 86400000) + 1;
+      return totalDays > 0 ? Math.min(1, elapsedDays / totalDays) : null;
+    }
+  }
   // Pour 'quarter' : temps écoulé dans le trimestre (B2B jours ouvrés, B2C jours calendaires)
   if (currentMode === 'quarter') {
     const todayMid = new Date(); todayMid.setHours(12, 0, 0, 0);
@@ -2457,34 +2476,49 @@ async function loadData() {
     const vsEl = document.getElementById('mCAVs');
     vsEl.textContent = '⏳ vs N-1...';
     vsEl.className = 'metric-vs neutral';
-    fetch(`/api/sellsy?dateStart=${prevDates.dateStart}&dateEnd=${prevDates.dateEnd}&mode=total`)
-      .then(r => r.json())
-      .then(prev => {
-        netifyCaData(prev); // comparaison N-1 en net aussi
-        const seg = currentSegment;
-        const prevByType = prev._caByType || {};
-        const prevB2C = (prevByType['B2C']||0) + (prevByType['Outlet']||0);
-        const prevB2B = (prevByType['Pharmacie']||0) + (prevByType['Grand Compte']||0) + (prevByType['Monoprix']||0) + (prevByType['DomTom']||0) + (prevByType['Eretailer']||0);
-        const prevTotal = prev._totalCA || 0;
-        const prevPanierB2C = prev._panierMoyenB2C || 0;
-        const prevPanierB2B = prev._panierMoyenB2B || 0;
-        const curCA   = seg === 'b2b' ? caB2B : seg === 'b2c' ? caB2C : (caData._totalCA || 0);
-        const prevCA  = seg === 'b2b' ? prevB2B : seg === 'b2c' ? prevB2C : prevTotal;
-        if (prevCA > 0) {
-          const diff = ((curCA - prevCA) / prevCA) * 100;
-          const sign = diff >= 0 ? '+' : '';
-          vsEl.textContent = `${sign}${diff.toFixed(1)}% vs ${prevYear} (${fmt(prevCA)})`;
-          vsEl.className = `metric-vs ${diff >= 0 ? 'up' : 'down'}`;
-        } else { vsEl.textContent = 'Pas de données N-1'; }
-        setVs('mCAB2CVs', caB2C, prevB2C, prevYear);
-        setVs('mCAB2BVs', caB2B, prevB2B, prevYear);
-        setVs('mAvgB2CVs', panierB2C, prevPanierB2C, prevYear);
-        setVs('mAvgB2BVs', panierB2B, prevPanierB2B, prevYear);
-      })
-      .catch(() => {
+    // N-1 : l'année précédente n'est pas toujours en cache (recalcul à froid long). On réessaie
+    // jusqu'à obtenir une réponse COMPLÈTE (tous les mois agrégés) avant d'afficher, pour ne pas
+    // conclure à tort "Pas de données N-1" pendant que le cache 2025 se réchauffe.
+    (async () => {
+      let prev = null;
+      for (let tryN = 0; tryN < 6; tryN++) {
+        try {
+          const r = await fetch(`/api/sellsy?dateStart=${prevDates.dateStart}&dateEnd=${prevDates.dateEnd}&mode=total`);
+          if (r.ok) {
+            const p = await r.json();
+            prev = p;
+            if (isCaComplete(p, prevDates.dateStart, prevDates.dateEnd)) break;
+          }
+        } catch {}
+        vsEl.textContent = '⏳ N-1 en préparation…';
+        await new Promise(res => setTimeout(res, 2000 * (tryN + 1)));
+      }
+      if (!prev) {
         vsEl.textContent = '';
         ['mCAB2CVs','mCAB2BVs','mAvgB2CVs','mAvgB2BVs'].forEach(id => { document.getElementById(id).textContent = ''; });
-      });
+        return;
+      }
+      netifyCaData(prev); // comparaison N-1 en net aussi
+      const seg = currentSegment;
+      const prevByType = prev._caByType || {};
+      const prevB2C = (prevByType['B2C']||0) + (prevByType['Outlet']||0);
+      const prevB2B = (prevByType['Pharmacie']||0) + (prevByType['Grand Compte']||0) + (prevByType['Monoprix']||0) + (prevByType['DomTom']||0) + (prevByType['Eretailer']||0);
+      const prevTotal = prev._totalCA || 0;
+      const prevPanierB2C = prev._panierMoyenB2C || 0;
+      const prevPanierB2B = prev._panierMoyenB2B || 0;
+      const curCA   = seg === 'b2b' ? caB2B : seg === 'b2c' ? caB2C : (caData._totalCA || 0);
+      const prevCA  = seg === 'b2b' ? prevB2B : seg === 'b2c' ? prevB2C : prevTotal;
+      if (prevCA > 0) {
+        const diff = ((curCA - prevCA) / prevCA) * 100;
+        const sign = diff >= 0 ? '+' : '';
+        vsEl.textContent = `${sign}${diff.toFixed(1)}% vs ${prevYear} (${fmt(prevCA)})`;
+        vsEl.className = `metric-vs ${diff >= 0 ? 'up' : 'down'}`;
+      } else { vsEl.textContent = 'Pas de données N-1'; }
+      setVs('mCAB2CVs', caB2C, prevB2C, prevYear);
+      setVs('mCAB2BVs', caB2B, prevB2B, prevYear);
+      setVs('mAvgB2CVs', panierB2C, prevPanierB2C, prevYear);
+      setVs('mAvgB2BVs', panierB2B, prevPanierB2B, prevYear);
+    })();
     const endDate = new Date(dateEnd + 'T12:00:00');
     updateBanners(new Date(dateStart + 'T12:00:00').getMonth());
     await loadMonthlyChart(endDate.getFullYear(), endDate.getMonth());
