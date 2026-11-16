@@ -1918,7 +1918,10 @@ function getAvoirsBudgetForPeriod(cat, useWorkdays = false) {
 const B2B_BUDGET_CATS = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer'];
 function getNetTypeClientBudgetForPeriod(cat) {
   const useWD = B2B_BUDGET_CATS.includes(cat);
-  return getTypeClientBudgetForPeriod(cat, useWD) - getAvoirsBudgetForPeriod(cat, useWD);
+  // Les avoirs sont DÉJÀ inclus dans le budget CA saisi (le budget de référence est net d'avoirs).
+  // On ne les re-soustrait donc plus ici (sinon double comptage). La carte "comparaison avoirs
+  // réel vs budget" continue d'utiliser le budget avoirs à part, pour info.
+  return getTypeClientBudgetForPeriod(cat, useWD);
 }
 // Transforme les données Sellsy d'une période en NET (CA − avoirs) partout : total, par
 // catégorie, B2B/B2C et tops clients. Idempotent (flag _netApplied). On conserve le brut
@@ -2235,10 +2238,10 @@ async function loadMonthlyChart(year, upToMonth) {
     currentYearData.push(Math.round(curVal / 1000 * 10) / 10);
     prevYearData.push(Math.round(prevVal / 1000 * 10) / 10);
     if (year === 2026) {
-      // Budget NET = budget CA brut − budget avoirs (avoirs tous en B2B)
-      const netBud = currentSegment === 'b2b' ? (budgetB2B2026[m] - budgetAvoirs2026[m])
+      // Les avoirs sont déjà inclus dans le budget CA saisi → on ne les re-soustrait plus.
+      const netBud = currentSegment === 'b2b' ? budgetB2B2026[m]
         : currentSegment === 'b2c' ? budgetB2C2026[m]
-        : (budget2026[m] - budgetAvoirs2026[m]);
+        : budget2026[m];
       budgetData.push(Math.round(netBud * 10) / 10);
     }
   }
