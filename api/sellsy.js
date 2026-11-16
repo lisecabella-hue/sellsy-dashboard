@@ -41,7 +41,13 @@ export default async function handler(req, res) {
     // le découpage [début → hier] (figé) + [aujourd'hui] (recalculé en direct).
     const now = new Date();
     const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-    if (dateEnd < todayStr) return 60 * 60 * 24 * 30;
+    if (dateEnd < todayStr) {
+      // Année révolue (ex. 2025) : données entièrement figées → cache 1 an, pour que la
+      // comparaison N-1 reste toujours disponible sans re-réchauffage (une seule préchauffe suffit).
+      if (parseInt(dateEnd.slice(0, 4), 10) < now.getFullYear()) return 60 * 60 * 24 * 365;
+      // Mois passés de l'année en cours : 30 jours (laisse passer d'éventuels rattrapages de facturation).
+      return 60 * 60 * 24 * 30;
+    }
     return 0;
   }
   const TYPE_CLIENT_MAP = {
