@@ -2340,6 +2340,28 @@ function renderTop30(top30, totalCAB2B) {
     </tr>`;
   }).join('');
 }
+// Nombre de mois NON futurs couverts par la période (un mois à venir n'a pas de données).
+function expectedMonthCount(dateStart, dateEnd) {
+  const s = new Date(dateStart + 'T12:00:00');
+  const e = new Date(dateEnd + 'T12:00:00');
+  const now = new Date();
+  const curYM = now.getFullYear() * 12 + now.getMonth();
+  const endYM = e.getFullYear() * 12 + e.getMonth();
+  let ym = s.getFullYear() * 12 + s.getMonth();
+  let count = 0;
+  while (ym <= endYM) { if (ym <= curYM) count++; ym++; }
+  return count;
+}
+// Une réponse CA est-elle complète (donc affichable) ?
+// - multi-mois : elle doit être agrégée depuis TOUS les mois attendus (sinon c'est un repli
+//   partiel pendant que le cache se réchauffe → on garde "…" et on réessaie)
+// - mono-mois / jour : il suffit d'un CA > 0 et pas d'échec avoirs.
+function isCaComplete(caData, dateStart, dateEnd) {
+  if (!caData || caData._creditsFailed) return false;
+  const months = expectedMonthCount(dateStart, dateEnd);
+  if (months > 1) return (caData._aggregatedFromMonths || 0) >= months;
+  return (caData._totalCA || 0) > 0;
+}
 async function loadData() {
   const dates = getDates();
   if (!dates) return;
@@ -2370,16 +2392,29 @@ async function loadData() {
     // Si le CA revient à 0 (Sellsy momentanément surchargé), on réessaie automatiquement
     // plusieurs fois — en patientant un peu plus à chaque essai — avant d'afficher,
     // au lieu d'afficher un faux 0 ou que tu doives recliquer sur "Voir".
-    for (let tryN = 1; tryN <= 3 && (caData._totalCA || 0) === 0; tryN++) {
+    // On réessaie tant que la réponse n'est pas complète : CA à 0 (Sellsy surchargé) OU, pour une
+    // période multi-mois, agrégat encore partiel (cache en cours de réchauffage). Pendant ce temps
+    // les cartes restent "…" et le statut reste "Chargement" — on n'affiche jamais un total partiel.
+    for (let tryN = 1; tryN <= 6 && !isCaComplete(caData, dateStart, dateEnd); tryN++) {
       setStatus('spin', `Chargement… (tentative ${tryN + 1})`);
-      await new Promise(r => setTimeout(r, 1200 * tryN));
+      await new Promise(r => setTimeout(r, 1500 * tryN));
       try {
         const retryResp = await fetch(`/api/sellsy?dateStart=${dateStart}&dateEnd=${dateEnd}&mode=total`);
         if (retryResp.ok) {
           const retryData = await retryResp.json();
-          if ((retryData._totalCA || 0) > 0) { caData = retryData; break; }
+          if (isCaComplete(retryData, dateStart, dateEnd)) { caData = retryData; break; }
+          caData = retryData; // on garde la plus récente pour le prochain test
         }
       } catch {}
+    }
+    // Si, après toutes les tentatives, la période reste incomplète (cache encore froid),
+    // on N'AFFICHE PAS un total partiel : on garde "…" et on invite à réessayer.
+    if (!isCaComplete(caData, dateStart, dateEnd)) {
+      setStatus('spin', 'Consolidation en cours…');
+      document.getElementById('errorBox').style.display = 'block';
+      document.getElementById('errorBox').textContent =
+        'Données encore en cours de consolidation (cache en préparation). Recliquez sur « Voir » dans quelques secondes.';
+      return;
     }
     netifyCaData(caData); // tout le dashboard est en CA net (après avoirs)
     lastCaData = caData;
