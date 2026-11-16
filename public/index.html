@@ -1105,27 +1105,22 @@ let budgetB2C2026 = [...DEFAULT_BUDGET_B2C];
 let budgetB2B2026 = [...DEFAULT_BUDGET_B2B];
 let budgetAvoirs2026 = [...DEFAULT_BUDGET_AVOIRS];
 function loadBudgetLocal() {
+  // Budget 2026 VERROUILLÉ sur les valeurs du fichier (constantes DEFAULT_* ci-dessus, net d'avoirs,
+  // sans RFA). On n'utilise PLUS les valeurs stockées dans le navigateur pour ces montants : elles
+  // pouvaient rester "collées" sur d'anciens chiffres et fausser les jauges. À chaque chargement,
+  // les budgets repartent du fichier → total 20 735 k€ garanti.
+  budget2026    = [...DEFAULT_BUDGET];
+  budgetB2C2026 = [...DEFAULT_BUDGET_B2C];
+  budgetB2B2026 = [...DEFAULT_BUDGET_B2B];
   try {
-    // Ré-injection forcée une fois : si la version des budgets de référence a changé, on écrase
-    // les valeurs locales par les budgets du fichier (défauts ci-dessus) et on mémorise la version.
-    if (localStorage.getItem('budgetSeedVersion') !== BUDGET_SEED_VERSION) {
-      budget2026    = [...DEFAULT_BUDGET];
-      budgetB2C2026 = [...DEFAULT_BUDGET_B2C];
-      budgetB2B2026 = [...DEFAULT_BUDGET_B2B];
-      localStorage.setItem('budget2026',    JSON.stringify(budget2026));
-      localStorage.setItem('budgetB2C2026', JSON.stringify(budgetB2C2026));
-      localStorage.setItem('budgetB2B2026', JSON.stringify(budgetB2B2026));
-      localStorage.setItem('budgetSeedVersion', BUDGET_SEED_VERSION);
-    } else {
-      const saved = localStorage.getItem('budget2026');
-      if (saved) budget2026 = JSON.parse(saved);
-      const savedB2C = localStorage.getItem('budgetB2C2026');
-      if (savedB2C) budgetB2C2026 = JSON.parse(savedB2C);
-      const savedB2B = localStorage.getItem('budgetB2B2026');
-      if (savedB2B) budgetB2B2026 = JSON.parse(savedB2B);
-    }
     const savedAvoirs = localStorage.getItem('budgetAvoirs2026');
     if (savedAvoirs) budgetAvoirs2026 = JSON.parse(savedAvoirs);
+  } catch {}
+  // Nettoyage des anciennes valeurs collées (pour éviter toute confusion si on réactive l'édition).
+  try {
+    localStorage.removeItem('budget2026');
+    localStorage.removeItem('budgetB2C2026');
+    localStorage.removeItem('budgetB2B2026');
   } catch {}
 }
 loadBudgetLocal();
@@ -1546,16 +1541,17 @@ function periodBudgetKe(arr, useWD) {
 function updateBudgetB2CB2BDisplay(caB2C, caB2B) {
   // Budget B2B/B2C = somme des budgets par catégorie, pour que la carte du haut cadre
   // exactement avec la somme de la légende (mêmes arrondis, aucune double saisie).
-  // Budget = montants du fichier (net d'avoirs, sans RFA) ; annuel en vue YTD, sinon par période.
-  const b2bBudgetKe = periodBudgetKe(budgetB2B2026, true);
-  const b2cBudgetKe = periodBudgetKe(budgetB2C2026, false);
-  renderArcGauge('budgetBarB2BWrap', 'gaugeB2B', 'budgetStatusB2B', caB2B, budgetB2B2026, true,  'mB2BBudgetLabel', 'mB2BResteAFaire', b2bBudgetKe);
-  renderArcGauge('budgetBarB2CWrap', 'gaugeB2C', 'budgetStatusB2C', caB2C, budgetB2C2026, false, 'mB2CBudgetLabel', 'mB2CResteAFaire', b2cBudgetKe);
+  // Budget = montants du fichier (constantes DEFAULT_*, net d'avoirs, sans RFA), indépendants de
+  // ce qui est stocké dans le navigateur ; annuel en vue YTD, sinon par période.
+  const b2bBudgetKe = periodBudgetKe(DEFAULT_BUDGET_B2B, true);
+  const b2cBudgetKe = periodBudgetKe(DEFAULT_BUDGET_B2C, false);
+  renderArcGauge('budgetBarB2BWrap', 'gaugeB2B', 'budgetStatusB2B', caB2B, DEFAULT_BUDGET_B2B, true,  'mB2BBudgetLabel', 'mB2BResteAFaire', b2bBudgetKe);
+  renderArcGauge('budgetBarB2CWrap', 'gaugeB2C', 'budgetStatusB2C', caB2C, DEFAULT_BUDGET_B2C, false, 'mB2CBudgetLabel', 'mB2CResteAFaire', b2cBudgetKe);
 }
 function updateBudgetDisplay(totalCA, budgetArr) {
-  const arr = budgetArr || budget2026;
-  // Budget Total du fichier (net d'avoirs, sans RFA) ; annuel en vue YTD, sinon par période.
-  const totalBudgetKe = periodBudgetKe(budget2026, false);
+  // Budget Total du fichier (constante, net d'avoirs, sans RFA) ; annuel en vue YTD, sinon par période.
+  const arr = DEFAULT_BUDGET;
+  const totalBudgetKe = periodBudgetKe(DEFAULT_BUDGET, false);
   renderArcGauge('budgetBarWrap', 'gaugeTotal', 'budgetStatusTotal', totalCA, arr, false, null, 'mCAResteAFaire', totalBudgetKe);
 }
 [document.getElementById('selYear'), document.getElementById('selYtdYear'), document.getElementById('selQuarterYear')].forEach(el => {
@@ -1798,9 +1794,9 @@ function renderPieChart(caB2C, caB2B) {
     }]
   });
   const dates = getDates();
-  // Budgets du fichier (net d'avoirs, sans RFA) ; annuel en vue YTD, sinon par période.
-  const budB2C = periodBudgetKe(budgetB2C2026, false);
-  const budB2B = periodBudgetKe(budgetB2B2026, true);
+  // Budgets du fichier (constantes, net d'avoirs, sans RFA) ; annuel en vue YTD, sinon par période.
+  const budB2C = periodBudgetKe(DEFAULT_BUDGET_B2C, false);
+  const budB2B = periodBudgetKe(DEFAULT_BUDGET_B2B, true);
   function legendItem(label, val, color) {
     const pct = total > 0 ? Math.round((val / total) * 100) : 0;
     let budText = '';
