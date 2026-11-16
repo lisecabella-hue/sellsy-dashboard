@@ -74,6 +74,18 @@ export default async function handler(req, res) {
     results.push(...batchRes);
   }
 
+  // Fenêtre glissante du mois en cours [1er → hier] : c'est la clé que lit le "découpage
+  // aujourd'hui" du mois courant. Le réchauffage par mois COMPLET ([1er → fin de mois]) ne la
+  // couvre pas (clé différente, qui change chaque jour). Sans ça, le 1er chargement du jour
+  // recalcule ~tout le mois en direct → lent, et sensible au throttle Sellsy. On la réchauffe
+  // ici pour que l'ouverture du mois en cours soit instantanée et fiable.
+  if (now.getDate() > 1) {
+    const yd = new Date(now); yd.setDate(now.getDate() - 1);
+    const ds = `${curYear}-${pad(curMonth + 1)}-01`;
+    const de = `${yd.getFullYear()}-${pad(yd.getMonth() + 1)}-${pad(yd.getDate())}`;
+    results.push(await warmOne({ ds, de }));
+  }
+
   // Shopify : préchauffe le mois en cours (le plus lourd et le plus consulté)
   let shopify = null;
   try {
