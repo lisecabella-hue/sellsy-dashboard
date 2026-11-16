@@ -1091,22 +1091,39 @@ function applySegment(caData) {
 }
 const months = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const monthsShort = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-const DEFAULT_BUDGET     = [1617, 1151, 3439, 1267, 1722, 2085, 1498, 814, 1319, 2401, 1461, 1483];
-const DEFAULT_BUDGET_B2C = [0,0,0,0,0,0,0,0,0,0,0,0];
-const DEFAULT_BUDGET_B2B = [0,0,0,0,0,0,0,0,0,0,0,0];
+// Budget 2026 issu du fichier "DERNIERE VERSION reforecast" (onglet Hypothèses), en k€, NET d'avoirs,
+// SANS les RFA. Total = 20 734,7 k€ ; B2B = 16 995,0 ; B2C = 3 710,1.
+const DEFAULT_BUDGET     = [1318.6, 1202.5, 3403.0, 1322.0, 1858.6, 1558.0, 1097.0, 1674.1, 1282.1, 2304.2, 2222.5, 1492.1];
+const DEFAULT_BUDGET_B2C = [335.1, 284.5, 330.1, 302.1, 310.0, 333.1, 286.5, 190.1, 228.0, 311.0, 412.8, 386.8];
+const DEFAULT_BUDGET_B2B = [984.3, 908.5, 3053.0, 1020.9, 1548.3, 1223.2, 810.5, 1484.0, 1054.1, 1993.2, 1809.7, 1105.3];
 const DEFAULT_BUDGET_AVOIRS = [0,0,0,0,0,0,0,0,0,0,0,0];
+// Incrémenter BUDGET_SEED_VERSION force la ré-injection des budgets ci-dessus dans le navigateur
+// (écrase les anciennes valeurs locales une seule fois), pour que le total cadre sur le fichier.
+const BUDGET_SEED_VERSION = '2026-reforecast-v061026';
 let budget2026    = [...DEFAULT_BUDGET];
 let budgetB2C2026 = [...DEFAULT_BUDGET_B2C];
 let budgetB2B2026 = [...DEFAULT_BUDGET_B2B];
 let budgetAvoirs2026 = [...DEFAULT_BUDGET_AVOIRS];
 function loadBudgetLocal() {
   try {
-    const saved = localStorage.getItem('budget2026');
-    if (saved) budget2026 = JSON.parse(saved);
-    const savedB2C = localStorage.getItem('budgetB2C2026');
-    if (savedB2C) budgetB2C2026 = JSON.parse(savedB2C);
-    const savedB2B = localStorage.getItem('budgetB2B2026');
-    if (savedB2B) budgetB2B2026 = JSON.parse(savedB2B);
+    // Ré-injection forcée une fois : si la version des budgets de référence a changé, on écrase
+    // les valeurs locales par les budgets du fichier (défauts ci-dessus) et on mémorise la version.
+    if (localStorage.getItem('budgetSeedVersion') !== BUDGET_SEED_VERSION) {
+      budget2026    = [...DEFAULT_BUDGET];
+      budgetB2C2026 = [...DEFAULT_BUDGET_B2C];
+      budgetB2B2026 = [...DEFAULT_BUDGET_B2B];
+      localStorage.setItem('budget2026',    JSON.stringify(budget2026));
+      localStorage.setItem('budgetB2C2026', JSON.stringify(budgetB2C2026));
+      localStorage.setItem('budgetB2B2026', JSON.stringify(budgetB2B2026));
+      localStorage.setItem('budgetSeedVersion', BUDGET_SEED_VERSION);
+    } else {
+      const saved = localStorage.getItem('budget2026');
+      if (saved) budget2026 = JSON.parse(saved);
+      const savedB2C = localStorage.getItem('budgetB2C2026');
+      if (savedB2C) budgetB2C2026 = JSON.parse(savedB2C);
+      const savedB2B = localStorage.getItem('budgetB2B2026');
+      if (savedB2B) budgetB2B2026 = JSON.parse(savedB2B);
+    }
     const savedAvoirs = localStorage.getItem('budgetAvoirs2026');
     if (savedAvoirs) budgetAvoirs2026 = JSON.parse(savedAvoirs);
   } catch {}
@@ -1519,20 +1536,26 @@ function renderArcGauge(wrapperId, canvasId, statusId, caVal, budgetArr, useWork
     }
   }
 }
+// Budget à afficher pour la période courante.
+// En vue "Cumul YTD", on compare au budget ANNUEL (l'objectif de l'année), pas seulement au
+// cumul des mois écoulés. Pour les autres vues (mois, trimestre…), on prend le budget de la période.
+function periodBudgetKe(arr, useWD) {
+  if (currentMode === 'ytd') return arr.reduce((s, v) => s + (v || 0), 0);
+  return getBudgetForCurrentPeriod(arr, useWD);
+}
 function updateBudgetB2CB2BDisplay(caB2C, caB2B) {
   // Budget B2B/B2C = somme des budgets par catégorie, pour que la carte du haut cadre
   // exactement avec la somme de la légende (mêmes arrondis, aucune double saisie).
-  const b2bBudgetKe = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer']
-    .reduce((s, c) => s + getNetTypeClientBudgetForPeriod(c), 0);
-  const b2cBudgetKe = getNetTypeClientBudgetForPeriod('B2C') + getNetTypeClientBudgetForPeriod('Outlet');
+  // Budget = montants du fichier (net d'avoirs, sans RFA) ; annuel en vue YTD, sinon par période.
+  const b2bBudgetKe = periodBudgetKe(budgetB2B2026, true);
+  const b2cBudgetKe = periodBudgetKe(budgetB2C2026, false);
   renderArcGauge('budgetBarB2BWrap', 'gaugeB2B', 'budgetStatusB2B', caB2B, budgetB2B2026, true,  'mB2BBudgetLabel', 'mB2BResteAFaire', b2bBudgetKe);
   renderArcGauge('budgetBarB2CWrap', 'gaugeB2C', 'budgetStatusB2C', caB2C, budgetB2C2026, false, 'mB2CBudgetLabel', 'mB2CResteAFaire', b2cBudgetKe);
 }
 function updateBudgetDisplay(totalCA, budgetArr) {
   const arr = budgetArr || budget2026;
-  // Budget Total = somme de toutes les catégories, pour cadrer avec la somme de la légende.
-  const totalBudgetKe = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer', 'B2C', 'Outlet', 'Marketing', 'Autre']
-    .reduce((s, c) => s + getNetTypeClientBudgetForPeriod(c), 0);
+  // Budget Total du fichier (net d'avoirs, sans RFA) ; annuel en vue YTD, sinon par période.
+  const totalBudgetKe = periodBudgetKe(budget2026, false);
   renderArcGauge('budgetBarWrap', 'gaugeTotal', 'budgetStatusTotal', totalCA, arr, false, null, 'mCAResteAFaire', totalBudgetKe);
 }
 [document.getElementById('selYear'), document.getElementById('selYtdYear'), document.getElementById('selQuarterYear')].forEach(el => {
@@ -1775,9 +1798,9 @@ function renderPieChart(caB2C, caB2B) {
     }]
   });
   const dates = getDates();
-  // Budgets NET (budget CA brut − budget avoirs) pour cadrer avec le CA net affiché
-  const budB2C = getNetTypeClientBudgetForPeriod('B2C') + getNetTypeClientBudgetForPeriod('Outlet');
-  const budB2B = ['Pharmacie', 'Grand Compte', 'Monoprix', 'DomTom', 'Eretailer'].reduce((s, c) => s + getNetTypeClientBudgetForPeriod(c), 0);
+  // Budgets du fichier (net d'avoirs, sans RFA) ; annuel en vue YTD, sinon par période.
+  const budB2C = periodBudgetKe(budgetB2C2026, false);
+  const budB2B = periodBudgetKe(budgetB2B2026, true);
   function legendItem(label, val, color) {
     const pct = total > 0 ? Math.round((val / total) * 100) : 0;
     let budText = '';
