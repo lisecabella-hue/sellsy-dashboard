@@ -112,7 +112,11 @@ export default async function handler(req, res) {
   // Les périodes multi-mois (trimestre, YTD…) ne sont JAMAIS servies depuis un agrégat figé :
   // elles sont toujours reconstruites à partir des caches mensuels (donc toujours à jour).
   const isMultiMonth = dateStart.slice(0, 7) !== dateEnd.slice(0, 7);
-  if (ttl > 0 && kvUrl && kvToken && !noCache && !isMultiMonth) {
+  // Une période entièrement dans une année révolue (ex. le N-1 : 2025) est figée : on autorise
+  // à servir son agrégat multi-mois directement depuis le cache (sinon on ré-agrège 11 mois à
+  // chaque fois → N-1 très lent). Pour l'année en cours, les multi-mois restent reconstruits.
+  const isPastYear = parseInt(dateEnd.slice(0, 4), 10) < new Date().getFullYear();
+  if (ttl > 0 && kvUrl && kvToken && !noCache && (!isMultiMonth || isPastYear)) {
     const cached = await cacheGet(cacheKey);
     // On ignore un cache vide (faux "0" d'un incident passé) : il sera recalculé.
     if (cached && (cached.pagination?.total || 0) > 0) {
@@ -182,8 +186,12 @@ export default async function handler(req, res) {
       }
       if (allOk && parts.length > 0) {
         const aggregated = aggregateParts(parts);
-        // On NE met PAS en cache l'agrégat multi-mois : il est reconstruit à la volée depuis
-        // les caches mensuels (toujours à jour, évite un agrégat figé/obsolète).
+        // Année EN COURS : on ne met pas en cache l'agrégat (reconstruit à la volée, toujours à jour).
+        // Année RÉVOLUE (ex. N-1 2025) : l'agrégat est figé → on le met en cache (1 an) pour que les
+        // chargements suivants soient instantanés (plus de ré-agrégation des 11 mois à chaque fois).
+        if (isPastYear && ttl > 0 && kvUrl && (aggregated.pagination?.total || 0) > 0) {
+          await cacheSet(cacheKey, aggregated, ttl);
+        }
         return res.status(200).json({ ...aggregated, _fromCache: true, _aggregatedFromMonths: parts.length });
       }
     }
