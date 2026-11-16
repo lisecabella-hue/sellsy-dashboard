@@ -120,29 +120,50 @@ export default async function handler(req, res) {
     const endDay = end.getUTCDate();
     const lastDayOfEndMonth = new Date(end.getUTCFullYear(), end.getUTCMonth() + 1, 0).getUTCDate();
     const isPeriodAlignedOnMonths = startDay === 1 && endDay === lastDayOfEndMonth;
-    if (isPeriodAlignedOnMonths) {
-      const months = [];
+    // Liste des mois couverts par la période.
+    const aggMonths = [];
+    {
       let cursor = new Date(start.getUTCFullYear(), start.getUTCMonth(), 1);
       while (cursor <= end) {
-        months.push({ year: cursor.getFullYear(), month: cursor.getMonth() });
+        aggMonths.push({ year: cursor.getFullYear(), month: cursor.getMonth() });
         cursor.setMonth(cursor.getMonth() + 1);
       }
-      let cachedMonths = [];
-      let allFoundInCache = true;
-      for (const { year, month } of months) {
+    }
+    const nowA = new Date();
+    const curY = nowA.getFullYear(), curM = nowA.getMonth();
+    const todayStrA = `${curY}-${pad(curM + 1)}-${pad(nowA.getDate())}`;
+    const curMonthStartStr = `${curY}-${pad(curM + 1)}-01`;
+    // Agrégation par mois pour TOUT cumul multi-mois commençant le 1er, qu'il se termine
+    // en fin de mois (période passée alignée) OU aujourd'hui / dans le mois en cours
+    // (ce trimestre, YTD…). Sans ça, une période finissant aujourd'hui n'était pas alignée
+    // et forçait un unique recalcul de plusieurs mois en direct → dépassement des 300 s → plantage.
+    // Mois complets passés : cache mensuel figé. Mois en cours : sous-requête [1er → aujourd'hui]
+    // (gérée par le découpage du jour). Mois futurs éventuels : ignorés (pas encore de données).
+    const canAggregate = startDay === 1 && aggMonths.length > 1 &&
+      (isPeriodAlignedOnMonths || dateEnd >= curMonthStartStr);
+    if (canAggregate) {
+      const base = `https://${req.headers.host}`;
+      let parts = [];
+      let allOk = true;
+      for (const { year, month } of aggMonths) {
+        const isFuture = year > curY || (year === curY && month > curM);
+        if (isFuture) continue; // mois à venir : pas encore de données
+        const isCurrent = year === curY && month === curM;
         const lastDay = new Date(year, month + 1, 0).getDate();
         const mStart = `${year}-${pad(month + 1)}-01`;
-        const mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
+        let mEnd = `${year}-${pad(month + 1)}-${pad(lastDay)}`;
+        // Mois en cours : borné à aujourd'hui (jamais de jours futurs).
+        if (isCurrent) mEnd = (dateEnd < todayStrA ? dateEnd : todayStrA);
         const monthCacheKey = `sellsy:${CACHE_VERSION}:total:${mStart}:${mEnd}`;
-        let monthData = await cacheGet(monthCacheKey);
+        // Mois complet passé → cache mensuel figé ; mois en cours → toujours via sous-requête.
+        let monthData = isCurrent ? null : await cacheGet(monthCacheKey);
         // Un mois en cache mais vide (faux "0" d'un incident passé) est traité comme manquant.
         if (monthData && !((monthData.pagination?.total || 0) > 0)) monthData = null;
-        // Si un mois manque dans un cumul MULTI-mois, on recalcule UNIQUEMENT ce mois
-        // (via un appel au même endpoint sur ce seul mois, qui se met en cache tout seul),
-        // au lieu de tout refaire. Réservé au multi-mois pour éviter toute récursion sur un seul mois.
-        if (!monthData && months.length > 1) {
+        // Mois manquant (ou mois en cours) : on (re)calcule UNIQUEMENT ce mois via l'endpoint,
+        // qui se met en cache tout seul s'il est complet. Pas de récursion : une sous-requête
+        // sur un seul mois a aggMonths.length === 1 et retombe sur le découpage du jour.
+        if (!monthData) {
           try {
-            const base = `https://${req.headers.host}`;
             const r = await fetch(`${base}/api/sellsy?dateStart=${mStart}&dateEnd=${mEnd}&mode=total`);
             if (r.ok) {
               const j = await r.json();
@@ -150,17 +171,14 @@ export default async function handler(req, res) {
             }
           } catch {}
         }
-        if (!monthData) {
-          allFoundInCache = false;
-          break;
-        }
-        cachedMonths.push(monthData);
+        if (!monthData) { allOk = false; break; }
+        parts.push(monthData);
       }
-      if (allFoundInCache && cachedMonths.length > 0 && cachedMonths.length === months.length) {
-        const aggregated = aggregateParts(cachedMonths);
+      if (allOk && parts.length > 0) {
+        const aggregated = aggregateParts(parts);
         // On NE met PAS en cache l'agrégat multi-mois : il est reconstruit à la volée depuis
         // les caches mensuels (toujours à jour, évite un agrégat figé/obsolète).
-        return res.status(200).json({ ...aggregated, _fromCache: true, _aggregatedFromMonths: cachedMonths.length });
+        return res.status(200).json({ ...aggregated, _fromCache: true, _aggregatedFromMonths: parts.length });
       }
     }
     // Découpage "aujourd'hui" : si la période commence avant aujourd'hui et va jusqu'à
@@ -177,8 +195,14 @@ export default async function handler(req, res) {
           fetch(`${base}/api/sellsy?dateStart=${dateStart}&dateEnd=${yStr}&mode=total`).then(r => r.ok ? r.json() : null),
           fetch(`${base}/api/sellsy?dateStart=${todayStr}&dateEnd=${todayStr}&mode=total`).then(r => r.ok ? r.json() : null)
         ]);
-        if (pastR && pastR._totalCA !== undefined) {
-          const aggregated = aggregateParts([pastR, todayR].filter(Boolean));
+        // On ne sert le résultat découpé QUE si les deux morceaux sont complets.
+        // Un cache déjà figé n'a pas de champ _complete (il n'est stocké que s'il était complet)
+        // → _complete === undefined passe ; un recalcul throttlé renvoie _complete:false /
+        // _creditsFailed:true → on NE l'affiche pas (sinon total partiel, trop bas) et on laisse
+        // le recalcul complet ci-dessous prendre le relais.
+        const partOk = p => p && p._totalCA !== undefined && p._complete !== false && !p._creditsFailed;
+        if (partOk(pastR) && partOk(todayR)) {
+          const aggregated = aggregateParts([pastR, todayR]);
           return res.status(200).json({ ...aggregated, _splitToday: true });
         }
       } catch {}
